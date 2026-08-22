@@ -1,0 +1,14 @@
+# pyatv is deliberately pinned because AirCiller extends internal AirPlay 2
+# modules. Review every future pyatv update and validate it on a physical Apple TV.
+pyatv==0.18.0
+
+# Security updates that require a maintained Python runtime.
+aiohttp==3.14.3
+requests==2.34.2
+urllib3==2.7.0
+zeroconf==0.150.0
+
+# Keep the serialization/model stack used by the physically validated release.
+protobuf==6.33.6
+pydantic==2.13.4
+pydantic-core==2.46.4

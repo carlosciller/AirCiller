@@ -1,0 +1,142 @@
+import Foundation
+
+@main
+struct TrackMetadataSmokeTest {
+    static func main() throws {
+        let audio = AudioTrack(
+            streamIndex: 1,
+            codec: "eac3",
+            profile: nil,
+            channels: 6,
+            channelLayout: "5.1",
+            language: "eng",
+            title: "English 5.1",
+            isDefault: true
+        )
+        guard audio.displayName == "English 5.1 — Inglés" else {
+            throw NSError(domain: "TrackMetadataSmokeTest.AudioName", code: 1)
+        }
+
+        let englishSDH = SubtitleTrack(
+            streamIndex: 2,
+            codec: "subrip",
+            language: "eng",
+            title: "SDH",
+            isDefault: true,
+            isForced: false,
+            isHearingImpaired: true,
+            externalPath: nil
+        )
+        guard englishSDH.displayName == "English SDH — Inglés SDH" else {
+            throw NSError(domain: "TrackMetadataSmokeTest.SubtitleName", code: 2)
+        }
+
+        let englishRegular = SubtitleTrack(
+            streamIndex: 500,
+            codec: "subrip",
+            language: "eng",
+            title: "English",
+            isDefault: false,
+            isForced: false,
+            isHearingImpaired: false,
+            externalPath: nil
+        )
+        guard
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishSDH, englishRegular],
+                language: "eng"
+            )?.id == englishRegular.id
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.PreferRegular", code: 3)
+        }
+
+        let spanishByTitle = SubtitleTrack(
+            streamIndex: 6,
+            codec: "subrip",
+            language: "und",
+            title: "Spanish",
+            isDefault: false,
+            isForced: false,
+            isHearingImpaired: false,
+            externalPath: nil
+        )
+        let spanishPGS = SubtitleTrack(
+            streamIndex: 7,
+            codec: "hdmv_pgs_subtitle",
+            language: "spa",
+            title: "Español PGS",
+            isDefault: true,
+            isForced: false,
+            isHearingImpaired: false,
+            externalPath: nil
+        )
+        guard
+            SubtitleTrackSelection.preferredTrack(
+                in: [spanishPGS, spanishByTitle],
+                language: "spa"
+            )?.id == spanishByTitle.id
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.CompatibleOnly", code: 4)
+        }
+        guard spanishPGS.isSelectable,
+            spanishPGS.unsupportedReason == nil,
+            SubtitleTrackSelection.preferredTrack(
+                in: [spanishPGS],
+                language: "spa"
+            )?.id == spanishPGS.id
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.PGSFallback", code: 7)
+        }
+        let vobSub = SubtitleTrack(
+            streamIndex: 8,
+            codec: "dvd_subtitle",
+            language: "eng",
+            title: "VobSub",
+            isDefault: false,
+            isForced: false,
+            isHearingImpaired: false,
+            externalPath: nil
+        )
+        guard !vobSub.isSelectable, vobSub.unsupportedReason != nil else {
+            throw NSError(domain: "TrackMetadataSmokeTest.VobSub", code: 8)
+        }
+
+        guard MediaPresentation.resolutionLabel(width: 3840, height: 1608) == "4K",
+            MediaPresentation.resolutionLabel(width: 4096, height: 1716) == "4K",
+            MediaPresentation.resolutionLabel(width: 1920, height: 1080) == "Full HD",
+            MediaPresentation.dolbyVisionProfile(8, compatibilityID: 1) == "Perfil 8.1"
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.MediaPresentation", code: 5)
+        }
+
+        let queue = [
+            QueueMediaItem(path: "/A.mkv", title: "A"),
+            QueueMediaItem(path: "/B.mkv", title: "B"),
+            QueueMediaItem(path: "/C.mkv", title: "C"),
+        ]
+        guard QueueOrdering.moving(queue, fromOffsets: [0], toOffset: queue.endIndex).map(\.title) == ["B", "C", "A"],
+            QueueOrdering.moving(queue, fromOffsets: [2], toOffset: 0).map(\.title) == ["C", "A", "B"],
+            QueueOrdering.moving(queue, fromOffsets: [1], toOffset: queue.endIndex).map(\.title) == ["A", "C", "B"]
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.QueueOrdering", code: 6)
+        }
+
+        let longerQueue = [
+            QueueMediaItem(path: "/A.mkv", title: "A"),
+            QueueMediaItem(path: "/B.mkv", title: "B"),
+            QueueMediaItem(path: "/C.mkv", title: "C"),
+            QueueMediaItem(path: "/D.mkv", title: "D"),
+            QueueMediaItem(path: "/E.mkv", title: "E"),
+        ]
+        guard
+            QueueOrdering.moving(longerQueue, fromOffsets: [4], toOffset: 1).map(\.title) == ["A", "E", "B", "C", "D"],
+            QueueOrdering.moving(longerQueue, fromOffsets: [3], toOffset: 1).map(\.title) == ["A", "D", "B", "C", "E"],
+            QueueOrdering.moving(longerQueue, fromOffsets: [1], toOffset: 3).map(\.title) == ["A", "C", "B", "D", "E"],
+            QueueOrdering.moving(longerQueue, fromOffsets: [3], toOffset: 3).map(\.title) == ["A", "B", "C", "D", "E"]
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.QueueOrderingUpward", code: 9)
+        }
+
+        print("Pistas, 4K scope, perfil Dolby Vision y reordenado: OK")
+    }
+}

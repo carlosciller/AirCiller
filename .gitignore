@@ -1,0 +1,37 @@
+# macOS and editors
+.DS_Store
+*.swp
+*.xcuserstate
+xcuserdata/
+
+# Generated builds and local dependencies
+.build/
+VendorPython/
+*.app/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local media, diagnostics and credentials
+*.mkv
+*.mp4
+*.m4v
+*.mov
+*.ts
+*.m2ts
+*.srt
+*.ass
+*.ssa
+*.vtt
+*.log
+*.diagnostic.*
+.env
+.env.*
+credentials*
+secrets*
+
+# Keep the deliberately tiny subtitle fixture.
+!Tests/Fixtures/*.ass

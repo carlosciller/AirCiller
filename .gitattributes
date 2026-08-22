@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.swift text diff=swift
+*.py text
+*.sh text eol=lf
+*.plist text
+*.md text
+*.png binary
+*.icns binary

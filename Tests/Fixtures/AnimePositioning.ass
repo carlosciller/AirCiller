@@ -1,0 +1,16 @@
+[Script Info]
+Title: AirCiller native ASS positioning smoke test
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,48,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,0,0,0,0,100,100,0,0,1,2,1,2,60,60,42,1
+Style: Sign,Arial,54,&H00FFFFFF,&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,2,1,8,40,40,36,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:03.50,Default,,0,0,0,,{\i1}Hello from below{\i0}\NSecond line
+Dialogue: 1,0:00:04.00,0:00:06.00,Sign,,0,0,0,,{\an8\pos(960,120)\b1}UPPER SIGN{\b0}
+Dialogue: 2,0:00:07.00,0:00:09.00,Default,,0,0,0,,{\an4\k20}LEFT KARAOKE
