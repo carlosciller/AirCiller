@@ -67,8 +67,8 @@ No abras incidencias públicas con registros que contengan nombres de dispositiv
 
 AirCiller es un proyecto independiente desarrollado, revisado y depurado con asistencia sustancial de **OpenAI Codex**. Las decisiones de producto y la validación física corresponden al mantenedor. OpenAI no patrocina ni respalda este proyecto.
 
-AirCiller no está afiliado con Apple, Airflow ni Infuse. Apple, macOS, tvOS, Apple TV y AirPlay son marcas de Apple Inc. El nombre AirCiller es propio. El icono actual es un recurso provisional de desarrollo y se sustituirá por un diseño original antes de cualquier publicación del repositorio o distribución de la aplicación.
+AirCiller es un proyecto independiente y no está afiliado con Apple. Apple, macOS, tvOS, Apple TV y AirPlay son marcas de Apple Inc. El nombre y el icono de AirCiller son originales y forman parte de la identidad propia del proyecto.
 
 ## Licencia
 
-El código fuente de AirCiller se publica bajo la [GNU General Public License v3.0](LICENSE). Si distribuyes una versión modificada, debes ofrecer también su código fuente bajo la misma licencia. Las dependencias conservan sus propias licencias; consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Los recursos gráficos provisionales de `Resources/` no se ofrecen para redistribución y serán reemplazados antes de hacer público el proyecto.
+El código fuente y los recursos gráficos originales de AirCiller se publican bajo la [GNU General Public License v3.0](LICENSE). Si distribuyes una versión modificada, debes ofrecer también su código fuente bajo la misma licencia. Las dependencias conservan sus propias licencias; consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

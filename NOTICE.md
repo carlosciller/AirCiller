@@ -10,8 +10,8 @@ AirCiller ha sido desarrollado y mantenido por Carlos Ciller con asistencia sust
 
 ## Marcas y proyectos independientes
 
-AirCiller es un proyecto independiente y no está afiliado con Apple Inc., OpenAI, Airflow ni Infuse.
+AirCiller es un proyecto independiente y no está afiliado con Apple Inc. ni OpenAI.
 
 Apple, macOS, tvOS, Apple TV y AirPlay son marcas de Apple Inc. Las demás marcas pertenecen a sus respectivos titulares.
 
-El nombre AirCiller es propio. El icono actual es un recurso provisional de desarrollo, no se ofrece para redistribución y será sustituido por un diseño original antes de hacer público el proyecto. El proyecto no distribuye aplicaciones ni código de Apple, Airflow o Infuse.
+El nombre y el icono de AirCiller son originales y forman parte de la identidad propia del proyecto. El proyecto no distribuye aplicaciones, código ni recursos gráficos de Apple.

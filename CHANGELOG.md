@@ -152,7 +152,7 @@ Las versiones instaladas se validan por separado en macOS y en un Apple TV físi
 - Usa el amarillo únicamente como identidad, selección y acción principal, con compatibilidad automática para aspecto claro, oscuro, contraste y transparencia reducida.
 - Renueva la biblioteca con navegación tipo Música/Mail, Playlist por defecto, nombres completos, selección clara y reordenación persistente.
 - Estrena un icono amarillo de dos colores, con profundidad contenida y una marca propia de envío a pantalla legible en todos los tamaños del Dock.
-- Conserva el símbolo oficial de AirPlay exclusivamente dentro de la interfaz, respetando las restricciones de Apple para SF Symbols y marcas en iconos de aplicaciones.
+- Mantiene la iconografía funcional dentro de la interfaz y reserva el icono original de AirCiller para la identidad de la aplicación.
 
 ### Correcciones de la 0.5.3
 
@@ -256,10 +256,10 @@ Las versiones instaladas se validan por separado en macOS y en un Apple TV físi
 
 ### Correcciones de la 0.3.7
 
-- Sustituye el arranque abreviado de vídeo de pyatv por la cola nativa de AirPlay 2 que usa Airflow.
+- Sustituye el arranque abreviado de vídeo de pyatv por una sesión completa de cola nativa de AirPlay 2.
 - Crea una sesión autenticada, abre el canal de eventos y negocia un stream de control `type 130` con su `streamID` antes de insertar la película.
 - Reproducir, pausar, reanudar y saltar usan comandos de cola AirPlay 2; no se introduce ningún transporte heredado.
-- Replica la rama de entrega de Airflow para Apple TV: HLS 6 y segmentos MPEG-TS, conservando HEVC/Dolby Vision y E-AC-3 sin recodificación.
+- Implementa una ruta de entrega HLS 6 con segmentos MPEG-TS para Apple TV, conservando HEVC/Dolby Vision y E-AC-3 sin recodificación.
 - Retira `SUPPLEMENTAL-CODECS` del manifiesto AirPlay; el bitstream mantiene la información Dolby Vision y `VIDEO-RANGE=PQ` anuncia su base HDR.
 - Añade estados de diagnóstico comprensibles para distinguir sesión, stream de control, inserción en cola e inicio real.
 

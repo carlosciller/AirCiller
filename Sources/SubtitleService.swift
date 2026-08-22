@@ -12,13 +12,13 @@ enum SubtitleService {
         let videoURL = outputDirectory.appendingPathComponent("video.m3u8")
         let audioURL = outputDirectory.appendingPathComponent("audio.m3u8")
         var videoText = try String(contentsOf: videoURL, encoding: .utf8)
-        videoText = normalizedAirflowPlaylist(videoText)
+        videoText = normalizedVODPlaylist(videoText)
         guard FileManager.default.fileExists(atPath: audioURL.path) else {
             try videoText.write(to: videoURL, atomically: true, encoding: .utf8)
             return
         }
 
-        var audioText = normalizedAirflowPlaylist(
+        var audioText = normalizedVODPlaylist(
             try String(contentsOf: audioURL, encoding: .utf8)
         )
         guard
@@ -70,7 +70,7 @@ enum SubtitleService {
 
         let subtitleURL = outputDirectory.appendingPathComponent("subtitles.m3u8")
         if FileManager.default.fileExists(atPath: subtitleURL.path) {
-            var subtitleText = normalizedAirflowPlaylist(
+            var subtitleText = normalizedVODPlaylist(
                 try String(contentsOf: subtitleURL, encoding: .utf8)
             )
             if let subtitleTargetLine =
@@ -487,7 +487,7 @@ enum SubtitleService {
         return lines.joined(separator: "\n")
     }
 
-    private static func normalizedAirflowPlaylist(_ text: String) -> String {
+    private static func normalizedVODPlaylist(_ text: String) -> String {
         var lines = text.components(separatedBy: "\n")
         if let versionIndex = lines.firstIndex(where: { $0.hasPrefix("#EXT-X-VERSION:") }) {
             // Apple uses version 6 in the multivariant playlist and version 7
