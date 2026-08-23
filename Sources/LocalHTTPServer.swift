@@ -7,6 +7,7 @@ final class LocalHTTPServer: @unchecked Sendable {
     private let rootDirectory: URL
     private let pathToken: String
     private let telemetryClientAddress: String?
+    private let allowsLoopbackAddress: Bool
     private let telemetryHandler: (@Sendable (HTTPServerTelemetry) -> Void)?
     private let queue = DispatchQueue(label: "local.airciller.http", qos: .userInitiated)
     private let logger = Logger(subsystem: "local.carlosciller.AirCiller", category: "HTTP")
@@ -36,11 +37,13 @@ final class LocalHTTPServer: @unchecked Sendable {
     init(
         rootDirectory: URL,
         telemetryClientAddress: String? = nil,
+        allowsLoopbackAddress: Bool = false,
         telemetryHandler: (@Sendable (HTTPServerTelemetry) -> Void)? = nil
     ) {
         self.rootDirectory = rootDirectory.standardizedFileURL.resolvingSymlinksInPath()
         self.pathToken = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         self.telemetryClientAddress = telemetryClientAddress
+        self.allowsLoopbackAddress = allowsLoopbackAddress
         self.telemetryHandler = telemetryHandler
     }
 
@@ -60,7 +63,7 @@ final class LocalHTTPServer: @unchecked Sendable {
                     switch state {
                     case .ready:
                         guard let port = listener.port?.rawValue,
-                            let address = Self.localIPv4Address(),
+                            let address = Self.localIPv4Address(allowLoopback: self.allowsLoopbackAddress),
                             let url = URL(string: "http://\(address):\(port)/\(self.pathToken)/")
                         else {
                             gate.resume(continuation, with: .failure(ServerError.noLocalAddress))
@@ -732,7 +735,7 @@ final class LocalHTTPServer: @unchecked Sendable {
         }
     }
 
-    private static func localIPv4Address() -> String? {
+    private static func localIPv4Address(allowLoopback: Bool) -> String? {
         var pointer: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&pointer) == 0, let first = pointer else { return nil }
         defer { freeifaddrs(pointer) }
@@ -745,7 +748,7 @@ final class LocalHTTPServer: @unchecked Sendable {
             let isUp = (flags & IFF_UP) != 0
             let isLoopback = (flags & IFF_LOOPBACK) != 0
 
-            if isUp, !isLoopback,
+            if isUp, allowLoopback || !isLoopback,
                 let address = interface.pointee.ifa_addr,
                 address.pointee.sa_family == UInt8(AF_INET)
             {
@@ -765,7 +768,16 @@ final class LocalHTTPServer: @unchecked Sendable {
                         return decodeNullTerminatedUTF8(baseAddress)
                     }
                     let interfaceName = decodeNullTerminatedUTF8(interface.pointee.ifa_name)
-                    let priority = interfaceName == "en0" ? 0 : (interfaceName.hasPrefix("en") ? 1 : 2)
+                    let priority: Int
+                    if interfaceName == "en0" {
+                        priority = 0
+                    } else if interfaceName.hasPrefix("en") {
+                        priority = 1
+                    } else if isLoopback {
+                        priority = 3
+                    } else {
+                        priority = 2
+                    }
                     candidates.append((priority, name))
                 }
             }

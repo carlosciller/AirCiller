@@ -25,7 +25,7 @@ struct HTTPServerSmokeTest {
         )
 
         let telemetryRecorder = TelemetryRecorder()
-        let server = LocalHTTPServer(rootDirectory: directory) { telemetry in
+        let server = LocalHTTPServer(rootDirectory: directory, allowsLoopbackAddress: true) { telemetry in
             telemetryRecorder.record(telemetry)
         }
         let baseURL = try await server.start()
@@ -163,7 +163,8 @@ struct HTTPServerSmokeTest {
         let excludedRecorder = TelemetryRecorder()
         let filteredServer = LocalHTTPServer(
             rootDirectory: directory,
-            telemetryClientAddress: "203.0.113.99"
+            telemetryClientAddress: "203.0.113.99",
+            allowsLoopbackAddress: true
         ) { telemetry in
             excludedRecorder.record(telemetry)
         }
@@ -185,7 +186,8 @@ struct HTTPServerSmokeTest {
         let includedRecorder = TelemetryRecorder()
         let measuredServer = LocalHTTPServer(
             rootDirectory: directory,
-            telemetryClientAddress: localAddress
+            telemetryClientAddress: localAddress,
+            allowsLoopbackAddress: true
         ) { telemetry in
             includedRecorder.record(telemetry)
         }
