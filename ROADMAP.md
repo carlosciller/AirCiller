@@ -11,6 +11,12 @@ La prioridad es robustez medible, no añadir funciones por añadir.
 
 Cada cambio de reproducción se validará primero de forma local, después por separado en MP4 directo y HLS/fMP4, y finalmente en un Apple TV físico antes de instalarlo.
 
+## Mantenimiento y publicación
+
+- Adoptar catálogos de cadenas nativos con inglés como idioma de desarrollo y una localización completa al castellano, respetando la selección de idioma de macOS.
+- Traducir al inglés README, documentación, plantillas y textos de GitHub antes de publicar el repositorio.
+- Añadir un proceso reproducible para regenerar y verificar `requirements.lock`; los saltos mayores, como protobuf 7, solo se incorporarán con el lock actualizado, pruebas locales completas y validación física cuando puedan afectar al motor AirPlay.
+
 ## Fuera de alcance
 
 - Telemetría o analítica.
