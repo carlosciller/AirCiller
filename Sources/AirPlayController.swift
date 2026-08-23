@@ -31,15 +31,15 @@ enum DirectAirPlayError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .helperMissing:
-            return "Falta el motor AirPlay incluido en AirCiller. Vuelve a instalar la aplicación."
+            return L10n.text("Falta el motor AirPlay incluido en AirCiller. Vuelve a instalar la aplicación.")
         case .noDevice:
-            return "Elige un Apple TV antes de reproducir."
+            return L10n.text("Elige un Apple TV antes de reproducir.")
         case .helperFailed(let message):
-            return message
+            return L10n.helperText(message)
         case .authorizationRequired(let message):
-            return message
+            return L10n.helperText(message)
         case .connectionTimedOut:
-            return "El Apple TV no confirmó el inicio de la reproducción a tiempo."
+            return L10n.text("El Apple TV no confirmó el inicio de la reproducción a tiempo.")
         }
     }
 }
@@ -197,7 +197,9 @@ final class AirPlayController {
             status =
                 devices.isEmpty
                 ? "No se encontró ningún Apple TV"
-                : "\(devices.count) receptor\(devices.count == 1 ? "" : "es") disponible\(devices.count == 1 ? "" : "s")"
+                : (devices.count == 1
+                    ? L10n.text("1 receptor disponible")
+                    : L10n.format("%lld receptores disponibles", Int64(devices.count)))
         } catch {
             let message = error.localizedDescription
             scanError = message
@@ -296,7 +298,7 @@ final class AirPlayController {
         {
             authorizationState = .authorized
             validatedAuthorizationDeviceID = deviceID
-            status = "\(selectedDevice.name) autorizado"
+            status = L10n.format("%@ autorizado", selectedDevice.name)
             return
         }
 
@@ -388,7 +390,7 @@ final class AirPlayController {
         receivedTerminalEvent = false
         confirmedPlayback = false
         isConnected = false
-        status = "Conectando con \(selectedDevice.name)…"
+        status = L10n.format("Conectando con %@…", selectedDevice.name)
 
         output.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
@@ -422,7 +424,8 @@ final class AirPlayController {
             try? output.fileHandleForWriting.close()
             try? errors.fileHandleForWriting.close()
             clearProcess(sessionID: sessionID)
-            throw DirectAirPlayError.helperFailed("No se pudo abrir el motor AirPlay: \(error.localizedDescription)")
+            throw DirectAirPlayError.helperFailed(
+                L10n.format("No se pudo abrir el motor AirPlay: %@", error.localizedDescription))
         }
 
         logger.info(
@@ -518,7 +521,7 @@ final class AirPlayController {
             try? input.fileHandleForReading.close()
             try? output.fileHandleForWriting.close()
             try? errors.fileHandleForWriting.close()
-            status = "Iniciando emparejamiento con \(selectedDevice.name)…"
+            status = L10n.format("Iniciando emparejamiento con %@…", selectedDevice.name)
         } catch {
             try? pairingOutputPipe?.fileHandleForWriting.close()
             try? pairingErrorPipe?.fileHandleForWriting.close()
@@ -534,7 +537,7 @@ final class AirPlayController {
         guard digits.count == 4,
             let handle = pairingInputPipe?.fileHandleForWriting
         else {
-            pairingState = .failed("El código debe tener cuatro cifras.")
+            pairingState = .failed(L10n.text("El código debe tener cuatro cifras."))
             return
         }
         pairingState = .verifying
@@ -543,7 +546,7 @@ final class AirPlayController {
         do {
             try handle.write(contentsOf: data)
         } catch {
-            pairingState = .failed("No se pudo enviar el código al motor AirPlay.")
+            pairingState = .failed(L10n.text("No se pudo enviar el código al motor AirPlay."))
         }
     }
 
@@ -607,7 +610,9 @@ final class AirPlayController {
             JSONSerialization.isValidJSONObject(command),
             var data = try? JSONSerialization.data(withJSONObject: command)
         else {
-            if !stopping { onPlaybackError?("No hay un canal de control activo con el Apple TV.") }
+            if !stopping {
+                onPlaybackError?(L10n.text("No hay un canal de control activo con el Apple TV."))
+            }
             return false
         }
         data.append(0x0A)
@@ -616,7 +621,7 @@ final class AirPlayController {
             return true
         } catch {
             if stopping { return false }
-            let message = "Se perdió el canal de control con el Apple TV."
+            let message = L10n.text("Se perdió el canal de control con el Apple TV.")
             logger.error("\(message, privacy: .public) \(error.localizedDescription, privacy: .private)")
             onPlaybackError?(message)
             return false
@@ -654,13 +659,15 @@ final class AirPlayController {
                 pairingState = .starting
             case "pinRequired":
                 pairingState = .waitingForPIN
-                status = "Introduce en AirCiller el código mostrado en \(event.deviceName ?? "el Apple TV")"
+                status = L10n.format(
+                    "Introduce en AirCiller el código mostrado en %@",
+                    event.deviceName ?? L10n.text("el Apple TV"))
             case "paired":
                 guard let deviceID = pairingDeviceID,
                     let credentials = event.credentials,
                     !credentials.isEmpty
                 else {
-                    pairingState = .failed("El Apple TV no devolvió una credencial válida.")
+                    pairingState = .failed(L10n.text("El Apple TV no devolvió una credencial válida."))
                     continue
                 }
                 let deviceName = pairingDeviceName ?? event.deviceName ?? "Apple TV"
@@ -674,7 +681,7 @@ final class AirPlayController {
                     validatedAuthorizationDeviceID = deviceID
                     pairingState = .success
                     successfulPairingSessionID = sessionID
-                    status = "\(deviceName) emparejado"
+                    status = L10n.format("%@ emparejado", deviceName)
                     Task { [weak self] in
                         try? await Task.sleep(for: .milliseconds(650))
                         guard let self,
@@ -687,11 +694,13 @@ final class AirPlayController {
                     }
                 } catch {
                     pairingState = .failed(
-                        "El emparejamiento funcionó, pero no se pudo guardar en el Llavero: \(error.localizedDescription)"
-                    )
+                        L10n.format(
+                            "El emparejamiento funcionó, pero no se pudo guardar en el Llavero: %@",
+                            error.localizedDescription))
                 }
             case "error":
-                pairingState = .failed(event.message ?? "No se pudo emparejar el Apple TV.")
+                pairingState = .failed(
+                    L10n.helperText(event.message ?? "No se pudo emparejar el Apple TV."))
             default:
                 break
             }
@@ -702,14 +711,14 @@ final class AirPlayController {
         switch event.event {
         case "connecting":
             let name = event.device?.name ?? playbackDeviceName ?? "Apple TV"
-            status = "Autenticando con \(name)…"
+            status = L10n.format("Autenticando con %@…", name)
         case "accepted":
             validatedAuthorizationDeviceID = playbackDeviceID
             authorizationState = .authorized
-            status = "Orden aceptada · \(event.protocolName ?? "AirPlay")"
+            status = L10n.format("Orden aceptada · %@", event.protocolName ?? "AirPlay")
         case "phase":
             if let message = event.message {
-                if !confirmedPlayback { status = message }
+                if !confirmedPlayback { status = L10n.helperText(message) }
                 logger.info("AirPlay 2: \(message, privacy: .public)")
             }
         case "waiting":
@@ -718,7 +727,7 @@ final class AirPlayController {
         case "playing":
             confirmedPlayback = true
             isConnected = true
-            status = "Reproduciendo en \(playbackDeviceName ?? "Apple TV")"
+            status = L10n.format("Reproduciendo en %@", playbackDeviceName ?? "Apple TV")
             logger.info(
                 "Reproducción confirmada position=\(event.position ?? -1, privacy: .public) duration=\(event.duration ?? -1, privacy: .public)"
             )
@@ -735,7 +744,7 @@ final class AirPlayController {
                 playing: event.playing ?? true
             )
         case "paused":
-            status = "En pausa en \(playbackDeviceName ?? "Apple TV")"
+            status = L10n.format("En pausa en %@", playbackDeviceName ?? "Apple TV")
             if event.source == "command" {
                 logger.info("Orden de pausa aceptada por el Apple TV")
             } else {
@@ -747,7 +756,7 @@ final class AirPlayController {
                 playing: false
             )
         case "resumed":
-            status = "Reproduciendo en \(playbackDeviceName ?? "Apple TV")"
+            status = L10n.format("Reproduciendo en %@", playbackDeviceName ?? "Apple TV")
             if event.source == "command" {
                 logger.info("Orden de reanudación aceptada por el Apple TV")
             } else {
@@ -787,7 +796,8 @@ final class AirPlayController {
         case "error":
             receivedTerminalEvent = true
             isConnected = false
-            let message = event.message ?? "El Apple TV rechazó la reproducción sin indicar el motivo."
+            let message = L10n.helperText(
+                event.message ?? "El Apple TV rechazó la reproducción sin indicar el motivo.")
             logger.error("AirPlay: \(message, privacy: .private) \(event.technical ?? "", privacy: .private)")
             let error: DirectAirPlayError =
                 event.reason == "authorizationRequired"
@@ -820,11 +830,14 @@ final class AirPlayController {
             let raw = String(data: stderr, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
             let message =
                 raw?.isEmpty == false
-                ? "El motor AirPlay se cerró antes de reproducir: \(raw!)"
-                : "El motor AirPlay se cerró antes de que el Apple TV confirmara la reproducción."
+                ? L10n.format("El motor AirPlay se cerró antes de reproducir: %@", raw!)
+                : L10n.text("El motor AirPlay se cerró antes de que el Apple TV confirmara la reproducción.")
             failPendingStart(DirectAirPlayError.helperFailed(message))
         } else if !wasStopping, !hadTerminalEvent, hadConfirmedPlayback {
-            onPlaybackError?("Se cerró inesperadamente la conexión con el Apple TV (código \(terminationStatus)).")
+            onPlaybackError?(
+                L10n.format(
+                    "Se cerró inesperadamente la conexión con el Apple TV (código %lld).",
+                    Int64(terminationStatus)))
         }
     }
 
@@ -841,8 +854,10 @@ final class AirPlayController {
             let raw = String(data: stderr, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
             pairingState = .failed(
                 raw?.isEmpty == false
-                    ? "El emparejamiento se cerró: \(raw!)"
-                    : "El emparejamiento se cerró antes de ser confirmado (código \(terminationStatus))."
+                    ? L10n.format("El emparejamiento se cerró: %@", raw!)
+                    : L10n.format(
+                        "El emparejamiento se cerró antes de ser confirmado (código %lld).",
+                        Int64(terminationStatus))
             )
         }
     }
@@ -1045,11 +1060,13 @@ final class AirPlayController {
 
     private nonisolated static func readableFailure(from result: HelperResult) -> String {
         if let event = decodeLastEvent(result.output), let message = event.message {
-            return message
+            return L10n.helperText(message)
         }
         let stderr = String(data: result.errorOutput, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return stderr?.isEmpty == false ? stderr! : "El motor AirPlay terminó con el código \(result.status)."
+        return stderr?.isEmpty == false
+            ? stderr!
+            : L10n.format("El motor AirPlay terminó con el código %lld.", Int64(result.status))
     }
 
     private nonisolated static let keychainService = "local.carlosciller.AirCiller.AirPlay"

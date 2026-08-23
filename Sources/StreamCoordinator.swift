@@ -92,12 +92,13 @@ final class StreamCoordinator {
             if self.isStreaming, previousState != playing {
                 self.status =
                     playing
-                    ? "Reproduciendo en \(self.airPlay.selectedDevice?.name ?? "Apple TV")"
-                    : "En pausa desde el Apple TV"
+                    ? L10n.format(
+                        "Reproduciendo en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
+                    : L10n.text("En pausa desde el Apple TV")
                 self.detail =
                     playing
-                    ? "El mando del Apple TV ha reanudado la película."
-                    : "La pausa del mando se ha sincronizado con AirCiller."
+                    ? L10n.text("El mando del Apple TV ha reanudado la película.")
+                    : L10n.text("La pausa del mando se ha sincronizado con AirCiller.")
             }
             self.saveCurrentPosition(force: false)
         }
@@ -173,7 +174,8 @@ final class StreamCoordinator {
                     self.isPreparing = false
                     self.isStreaming = true
                     self.isPlaying = true
-                    self.status = "Prueba reproduciéndose en \(self.airPlay.selectedDevice?.name ?? "Apple TV")"
+                    self.status = L10n.format(
+                        "Prueba reproduciéndose en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
                     self.detail = "El receptor ha confirmado una duración válida."
                 } catch {
                     self.playbackPower.end()
@@ -219,7 +221,9 @@ final class StreamCoordinator {
         let width = probeInfo.width ?? 0
         let height = probeInfo.height ?? 0
         let resolution = MediaPresentation.resolutionLabel(width: probeInfo.width, height: probeInfo.height)
-        let dimensions = width > 0 && height > 0 ? "\(width) × \(height)" : "Dimensiones desconocidas"
+        let dimensions =
+            width > 0 && height > 0
+            ? "\(width) × \(height)" : L10n.text("Dimensiones desconocidas")
         badges.append(MediaBadge(id: "resolution", label: "Resolución", value: resolution, detail: dimensions))
 
         if probeInfo.isDolbyVision {
@@ -277,7 +281,9 @@ final class StreamCoordinator {
                 MediaBadge(
                     id: "subtitles",
                     label: "Subtítulos",
-                    value: "\(subtitleTracks.count) pista\(subtitleTracks.count == 1 ? "" : "s")",
+                    value: subtitleTracks.count == 1
+                        ? L10n.text("1 pista")
+                        : L10n.format("%lld pistas", Int64(subtitleTracks.count)),
                     detail: selected
                 ))
         } else {
@@ -293,41 +299,46 @@ final class StreamCoordinator {
     }
 
     var videoPlan: String {
-        probeInfo == nil ? "Vídeo sin analizar" : "Vídeo · copia exacta, sin recodificar"
+        L10n.text(probeInfo == nil ? "Vídeo sin analizar" : "Vídeo · copia exacta, sin recodificar")
     }
 
     var audioPlan: String {
-        guard let selectedAudio else { return "Sin audio" }
+        guard let selectedAudio else { return L10n.text("Sin audio") }
         switch audioOutputMode {
         case .original:
             return selectedAudio.canPassThrough
-                ? "Audio · \(selectedAudio.technicalDescription), sin recodificar"
-                : "Audio · \(selectedAudio.technicalDescription), requiere conversión autorizada"
+                ? L10n.format(
+                    "Audio · %@, sin recodificar", selectedAudio.technicalDescription)
+                : L10n.format(
+                    "Audio · %@, requiere conversión autorizada", selectedAudio.technicalDescription)
         case .compatible:
-            return "Audio · conversión elegida a E-AC-3 (hasta 5.1)"
+            return L10n.text("Audio · conversión elegida a E-AC-3 (hasta 5.1)")
         case .stereo:
-            return "Audio · conversión elegida a AAC estéreo"
+            return L10n.text("Audio · conversión elegida a AAC estéreo")
         }
     }
 
     var subtitlePlan: String {
-        guard let subtitle = selectedSubtitle else { return "Subtítulos · desactivados" }
+        guard let subtitle = selectedSubtitle else { return L10n.text("Subtítulos · desactivados") }
         if subtitle.usesBitmapOCR {
             return probeInfo?.isHDR == true
-                ? "Subtítulos · \(subtitle.displayName), OCR local a texto seleccionable dentro del MP4"
-                : "Subtítulos · \(subtitle.displayName), OCR local bajo demanda a WebVTT"
+                ? L10n.format(
+                    "Subtítulos · %@, OCR local a texto seleccionable dentro del MP4", subtitle.displayName)
+                : L10n.format(
+                    "Subtítulos · %@, OCR local bajo demanda a WebVTT", subtitle.displayName)
         }
         guard subtitle.isSelectable else {
-            return "Subtítulos · \(subtitle.displayName), no compatibles todavía"
+            return L10n.format("Subtítulos · %@, no compatibles todavía", subtitle.displayName)
         }
         if probeInfo?.isHDR == true {
             return subtitle.usesAdvancedTextStyling
-                ? "Subtítulos · \(subtitle.displayName), integrados en el MP4 con estilo simplificado"
-                : "Subtítulos · \(subtitle.displayName), integrados en el MP4"
+                ? L10n.format(
+                    "Subtítulos · %@, integrados en el MP4 con estilo simplificado", subtitle.displayName)
+                : L10n.format("Subtítulos · %@, integrados en el MP4", subtitle.displayName)
         }
         return subtitle.usesAdvancedTextStyling
-            ? "Subtítulos · \(subtitle.displayName), WebVTT con posición nativa"
-            : "Subtítulos · \(subtitle.displayName), convertidos a WebVTT"
+            ? L10n.format("Subtítulos · %@, WebVTT con posición nativa", subtitle.displayName)
+            : L10n.format("Subtítulos · %@, convertidos a WebVTT", subtitle.displayName)
     }
 
     var streamDemandProfile: StreamDemandProfile? {
@@ -378,8 +389,8 @@ final class StreamCoordinator {
 
     func chooseVideos() {
         let panel = NSOpenPanel()
-        panel.title = "Elegir películas"
-        panel.prompt = "Abrir"
+        panel.title = L10n.text("Elegir películas")
+        panel.prompt = L10n.text("Abrir")
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
@@ -391,8 +402,8 @@ final class StreamCoordinator {
 
     func addToQueue() {
         let panel = NSOpenPanel()
-        panel.title = "Añadir a la playlist"
-        panel.prompt = "Añadir"
+        panel.title = L10n.text("Añadir a la playlist")
+        panel.prompt = L10n.text("Añadir")
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
@@ -418,8 +429,8 @@ final class StreamCoordinator {
     func addExternalSubtitle() {
         guard selectedURL != nil else { return }
         let panel = NSOpenPanel()
-        panel.title = "Añadir subtítulos"
-        panel.prompt = "Añadir"
+        panel.title = L10n.text("Añadir subtítulos")
+        panel.prompt = L10n.text("Añadir")
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
@@ -597,8 +608,9 @@ final class StreamCoordinator {
         guard ["hevc", "h264"].contains(info.videoCodec.lowercased()) else {
             presentError(
                 title: "Vídeo no compatible sin conversión",
-                detail:
-                    "El archivo usa \(info.videoCodec.uppercased()). AirCiller no recodificará el vídeo sin pedirlo."
+                detail: L10n.format(
+                    "El archivo usa %@. AirCiller no recodificará el vídeo sin pedirlo.",
+                    info.videoCodec.uppercased())
             )
             return
         }
@@ -611,8 +623,9 @@ final class StreamCoordinator {
             !audio.canPassThrough
         {
             pendingStartTime = requestedTime
-            conversionReason =
-                "La pista elegida usa \(audio.codec.uppercased()), que Apple TV no admite en este HLS. AirCiller puede convertir solamente el audio a E-AC-3 y mantendrá el vídeo intacto."
+            conversionReason = L10n.format(
+                "La pista elegida usa %@, que Apple TV no admite en este HLS. AirCiller puede convertir solamente el audio a E-AC-3 y mantendrá el vídeo intacto.",
+                audio.codec.uppercased())
             showConversionAlert = true
             return
         }
@@ -725,7 +738,7 @@ final class StreamCoordinator {
         let target = min(max(time, 0), max(duration - 0.5, 0))
         currentTime = target
         if isStreaming {
-            status = "Saltando a \(TimeFormatting.duration(target))…"
+            status = L10n.format("Saltando a %@…", TimeFormatting.duration(target))
             detail = "Moviéndome dentro de la película en el Apple TV."
             airPlay.seek(to: target)
         }
@@ -859,7 +872,8 @@ final class StreamCoordinator {
         let boundedCompleted = min(max(completed, 0), total)
         let fraction = Double(boundedCompleted) / Double(total)
         preparationProgress = baseProgress + (span * fraction)
-        status = "Leyendo subtítulos PGS… \(boundedCompleted)/\(total)"
+        status = L10n.format(
+            "Leyendo subtítulos PGS… %lld/%lld", Int64(boundedCompleted), Int64(total))
         detail =
             boundedCompleted == total
             ? "OCR local terminado. Creando la pista WebVTT seleccionable."
@@ -889,8 +903,8 @@ final class StreamCoordinator {
         isPlaying = false
         hasError = false
         preparationProgress = 0
-        status = preparationStatus
-        detail = preparationDetail
+        status = L10n.text(preparationStatus)
+        detail = L10n.text(preparationDetail)
         return (sessionID, startTime)
     }
 
@@ -1005,7 +1019,10 @@ final class StreamCoordinator {
                 }
                 guard abs(prepared.duration - info.duration) <= max(15, info.duration * 0.002) else {
                     throw AirCillerError.invalidVODPackage(
-                        "El MP4 preparado dura \(TimeFormatting.duration(prepared.duration)), no \(TimeFormatting.duration(info.duration))."
+                        L10n.format(
+                            "El MP4 preparado dura %@, no %@.",
+                            TimeFormatting.duration(prepared.duration),
+                            TimeFormatting.duration(info.duration))
                     )
                 }
                 if audio != nil, prepared.audioTracks.isEmpty {
@@ -1058,7 +1075,8 @@ final class StreamCoordinator {
                 if playableStartTime > 0.05 { await self.seekPlayer(to: playableStartTime) }
                 self.player.pause()
 
-                self.status = "Conectando con \(self.airPlay.selectedDevice?.name ?? "Apple TV")…"
+                self.status = L10n.format(
+                    "Conectando con %@…", self.airPlay.selectedDevice?.name ?? "Apple TV")
                 self.detail = "Enviando HDR y la pista de subtítulos integrada por AirPlay 2."
                 try await self.airPlay.startPlayback(
                     url: playbackURL,
@@ -1073,9 +1091,11 @@ final class StreamCoordinator {
                 self.isStreaming = true
                 self.isPlaying = true
                 self.preparationProgress = 1
-                self.status = "Reproduciendo en \(self.airPlay.selectedDevice?.name ?? "Apple TV")"
-                self.detail =
-                    "HDR/Dolby Vision · \(TimeFormatting.duration(prepared.duration)) · vídeo intacto · subtítulos integrados."
+                self.status = L10n.format(
+                    "Reproduciendo en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
+                self.detail = L10n.format(
+                    "HDR/Dolby Vision · %@ · vídeo intacto · subtítulos integrados.",
+                    TimeFormatting.duration(prepared.duration))
             } catch is CancellationError {
                 Self.cleanupLocalResources(process: sessionProcess, server: sessionServer, directory: sessionDirectory)
             } catch {
@@ -1264,7 +1284,9 @@ final class StreamCoordinator {
                 }
                 guard abs(playerDuration - packagedDuration) <= max(2.5, info.duration * 0.002) else {
                     throw AirCillerError.invalidVODPackage(
-                        "AVPlayer recibe \(TimeFormatting.duration(playerDuration)), no la duración completa del archivo."
+                        L10n.format(
+                            "AVPlayer recibe %@, no la duración completa del archivo.",
+                            TimeFormatting.duration(playerDuration))
                     )
                 }
                 if subtitle != nil {
@@ -1286,7 +1308,8 @@ final class StreamCoordinator {
                 }
                 self.player.pause()
 
-                self.status = "Conectando con \(self.airPlay.selectedDevice?.name ?? "Apple TV")…"
+                self.status = L10n.format(
+                    "Conectando con %@…", self.airPlay.selectedDevice?.name ?? "Apple TV")
                 self.detail = "Enviando la orden directamente por AirPlay y esperando confirmación real de duración."
                 try await self.airPlay.startPlayback(
                     url: playbackURL,
@@ -1301,11 +1324,20 @@ final class StreamCoordinator {
                 self.isStreaming = true
                 self.isPlaying = true
                 self.preparationProgress = 1
-                self.status = "Reproduciendo en \(self.airPlay.selectedDevice?.name ?? "Apple TV")"
+                self.status = L10n.format(
+                    "Reproduciendo en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
                 self.detail =
                     usesDirectHDRRendition
-                    ? "HDR/Dolby Vision · \(TimeFormatting.duration(packagedDuration)) · vídeo y audio intactos\(subtitle == nil ? "." : " · subtítulos WebVTT.")"
-                    : "VOD completo · \(TimeFormatting.duration(packagedDuration)) · control AirPlay directo."
+                    ? (subtitle == nil
+                        ? L10n.format(
+                            "HDR/Dolby Vision · %@ · vídeo y audio intactos.",
+                            TimeFormatting.duration(packagedDuration))
+                        : L10n.format(
+                            "HDR/Dolby Vision · %@ · vídeo y audio intactos · subtítulos WebVTT.",
+                            TimeFormatting.duration(packagedDuration)))
+                    : L10n.format(
+                        "VOD completo · %@ · control AirPlay directo.",
+                        TimeFormatting.duration(packagedDuration))
             } catch is CancellationError {
                 Self.cleanupLocalResources(
                     process: sessionProcess,
@@ -1396,11 +1428,13 @@ final class StreamCoordinator {
             : "No se pudo reproducir la película"
         let raw = error?.localizedDescription ?? "El dispositivo no ha indicado el motivo exacto."
         if raw.localizedCaseInsensitiveContains("format") || raw.localizedCaseInsensitiveContains("codec") {
-            detail = "La pista elegida no es compatible con el dispositivo. \(raw)"
+            detail = L10n.format("La pista elegida no es compatible con el dispositivo. %@", raw)
         } else if raw.localizedCaseInsensitiveContains("network") || raw.localizedCaseInsensitiveContains("server") {
-            detail = "Se perdió la conexión local. Comprueba que el Mac y el Apple TV sigan en la misma red. \(raw)"
+            detail = L10n.format(
+                "Se perdió la conexión local. Comprueba que el Mac y el Apple TV sigan en la misma red. %@",
+                raw)
         } else {
-            detail = "Motivo comunicado por el reproductor: \(raw)"
+            detail = L10n.format("Motivo comunicado por el reproductor: %@", raw)
         }
     }
 
@@ -1439,7 +1473,10 @@ final class StreamCoordinator {
         HistoryStore.saveQueue(queueItems)
         if !urls.isEmpty {
             status = "Playlist actualizada"
-            detail = "Hay \(queueItems.count) película\(queueItems.count == 1 ? "" : "s") en orden estable."
+            detail =
+                queueItems.count == 1
+                ? L10n.text("Hay 1 película en orden estable.")
+                : L10n.format("Hay %lld películas en orden estable.", Int64(queueItems.count))
         }
     }
 
@@ -1500,8 +1537,9 @@ final class StreamCoordinator {
         guard authorizationRetryPolicy.beginRenewal() else {
             presentError(
                 title: "El Apple TV no aceptó la nueva autorización",
-                detail:
-                    "AirCiller ha detenido el proceso para evitar el ciclo de códigos y VOD. Pulsa Reproducir si quieres realizar un único intento nuevo. \(message)"
+                detail: L10n.format(
+                    "AirCiller ha detenido el proceso para evitar el ciclo de códigos y VOD. Pulsa Reproducir si quieres realizar un único intento nuevo. %@",
+                    message)
             )
             return
         }
@@ -1513,8 +1551,9 @@ final class StreamCoordinator {
         preparationProgress = 0
         hasError = false
         status = "El Apple TV pide renovar la autorización"
-        detail =
-            "Introduce aquí el código que aparecerá en el televisor. AirCiller volverá a intentarlo después. \(message)"
+        detail = L10n.format(
+            "Introduce aquí el código que aparecerá en el televisor. AirCiller volverá a intentarlo después. %@",
+            message)
         airPlay.beginPairing(resumePlayback: true)
     }
 
@@ -1594,14 +1633,17 @@ final class StreamCoordinator {
             guard activeSessionID == sessionID else { throw CancellationError() }
             let fraction = expectedDuration > 0 ? build.progress.seconds / expectedDuration : 0
             preparationProgress = min(0.88, max(0.01, fraction * 0.88))
-            status = "Preparando \(preparationName)…"
+            status = L10n.format("Preparando %@…", L10n.text(preparationName))
             let percent = Int((preparationProgress / 0.88 * 100).rounded())
             if let speed = build.progress.speed, speed > 0.01 {
                 let remaining = max(0, expectedDuration - build.progress.seconds) / speed
-                detail =
-                    "\(percent) % · \(String(format: "%.1f×", speed)) · quedan aprox. \(TimeFormatting.duration(remaining)) · vídeo intacto."
+                detail = L10n.format(
+                    "%lld %% · %@ · quedan aprox. %@ · vídeo intacto.",
+                    Int64(percent),
+                    String(format: "%.1f×", speed),
+                    TimeFormatting.duration(remaining))
             } else {
-                detail = "\(percent) % · sin recodificar el vídeo."
+                detail = L10n.format("%lld %% · sin recodificar el vídeo.", Int64(percent))
             }
             try await Task.sleep(for: .milliseconds(200))
         }
@@ -1738,8 +1780,10 @@ final class StreamCoordinator {
         guard free < required else { return nil }
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
-        return
-            "Para conservar el vídeo sin recodificar hacen falta aproximadamente \(formatter.string(fromByteCount: required)) libres; ahora hay \(formatter.string(fromByteCount: free)). AirCiller no borrará ni reducirá nada silenciosamente."
+        return L10n.format(
+            "Para conservar el vídeo sin recodificar hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no borrará ni reducirá nada silenciosamente.",
+            formatter.string(fromByteCount: required),
+            formatter.string(fromByteCount: free))
     }
 
     nonisolated private static var videoContentTypes: [UTType] {
@@ -1871,23 +1915,23 @@ enum AirCillerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .ffmpegMissing:
-            return "No se encuentra FFmpeg. Instálalo con Homebrew para usar AirCiller."
+            return L10n.text("No se encuentra FFmpeg. Instálalo con Homebrew para usar AirCiller.")
         case .ffprobeMissing:
-            return "No se encuentra ffprobe. Se instala junto con FFmpeg."
+            return L10n.text("No se encuentra ffprobe. Se instala junto con FFmpeg.")
         case .probeFailed(let message):
-            return "No se pudo leer el archivo: \(message)"
+            return L10n.format("No se pudo leer el archivo: %@", message)
         case .noVideo:
-            return "El archivo no contiene ninguna pista de vídeo."
+            return L10n.text("El archivo no contiene ninguna pista de vídeo.")
         case .ffmpegStopped(let message):
             return message.isEmpty
-                ? "El motor se detuvo antes de completar la película."
-                : "El motor se detuvo: \(message)"
+                ? L10n.text("El motor se detuvo antes de completar la película.")
+                : L10n.format("El motor se detuvo: %@", message)
         case .unsupportedSubtitle(let message):
-            return message
+            return L10n.text(message)
         case .subtitlePreparationFailed(let message):
-            return "No se pudieron preparar los subtítulos: \(message)"
+            return L10n.format("No se pudieron preparar los subtítulos: %@", L10n.text(message))
         case .invalidVODPackage(let message):
-            return "La película preparada no superó la comprobación: \(message)"
+            return L10n.format("La película preparada no superó la comprobación: %@", L10n.text(message))
         }
     }
 }

@@ -13,7 +13,7 @@ struct TrackMetadataSmokeTest {
             title: "English 5.1",
             isDefault: true
         )
-        guard audio.displayName == "English 5.1 — Inglés" else {
+        guard audio.displayName == "English 5.1" else {
             throw NSError(domain: "TrackMetadataSmokeTest.AudioName", code: 1)
         }
 
@@ -27,7 +27,7 @@ struct TrackMetadataSmokeTest {
             isHearingImpaired: true,
             externalPath: nil
         )
-        guard englishSDH.displayName == "English SDH — Inglés SDH" else {
+        guard englishSDH.displayName == "English SDH" else {
             throw NSError(domain: "TrackMetadataSmokeTest.SubtitleName", code: 2)
         }
 

@@ -815,11 +815,12 @@ private enum ServerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noLocalAddress:
-            return "No se encontró una dirección de red local. Conecta el Mac y el Apple TV a la misma red."
+            return L10n.text(
+                "No se encontró una dirección de red local. Conecta el Mac y el Apple TV a la misma red.")
         case .cancelled:
-            return "El servidor local se canceló antes de iniciarse."
+            return L10n.text("El servidor local se canceló antes de iniciarse.")
         case .unexpectedEndOfFile:
-            return "El archivo terminó antes de completar el rango solicitado."
+            return L10n.text("El archivo terminó antes de completar el rango solicitado.")
         }
     }
 }

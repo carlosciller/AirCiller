@@ -29,12 +29,12 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
         TrackNames.original(
             language: language,
             title: title,
-            fallback: "Pista \(streamIndex)"
+            fallback: L10n.format("Pista %lld", Int64(streamIndex))
         )
     }
 
     var interpretedName: String {
-        guard let language = TrackNames.cleaned(language) else { return "Audio" }
+        guard let language = TrackNames.cleaned(language) else { return L10n.text("Audio") }
         return LanguageNames.name(for: language)
     }
 
@@ -63,11 +63,11 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
 
     var channelDescription: String? {
         switch channels {
-        case 1: return "Mono"
-        case 2: return "Estéreo"
+        case 1: return L10n.text("Mono")
+        case 2: return L10n.text("Estéreo")
         case 6: return "5.1"
         case 8: return "7.1"
-        case .some(let channels): return "\(channels) canales"
+        case .some(let channels): return L10n.format("%lld canales", Int64(channels))
         case nil: return nil
         }
     }
@@ -106,12 +106,14 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
 
     var stylingNotice: String? {
         if usesBitmapOCR {
-            return
+            return L10n.text(
                 "PGS de Blu-ray: AirCiller extrae solo esta pista, usa Apple Vision localmente y crea WebVTT seleccionable. Conserva tiempos y posición aproximada; no quema el texto ni modifica la película."
+            )
         }
         if usesAdvancedTextStyling {
-            return
+            return L10n.text(
                 "En WebVTT, AirCiller conserva posición, alineación y formato básico. En MP4 HDR y con karaoke, movimiento, rotación o dibujos ASS, el estilo se simplifica."
+            )
         }
         return nil
     }
@@ -137,18 +139,18 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
         return TrackNames.original(
             language: language,
             title: title,
-            fallback: "Pista \(streamIndex ?? 0)"
+            fallback: L10n.format("Pista %lld", Int64(streamIndex ?? 0))
         )
     }
 
     var interpretedName: String {
-        let base = TrackNames.cleaned(language).map(LanguageNames.name(for:)) ?? "Subtítulos"
+        let base = TrackNames.cleaned(language).map(LanguageNames.name(for:)) ?? L10n.text("Subtítulos")
         var qualifiers: [String] = []
         if externalPath != nil {
-            qualifiers.append("externos")
+            qualifiers.append(L10n.text("externos"))
         }
         if isDescribedAsForced {
-            qualifiers.append("forzados")
+            qualifiers.append(L10n.text("forzados"))
         }
         if isDescribedAsSDH {
             qualifiers.append("SDH")
@@ -160,10 +162,12 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
         guard !isSelectable else { return nil }
         switch codec.lowercased() {
         case "dvd_subtitle":
-            return
+            return L10n.text(
                 "Es una pista gráfica VobSub de DVD. Necesita un decodificador distinto al PGS de Blu-ray y todavía no se convierte."
+            )
         default:
-            return "Apple TV no admite esta clase de subtítulo (\(codec)) como pista HLS nativa."
+            return L10n.format(
+                "Apple TV no admite esta clase de subtítulo (%@) como pista HLS nativa.", codec)
         }
     }
 }
@@ -184,17 +188,17 @@ enum AudioOutputMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .original: return "Original"
-        case .compatible: return "Compatible 5.1"
-        case .stereo: return "Estéreo"
+        case .original: return L10n.text("Original")
+        case .compatible: return L10n.text("Compatible 5.1")
+        case .stereo: return L10n.text("Estéreo")
         }
     }
 
     var explanation: String {
         switch self {
-        case .original: return "Sin recodificar"
-        case .compatible: return "Convierte expresamente a E-AC-3"
-        case .stereo: return "Convierte expresamente a AAC estéreo"
+        case .original: return L10n.text("Sin recodificar")
+        case .compatible: return L10n.text("Convierte expresamente a E-AC-3")
+        case .stereo: return L10n.text("Convierte expresamente a AAC estéreo")
         }
     }
 }
@@ -255,13 +259,15 @@ enum MediaPresentation {
         if width >= 2_500 || height >= 1_400 { return "1440p" }
         if width >= 1_850 || height >= 1_000 { return "Full HD" }
         if height > 0 { return "\(height)p" }
-        return "Sin datos"
+        return L10n.text("Sin datos")
     }
 
     static func dolbyVisionProfile(_ profile: Int?, compatibilityID: Int?) -> String {
-        if let profile, let compatibilityID { return "Perfil \(profile).\(compatibilityID)" }
-        if let profile { return "Perfil \(profile)" }
-        return "Perfil no indicado"
+        if let profile, let compatibilityID {
+            return L10n.format("Perfil %lld.%lld", Int64(profile), Int64(compatibilityID))
+        }
+        if let profile { return L10n.format("Perfil %lld", Int64(profile)) }
+        return L10n.text("Perfil no indicado")
     }
 }
 
@@ -320,18 +326,20 @@ enum TimeFormatting {
 }
 
 enum LanguageNames {
-    private static let explicit: [String: String] = [
-        "eng": "Inglés", "spa": "Español", "es": "Español", "fre": "Francés", "fra": "Francés",
-        "ger": "Alemán", "deu": "Alemán", "ita": "Italiano", "por": "Portugués", "cat": "Catalán",
-        "jpn": "Japonés", "kor": "Coreano", "chi": "Chino", "zho": "Chino", "rus": "Ruso",
-        "dut": "Neerlandés", "nld": "Neerlandés", "pol": "Polaco", "tur": "Turco", "und": "Sin idioma",
+    private static let languageCodes: [String: String] = [
+        "eng": "en", "spa": "es", "es": "es", "fre": "fr", "fra": "fr",
+        "ger": "de", "deu": "de", "ita": "it", "por": "pt", "cat": "ca",
+        "jpn": "ja", "kor": "ko", "chi": "zh", "zho": "zh", "rus": "ru",
+        "dut": "nl", "nld": "nl", "pol": "pl", "tur": "tr",
     ]
 
     static func name(for code: String) -> String {
         let lower = code.lowercased().replacingOccurrences(of: "_", with: "-")
         let base = lower.split(separator: "-").first.map(String.init) ?? lower
-        if let explicit = explicit[lower] ?? explicit[base] { return explicit }
-        return Locale(identifier: "es_ES").localizedString(forLanguageCode: base)?.capitalized ?? code.uppercased()
+        if lower == "und" || base == "und" { return L10n.text("Sin idioma") }
+        let resolved = languageCodes[lower] ?? languageCodes[base] ?? base
+        return L10n.locale.localizedString(forLanguageCode: resolved)?.capitalized(with: L10n.locale)
+            ?? code.uppercased()
     }
 
     static func originalName(for code: String) -> String {
@@ -340,17 +348,10 @@ enum LanguageNames {
         return Locale(identifier: "en_US").localizedString(forLanguageCode: base)?.capitalized ?? code.uppercased()
     }
 
-    static let subtitlePreferenceOptions: [LanguageOption] = [
-        LanguageOption(code: "spa", name: "Español"),
-        LanguageOption(code: "eng", name: "Inglés"),
-        LanguageOption(code: "cat", name: "Catalán"),
-        LanguageOption(code: "fra", name: "Francés"),
-        LanguageOption(code: "deu", name: "Alemán"),
-        LanguageOption(code: "ita", name: "Italiano"),
-        LanguageOption(code: "por", name: "Portugués"),
-        LanguageOption(code: "jpn", name: "Japonés"),
-        LanguageOption(code: "kor", name: "Coreano"),
-    ]
+    static let subtitlePreferenceOptions: [LanguageOption] =
+        ["spa", "eng", "cat", "fra", "deu", "ita", "por", "jpn", "kor"].map {
+            LanguageOption(code: $0, name: name(for: $0))
+        }
 
     static func matches(preferred: String, language: String?, title: String?) -> Bool {
         guard let preferredCode = canonical(preferred) else { return false }

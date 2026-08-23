@@ -10,13 +10,13 @@ enum HDRConfigurationInjector {
         var errorDescription: String? {
             switch self {
             case .invalidInitializationSegment:
-                return "La cabecera fMP4 del vídeo no contiene una configuración HEVC válida."
+                return L10n.text("La cabecera fMP4 del vídeo no contiene una configuración HEVC válida.")
             case .invalidMediaSegment:
-                return "El primer fragmento HDR no contiene muestras HEVC válidas."
+                return L10n.text("El primer fragmento HDR no contiene muestras HEVC válidas.")
             case .missingStaticMetadata:
-                return "No se encontraron los metadatos estáticos HDR10 del vídeo."
+                return L10n.text("No se encontraron los metadatos estáticos HDR10 del vídeo.")
             case .unsupportedConfiguration:
-                return "La configuración HEVC HDR es demasiado grande para la cabecera fMP4."
+                return L10n.text("La configuración HEVC HDR es demasiado grande para la cabecera fMP4.")
             }
         }
     }

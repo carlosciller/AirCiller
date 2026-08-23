@@ -1,0 +1,2 @@
+"CFBundleTypeName" = "AirCiller-compatible movie";
+"NSLocalNetworkUsageDescription" = "AirCiller needs to serve your movie over the local network so Apple TV can play it.";

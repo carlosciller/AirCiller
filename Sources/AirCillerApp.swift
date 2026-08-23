@@ -28,8 +28,10 @@ struct AirCillerApp: App {
                     .keyboardShortcut("o", modifiers: [.command, .shift])
             }
             CommandMenu("Reproducción") {
-                Button(coordinator.isPlaying ? "Pausa" : "Reproducir") { coordinator.togglePlayback() }
-                    .keyboardShortcut(.space, modifiers: [])
+                Button(L10n.text(coordinator.isPlaying ? "Pausa" : "Reproducir")) {
+                    coordinator.togglePlayback()
+                }
+                .keyboardShortcut(.space, modifiers: [])
                 Button("Retroceder 10 segundos") { coordinator.skip(by: -10) }
                     .keyboardShortcut(.leftArrow, modifiers: [])
                 Button("Avanzar 10 segundos") { coordinator.skip(by: 10) }
@@ -109,7 +111,7 @@ struct ContentView: View {
             Button("Cancelar", role: .cancel) { coordinator.cancelAudioConversion() }
             Button("Convertir solo el audio") { coordinator.confirmAudioConversion() }
         } message: {
-            Text(coordinator.conversionReason)
+            Text(L10n.text(coordinator.conversionReason))
         }
         .sheet(
             isPresented: Binding(
@@ -157,7 +159,7 @@ struct ContentView: View {
     private var header: some View {
         HStack(alignment: .bottom, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(coordinator.selectedURL == nil ? "AIRPLAY 2" : "AHORA EN AIRCILLER")
+                Text(L10n.text(coordinator.selectedURL == nil ? "AIRPLAY 2" : "AHORA EN AIRCILLER"))
                     .font(.caption2.weight(.bold))
                     .tracking(1.25)
                     .foregroundStyle(Color.airCillerYellow)
@@ -177,7 +179,7 @@ struct ContentView: View {
             if let device = coordinator.airPlay.selectedDevice {
                 VStack(alignment: .trailing, spacing: 4) {
                     Label(
-                        coordinator.airPlay.isConnected ? "Conectado" : "Preparado",
+                        L10n.text(coordinator.airPlay.isConnected ? "Conectado" : "Preparado"),
                         systemImage: coordinator.airPlay.isConnected ? "airplayvideo.circle.fill" : "airplayvideo"
                     )
                     .font(.caption.weight(.semibold))
@@ -192,18 +194,18 @@ struct ContentView: View {
 
     private var displayTitle: String {
         coordinator.selectedURL?.deletingPathExtension().lastPathComponent.softWrappedFilename
-            ?? "Tu cine. En la pantalla grande."
+            ?? L10n.text("Tu cine. En la pantalla grande.")
     }
 
     private var headerDetail: String {
         if coordinator.selectedURL == nil {
-            return "Abre una película o arrástrala aquí. AirCiller conserva el vídeo original."
+            return L10n.text("Abre una película o arrástrala aquí. AirCiller conserva el vídeo original.")
         }
         if coordinator.isStreaming {
-            return coordinator.status
+            return L10n.text(coordinator.status)
         }
         if coordinator.isPreparing {
-            return coordinator.status
+            return L10n.text(coordinator.status)
         }
         return ""
     }
@@ -238,9 +240,12 @@ struct ContentView: View {
                                 .font(.system(size: 45, weight: .semibold))
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(Color.airCillerYellow)
-                            Text(coordinator.selectedURL == nil ? "Elige una película" : "Lista para reproducir")
-                                .font(.title3.bold())
-                                .foregroundStyle(.white)
+                            Text(
+                                L10n.text(
+                                    coordinator.selectedURL == nil ? "Elige una película" : "Lista para reproducir")
+                            )
+                            .font(.title3.bold())
+                            .foregroundStyle(.white)
                             if let name = coordinator.selectedURL?.lastPathComponent {
                                 Text(name.softWrappedFilename)
                                     .font(.callout)
@@ -259,7 +264,7 @@ struct ContentView: View {
                             ProgressView(value: coordinator.preparationProgress)
                                 .frame(width: 240)
                                 .controlSize(.large)
-                            Text(coordinator.status)
+                            Text(L10n.text(coordinator.status))
                                 .font(.headline)
                                 .foregroundStyle(.white)
                             Text("\(Int((coordinator.preparationProgress * 100).rounded())) %")
@@ -280,8 +285,11 @@ struct ContentView: View {
                             Image(systemName: coordinator.isPlaying ? "airplayvideo.circle.fill" : "pause.circle.fill")
                                 .font(.system(size: 34, weight: .medium))
                                 .symbolRenderingMode(.hierarchical)
-                            Text(coordinator.isPlaying ? "Reproduciendo en el Apple TV" : "En pausa en el Apple TV")
-                                .font(.headline)
+                            Text(
+                                L10n.text(
+                                    coordinator.isPlaying ? "Reproduciendo en el Apple TV" : "En pausa en el Apple TV")
+                            )
+                            .font(.headline)
                         }
                         .foregroundStyle(.white.opacity(0.86))
                         .offset(y: -48)
@@ -310,7 +318,7 @@ struct ContentView: View {
     private var badgeStrip: some View {
         if coordinator.mediaBadges.isEmpty {
             HStack {
-                Text(coordinator.mediaDescription ?? "La información técnica aparecerá aquí")
+                Text(L10n.text(coordinator.mediaDescription ?? "La información técnica aparecerá aquí"))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                 Spacer()
@@ -474,7 +482,11 @@ struct ContentView: View {
             Image(systemName: symbol)
         }
         .airCillerGlassControl()
-        .help(seconds < 0 ? "Retroceder \(Int(abs(seconds))) segundos" : "Avanzar \(Int(seconds)) segundos")
+        .help(
+            seconds < 0
+                ? L10n.format("Retroceder %lld segundos", Int64(abs(seconds)))
+                : L10n.format("Avanzar %lld segundos", Int64(seconds))
+        )
         .disabled(coordinator.duration <= 0 || coordinator.isPreparing)
     }
 
@@ -482,15 +494,15 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 9) {
             Label("Salida", systemImage: "waveform.path.ecg.rectangle")
                 .font(.headline)
-            PlanRow(symbol: "film.fill", text: coordinator.videoPlan, warning: false)
+            PlanRow(symbol: "film.fill", text: L10n.text(coordinator.videoPlan), warning: false)
             PlanRow(
                 symbol: "speaker.wave.2.fill",
-                text: coordinator.audioPlan,
+                text: L10n.text(coordinator.audioPlan),
                 warning: coordinator.audioOutputMode != .original || coordinator.selectedAudio?.canPassThrough == false
             )
             PlanRow(
                 symbol: "captions.bubble.fill",
-                text: coordinator.subtitlePlan,
+                text: L10n.text(coordinator.subtitlePlan),
                 warning: coordinator.selectedSubtitle?.isSelectable == false
             )
         }
@@ -510,8 +522,8 @@ struct ContentView: View {
                     .foregroundStyle(coordinator.hasError ? .orange : .green)
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(coordinator.status).font(.callout.weight(.semibold))
-                Text(coordinator.detail)
+                Text(L10n.text(coordinator.status)).font(.callout.weight(.semibold))
+                Text(L10n.text(coordinator.detail))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
@@ -576,14 +588,14 @@ struct ContentView: View {
     private var streamWarningTitle: String {
         if coordinator.rebufferEvents > 0 {
             return coordinator.rebufferEvents == 1
-                ? "Apple TV ha tenido que esperar una vez"
-                : "Apple TV ha tenido que esperar \(coordinator.rebufferEvents) veces"
+                ? L10n.text("Apple TV ha tenido que esperar una vez")
+                : L10n.format("Apple TV ha tenido que esperar %lld veces", Int64(coordinator.rebufferEvents))
         }
         switch coordinator.streamHealthLevel {
-        case .tight: return "La conexión tiene poco margen para los picos de esta película"
-        case .insufficient: return "La película puede pedir más caudal del disponible"
-        case .error: return "Se ha interrumpido una transferencia inesperadamente"
-        case .pending, .excellent, .good: return "Revisa la reproducción"
+        case .tight: return L10n.text("La conexión tiene poco margen para los picos de esta película")
+        case .insufficient: return L10n.text("La película puede pedir más caudal del disponible")
+        case .error: return L10n.text("Se ha interrumpido una transferencia inesperadamente")
+        case .pending, .excellent, .good: return L10n.text("Revisa la reproducción")
         }
     }
 }
@@ -627,7 +639,9 @@ struct PlaybackInformationView: View {
                     PlaybackInformationRow(
                         title: "Datos enviados", value: byteCount(coordinator.streamTelemetry.totalBytesSent))
                     PlaybackInformationRow(
-                        title: "Transferencias", value: "\(coordinator.streamTelemetry.completedTransfers) completadas")
+                        title: "Transferencias",
+                        value: L10n.format(
+                            "%lld completadas", Int64(coordinator.streamTelemetry.completedTransfers)))
                     PlaybackInformationRow(title: "Esperas", value: "\(coordinator.rebufferEvents)")
                     PlaybackInformationRow(title: "Vídeo", value: coordinator.videoPlan)
                     PlaybackInformationRow(title: "Audio", value: coordinator.audioPlan)
@@ -668,53 +682,57 @@ struct PlaybackInformationView: View {
 
     private var healthTitle: String {
         switch coordinator.streamHealthLevel {
-        case .pending: return "Esperando la medición"
-        case .excellent: return "Conexión excelente"
-        case .good: return "Conexión preparada"
-        case .tight: return "Margen justo"
-        case .insufficient: return "Caudal insuficiente"
-        case .error: return "Error de entrega"
+        case .pending: return L10n.text("Esperando la medición")
+        case .excellent: return L10n.text("Conexión excelente")
+        case .good: return L10n.text("Conexión preparada")
+        case .tight: return L10n.text("Margen justo")
+        case .insufficient: return L10n.text("Caudal insuficiente")
+        case .error: return L10n.text("Error de entrega")
         }
     }
 
     private var healthSummary: String {
         if coordinator.rebufferEvents > 0 {
-            return
-                "El Apple TV ha esperado \(coordinator.rebufferEvents) vez\(coordinator.rebufferEvents == 1 ? "" : "es") durante esta reproducción."
+            return coordinator.rebufferEvents == 1
+                ? L10n.text("El Apple TV ha esperado una vez durante esta reproducción.")
+                : L10n.format(
+                    "El Apple TV ha esperado %lld veces durante esta reproducción.",
+                    Int64(coordinator.rebufferEvents))
         }
         guard let ratio = capacityRatio else {
-            return "AirCiller calculará el margen cuando el Apple TV empiece a descargar la película."
+            return L10n.text("AirCiller calculará el margen cuando el Apple TV empiece a descargar la película.")
         }
         switch coordinator.streamHealthLevel {
         case .excellent:
-            return "La red ofrece \(ratioText(ratio)) el caudal del pico más exigente de la película."
+            return L10n.format(
+                "La red ofrece %@ el caudal del pico más exigente de la película.", ratioText(ratio))
         case .good:
-            return "Hay margen suficiente para los picos medidos en el archivo."
+            return L10n.text("Hay margen suficiente para los picos medidos en el archivo.")
         case .tight:
-            return "Debería reproducir, pero una variación de la red podría provocar una espera."
+            return L10n.text("Debería reproducir, pero una variación de la red podría provocar una espera.")
         case .insufficient:
-            return "El pico más exigente supera el caudal observado hacia el Apple TV."
+            return L10n.text("El pico más exigente supera el caudal observado hacia el Apple TV.")
         case .error:
-            return "Apple TV cerró una transferencia de una forma que AirCiller no esperaba."
+            return L10n.text("Apple TV cerró una transferencia de una forma que AirCiller no esperaba.")
         case .pending:
-            return "AirCiller está reuniendo datos de la reproducción."
+            return L10n.text("AirCiller está reuniendo datos de la reproducción.")
         }
     }
 
     private var demandText: String {
-        guard let peak = demand?.peakBitsPerSecond else { return "Analizando…" }
-        return "\(bitrate(peak)) en el pico"
+        guard let peak = demand?.peakBitsPerSecond else { return L10n.text("Analizando…") }
+        return L10n.format("%@ en el pico", bitrate(peak))
     }
 
     private var capacityText: String {
         guard let capacity = coordinator.streamTelemetry.observedCapacityBitsPerSecond else {
-            return "Se medirá al reproducir"
+            return L10n.text("Se medirá al reproducir")
         }
         return bitrate(capacity)
     }
 
     private var marginText: String {
-        guard let ratio = capacityRatio else { return "Pendiente" }
+        guard let ratio = capacityRatio else { return L10n.text("Pendiente") }
         return ratioText(ratio)
     }
 
@@ -757,10 +775,10 @@ struct PlaybackInformationRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
-            Text(title)
+            Text(L10n.text(title))
                 .foregroundStyle(.secondary)
             Spacer(minLength: 18)
-            Text(value)
+            Text(L10n.text(value))
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)
         }
@@ -821,7 +839,7 @@ struct LibrarySidebar: View {
             Divider()
 
             HStack {
-                Text(selectedTab.rawValue)
+                Text(L10n.text(selectedTab.rawValue))
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
@@ -860,7 +878,9 @@ struct LibrarySidebar: View {
                                         ProgressView(value: item.progress)
                                         Text(
                                             item.lastPosition > 0
-                                                ? "Continuar en \(TimeFormatting.duration(item.lastPosition))"
+                                                ? L10n.format(
+                                                    "Continuar en %@",
+                                                    TimeFormatting.duration(item.lastPosition))
                                                 : TimeFormatting.duration(item.duration)
                                         )
                                         .font(.caption2.monospacedDigit())
@@ -994,7 +1014,7 @@ struct LibraryNavigationRow: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.airCillerYellow)
                     .frame(width: 20)
-                Text(title)
+                Text(L10n.text(title))
                     .font(.callout.weight(.semibold))
                 Spacer()
                 if count > 0 {
@@ -1028,19 +1048,19 @@ struct TrackSettingsView: View {
                     Picker("Pista", selection: $coordinator.selectedAudioID) {
                         Text("Sin audio").tag(String?.none)
                         ForEach(coordinator.audioTracks) { track in
-                            Text("\(track.displayName) · \(track.technicalDescription)")
+                            Text("\(L10n.text(track.displayName)) · \(L10n.text(track.technicalDescription))")
                                 .tag(Optional(track.id))
                         }
                     }
                     Picker("Salida", selection: $coordinator.audioOutputMode) {
                         ForEach(AudioOutputMode.allCases) { mode in
-                            Text(mode.title).tag(mode)
+                            Text(L10n.text(mode.title)).tag(mode)
                         }
                     }
                     .pickerStyle(.segmented)
                     HStack {
                         Stepper(value: $coordinator.audioDelay, in: -5...5, step: 0.05) {
-                            Text("Sincronía: \(signed(coordinator.audioDelay)) s")
+                            Text(L10n.format("Sincronía: %@ s", signed(coordinator.audioDelay)))
                                 .monospacedDigit()
                         }
                         Button("Restablecer") { coordinator.audioDelay = 0 }
@@ -1064,7 +1084,7 @@ struct TrackSettingsView: View {
                     ) {
                         Text("No activar automáticamente").tag("")
                         ForEach(LanguageNames.subtitlePreferenceOptions) { option in
-                            Text(option.name).tag(option.code)
+                            Text(L10n.text(option.name)).tag(option.code)
                         }
                     }
                     Text(
@@ -1078,7 +1098,8 @@ struct TrackSettingsView: View {
                         ForEach(coordinator.subtitleTracks) { track in
                             Text(
                                 track.isSelectable
-                                    ? track.displayName : "⚠︎ \(track.displayName) — \(track.codec.uppercased())"
+                                    ? L10n.text(track.displayName)
+                                    : "⚠︎ \(L10n.text(track.displayName)) — \(track.codec.uppercased())"
                             )
                             .tag(Optional(track.id))
                         }
@@ -1091,31 +1112,33 @@ struct TrackSettingsView: View {
                     .buttonStyle(.link)
 
                     if let reason = coordinator.selectedSubtitle?.unsupportedReason {
-                        Label(reason, systemImage: "exclamationmark.triangle.fill")
+                        Label(L10n.text(reason), systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundStyle(.orange)
                     } else if let notice = coordinator.selectedSubtitle?.stylingNotice {
-                        Label(notice, systemImage: "info.circle")
+                        Label(L10n.text(notice), systemImage: "info.circle")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
 
                     HStack {
                         Stepper(value: $coordinator.subtitleDelay, in: -10...10, step: 0.1) {
-                            Text("Sincronía: \(signed(coordinator.subtitleDelay)) s")
+                            Text(L10n.format("Sincronía: %@ s", signed(coordinator.subtitleDelay)))
                                 .monospacedDigit()
                         }
                         Button("Restablecer") { coordinator.subtitleDelay = 0 }
                             .font(.caption)
                     }
                     Text(
-                        coordinator.selectedSubtitle?.usesBitmapOCR == true
-                            ? "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones."
-                            : coordinator.selectedSubtitle?.usesAdvancedTextStyling == true
-                                ? (coordinator.probeInfo?.isHDR == true
-                                    ? "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS."
-                                    : "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad.")
-                                : "El tamaño y la posición los controla Apple TV desde sus preferencias de accesibilidad."
+                        L10n.text(
+                            coordinator.selectedSubtitle?.usesBitmapOCR == true
+                                ? "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones."
+                                : coordinator.selectedSubtitle?.usesAdvancedTextStyling == true
+                                    ? (coordinator.probeInfo?.isHDR == true
+                                        ? "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS."
+                                        : "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad.")
+                                    : "El tamaño y la posición los controla Apple TV desde sus preferencias de accesibilidad."
+                        )
                     )
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -1152,7 +1175,7 @@ struct NetworkBadge: View {
     var monitor: NetworkMonitor
 
     var body: some View {
-        Label(monitor.summary, systemImage: monitor.symbol)
+        Label(L10n.text(monitor.summary), systemImage: monitor.symbol)
             .font(.caption.weight(.semibold))
             .foregroundStyle(monitor.isReady ? .green : .orange)
     }
@@ -1163,15 +1186,15 @@ struct MediaBadgeView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(badge.label.uppercased())
+            Text(L10n.text(badge.label).uppercased())
                 .font(.system(size: 9.5, weight: .bold))
                 .tracking(0.75)
                 .foregroundStyle(.tertiary)
-            Text(badge.value)
+            Text(L10n.text(badge.value))
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(1)
-            Text(badge.detail)
+            Text(L10n.text(badge.detail))
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -1186,7 +1209,7 @@ struct PlanRow: View {
     let warning: Bool
 
     var body: some View {
-        Label(text, systemImage: warning ? "exclamationmark.triangle.fill" : symbol)
+        Label(L10n.text(text), systemImage: warning ? "exclamationmark.triangle.fill" : symbol)
             .foregroundStyle(warning ? .orange : .secondary)
     }
 }
@@ -1199,7 +1222,7 @@ struct LibraryEmptyView: View {
         VStack(spacing: 10) {
             Image(systemName: symbol)
                 .font(.system(size: 30))
-            Text(text)
+            Text(L10n.text(text))
                 .font(.callout)
                 .multilineTextAlignment(.center)
         }
@@ -1232,7 +1255,7 @@ struct AirPlayDevicePicker: View {
     var body: some View {
         Menu {
             if controller.devices.isEmpty {
-                Text(controller.isScanning ? "Buscando…" : "No se encontró ningún Apple TV")
+                Text(L10n.text(controller.isScanning ? "Buscando…" : "No se encontró ningún Apple TV"))
             } else {
                 ForEach(controller.devices) { device in
                     Button {
@@ -1253,9 +1276,11 @@ struct AirPlayDevicePicker: View {
                     controller.beginPairing()
                 } label: {
                     Label(
-                        controller.isCheckingAuthorization
-                            ? "Comprobando autorización…"
-                            : (controller.requiresPairing ? "Autorizar AirCiller…" : "Renovar autorización…"),
+                        L10n.text(
+                            controller.isCheckingAuthorization
+                                ? "Comprobando autorización…"
+                                : (controller.requiresPairing
+                                    ? "Autorizar AirCiller…" : "Renovar autorización…")),
                         systemImage: "lock.open"
                     )
                 }
@@ -1281,7 +1306,7 @@ struct AirPlayDevicePicker: View {
         }
         .menuStyle(.button)
         .frame(minWidth: 128)
-        .help(controller.selectedDevice?.detail ?? controller.status)
+        .help(controller.selectedDevice?.detail ?? L10n.text(controller.status))
     }
 }
 
@@ -1372,7 +1397,7 @@ struct AirPlayPairingView: View {
                 Label("No se pudo autorizar", systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
                     .foregroundStyle(.orange)
-                Text(message)
+                Text(L10n.text(message))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

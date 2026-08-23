@@ -290,7 +290,10 @@ enum SubtitleService {
         let allowedDifference = max(15, (videoSegments.map(\.duration).max() ?? 0) * 1.5)
         guard abs(packagedDuration - expectedDuration) <= allowedDifference else {
             throw AirCillerError.invalidVODPackage(
-                "La duración preparada (\(TimeFormatting.duration(packagedDuration))) no coincide con el archivo (\(TimeFormatting.duration(expectedDuration)))."
+                L10n.format(
+                    "La duración preparada (%@) no coincide con el archivo (%@).",
+                    TimeFormatting.duration(packagedDuration),
+                    TimeFormatting.duration(expectedDuration))
             )
         }
 
@@ -306,7 +309,8 @@ enum SubtitleService {
                     atPath: outputDirectory.appendingPathComponent(segment.fileName).path
                 )
             else {
-                throw AirCillerError.invalidVODPackage("Falta el segmento de vídeo \(segment.fileName).")
+                throw AirCillerError.invalidVODPackage(
+                    L10n.format("Falta el segmento de vídeo %@.", segment.fileName))
             }
         }
 
@@ -359,7 +363,8 @@ enum SubtitleService {
                         atPath: outputDirectory.appendingPathComponent(segment.fileName).path
                     )
                 else {
-                    throw AirCillerError.invalidVODPackage("Falta el segmento de audio \(segment.fileName).")
+                    throw AirCillerError.invalidVODPackage(
+                        L10n.format("Falta el segmento de audio %@.", segment.fileName))
                 }
             }
         }
@@ -416,7 +421,7 @@ enum SubtitleService {
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             guard let number = attributes[.size] as? NSNumber, segment.duration > 0 else {
                 throw AirCillerError.invalidVODPackage(
-                    "No se pudo medir el segmento \(segment.fileName)."
+                    L10n.format("No se pudo medir el segmento %@.", segment.fileName)
                 )
             }
             let bytes = number.doubleValue
@@ -564,7 +569,9 @@ enum SubtitleService {
 
         guard process.terminationStatus == 0 else {
             let data = errorBuffer.snapshot
-            let message = String(data: data, encoding: .utf8) ?? "FFmpeg no pudo preparar los subtítulos."
+            let message =
+                String(data: data, encoding: .utf8)
+                ?? L10n.text("FFmpeg no pudo preparar los subtítulos.")
             throw AirCillerError.subtitlePreparationFailed(message.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }

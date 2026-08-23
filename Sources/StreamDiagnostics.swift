@@ -208,7 +208,8 @@ enum StreamDemandAnalyzer {
     private static func fileSize(_ url: URL) throws -> Double {
         let values = try url.resourceValues(forKeys: [.fileSizeKey])
         guard let size = values.fileSize else {
-            throw AirCillerError.invalidVODPackage("No se pudo medir \(url.lastPathComponent).")
+            throw AirCillerError.invalidVODPackage(
+                L10n.format("No se pudo medir %@.", url.lastPathComponent))
         }
         return Double(size)
     }

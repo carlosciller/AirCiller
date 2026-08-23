@@ -12,7 +12,7 @@ final class PlaybackPowerAssertion {
         guard activity == nil else { return }
         activity = ProcessInfo.processInfo.beginActivity(
             options: [.idleSystemSleepDisabled],
-            reason: "AirCiller está preparando o enviando una película al Apple TV."
+            reason: L10n.text("AirCiller está preparando o enviando una película al Apple TV.")
         )
     }
 

@@ -69,7 +69,7 @@ struct NativePlaylistTable: NSViewRepresentable {
 
         init(streamCoordinator: StreamCoordinator) {
             self.streamCoordinator = streamCoordinator
-            contextMenu = NSMenu(title: "Playlist")
+            contextMenu = NSMenu(title: L10n.text("Playlist"))
             super.init()
         }
 
@@ -127,17 +127,20 @@ struct NativePlaylistTable: NSViewRepresentable {
             }
 
             contextualItemID = renderedItems[row].id
-            contextMenu.addItem(menuItem("Reproducir", action: #selector(playContextualItem)))
-            contextMenu.addItem(menuItem("Reproducir desde el inicio", action: #selector(restartContextualItem)))
+            contextMenu.addItem(menuItem(L10n.text("Reproducir"), action: #selector(playContextualItem)))
+            contextMenu.addItem(
+                menuItem(L10n.text("Reproducir desde el inicio"), action: #selector(restartContextualItem)))
             contextMenu.addItem(.separator())
-            let moveToBeginning = menuItem("Mover al principio", action: #selector(moveContextualItemToBeginning))
+            let moveToBeginning = menuItem(
+                L10n.text("Mover al principio"), action: #selector(moveContextualItemToBeginning))
             moveToBeginning.isEnabled = row > 0
             contextMenu.addItem(moveToBeginning)
-            let moveToEnd = menuItem("Mover al final", action: #selector(moveContextualItemToEnd))
+            let moveToEnd = menuItem(L10n.text("Mover al final"), action: #selector(moveContextualItemToEnd))
             moveToEnd.isEnabled = row < renderedItems.count - 1
             contextMenu.addItem(moveToEnd)
             contextMenu.addItem(.separator())
-            contextMenu.addItem(menuItem("Quitar de la playlist", action: #selector(removeContextualItem)))
+            contextMenu.addItem(
+                menuItem(L10n.text("Quitar de la playlist"), action: #selector(removeContextualItem)))
             return contextMenu
         }
 

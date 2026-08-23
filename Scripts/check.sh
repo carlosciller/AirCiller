@@ -34,6 +34,11 @@ compile_and_run() {
 }
 
 plutil -lint "$project_dir/Info.plist"
+plutil -lint \
+  "$project_dir/Resources/en.lproj/Localizable.strings" \
+  "$project_dir/Resources/es.lproj/Localizable.strings" \
+  "$project_dir/Resources/en.lproj/InfoPlist.strings" \
+  "$project_dir/Resources/es.lproj/InfoPlist.strings"
 xcrun swift-format lint --strict --recursive \
   "$project_dir/Sources" \
   "$project_dir/Tests" \
@@ -49,16 +54,21 @@ compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
 compile_and_run power-assertion \
+  "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/PlaybackPowerAssertion.swift" \
   "$project_dir/Tests/PlaybackPowerAssertionSmokeTest.swift"
 compile_and_run ass-subtitles \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Tests/ASSSubtitleConverterSmokeTest.swift"
+compile_and_run localization \
+  "$project_dir/Tests/LocalizationSmokeTest.swift"
 compile_and_run track-metadata \
+  "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Tests/TrackMetadataSmokeTest.swift"
 compile_and_run http-server \
   -framework Network \
+  "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/HTTPServerTelemetry.swift" \
   "$project_dir/Sources/LocalHTTPServer.swift" \
   "$project_dir/Tests/HTTPServerSmokeTest.swift"
@@ -70,5 +80,8 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
 
 "$project_dir/Scripts/check_publication.sh"
 "$project_dir/build.sh"
+
+test -f "$project_dir/.build/AirCiller.app/Contents/Resources/en.lproj/Localizable.strings"
+test -f "$project_dir/.build/AirCiller.app/Contents/Resources/es.lproj/Localizable.strings"
 
 echo "Comprobaciones locales de AirCiller: OK"

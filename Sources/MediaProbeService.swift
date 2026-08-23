@@ -90,7 +90,7 @@ enum MediaProbeService {
                     id: offset,
                     start: start,
                     end: end,
-                    title: chapter.tags?.title ?? "Capítulo \(offset + 1)"
+                    title: chapter.tags?.title ?? L10n.format("Capítulo %lld", Int64(offset + 1))
                 )
             }
 
