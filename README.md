@@ -4,7 +4,7 @@
 
 AirCiller is a lightweight macOS app for opening a local video file and sending it to an Apple TV over AirPlay 2. It is designed around a simple **open, send, watch** workflow, with no permanent library, cloud service, telemetry, or silent transcoding.
 
-> Status: personal project under active development. Version 0.9.7 is currently installed and has been validated on a physical Apple TV. The development branch may contain changes that still require real-device testing.
+> Status: personal project under active development. Version 0.9.8 is currently installed and has been validated on a physical Apple TV. The development branch may contain changes that still require real-device testing.
 
 ## Features
 

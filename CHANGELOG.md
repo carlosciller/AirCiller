@@ -4,6 +4,13 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+## Version 0.9.8
+
+- Requires a real media request from Apple TV before declaring playback started, closing false or ghost sessions cleanly.
+- Treats a failed AirPlay 2 `/feedback` path as non-terminal while the independent event channel and media transfer remain healthy.
+- Preserves instant pause, resume, and timeline updates from the Apple TV remote instead of tearing down an active stream.
+- Adds regression coverage for consecutive and intermittent feedback failures and understandable lost-control errors.
+- Physically validated on Apple TV 4K with tvOS 27.0: direct Dolby Vision with selectable subtitles; HLS/fMP4 with SRT/WebVTT, PGS, and no subtitles; converted FLAC audio; remote pause and resume.
 - Adds native English and Spanish localization that follows the language selected for AirCiller in macOS.
 - Publishes the primary README, project documentation, templates, and developer-facing checks in English while retaining a complete Spanish README.
 - Prepares the public repository with a reproducible build, documentation, automated checks, and no personal paths in manual tests.
