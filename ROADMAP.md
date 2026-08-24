@@ -4,9 +4,9 @@ The priority is measurable robustness, not adding features for their own sake.
 
 ## Next isolated fixes
 
-1. Unify FFmpeg/ffprobe execution behind a cancellable process so Stop or switching files immediately ends abandoned analysis, preparation, and OCR work.
+1. [x] Unify FFmpeg/ffprobe execution behind a cancellable process so Stop or switching files immediately ends abandoned analysis, preparation, and OCR work.
 2. Add a synthetic attached-artwork fixture and always select/map the exact index of the real video stream.
-3. Select the local address from the effective route to the Apple TV on Macs with multiple interfaces or a VPN, while keeping the current behavior as a fallback.
+3. [x] Select the local address from the effective route to the Apple TV on Macs with multiple interfaces or a VPN, while keeping the current behavior as a fallback.
 4. Add characterization tests for the AirPlay controller, Keychain races, and corrupt persistence before splitting the large coordinator files.
 
 Each playback change must be validated locally first, then independently through direct MP4 and HLS/fMP4, and finally on a physical Apple TV before installation.
@@ -21,10 +21,8 @@ Each playback change must be validated locally first, then independently through
 
 ## Functional candidates
 
-1. Reuse the Apple Vision pipeline for local, on-demand DVD VobSub OCR.
-2. Add a visible limit and controls for prepared-media and subtitle caches.
-3. Add an App Intent/Shortcut for “Send to Apple TV”.
-4. Add an anonymized, local diagnostic export.
+1. [x] Reuse the Apple Vision pipeline for local, on-demand DVD VobSub OCR.
+2. [x] Add a visible limit and controls for prepared-media and subtitle caches.
 
 ## Out of scope
 

@@ -73,6 +73,6 @@ struct PGSSubtitleHLSSmokeTest {
                 userInfo: [NSLocalizedDescriptionKey: webVTT]
             )
         }
-        print("Real PGS · local OCR · segmented and positioned HLS WebVTT · OK")
+        print("Real bitmap subtitle · local OCR · segmented and positioned HLS WebVTT · OK")
     }
 }

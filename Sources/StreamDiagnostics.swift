@@ -70,7 +70,7 @@ enum StreamDemandAnalyzer {
     static let windowDuration = 6.0
 
     static func analyze(url: URL, duration: Double) async throws -> MediaDemandAnalysis {
-        try await Task.detached(priority: .utility) {
+        do {
             guard let ffprobeURL = Executables.find("ffprobe") else {
                 throw AirCillerError.ffprobeMissing
             }
@@ -100,17 +100,17 @@ enum StreamDemandAnalyzer {
             }
             process.standardOutput = output
             process.standardError = errors
-            try process.run()
-            try? output.fileHandleForWriting.close()
-            try? errors.fileHandleForWriting.close()
-            process.waitUntilExit()
+            let status = try await CancellableProcess(process).run {
+                try? output.fileHandleForWriting.close()
+                try? errors.fileHandleForWriting.close()
+            }
             output.fileHandleForReading.readabilityHandler = nil
             errors.fileHandleForReading.readabilityHandler = nil
             packetAccumulator.append(output.fileHandleForReading.readDataToEndOfFile())
             errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
             try Task.checkCancellation()
 
-            guard process.terminationStatus == 0 else {
+            guard status == 0 else {
                 let message = String(data: errorBuffer.snapshot, encoding: .utf8) ?? "ffprobe error"
                 throw AirCillerError.probeFailed(
                     message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -118,7 +118,7 @@ enum StreamDemandAnalyzer {
             }
 
             return packetAccumulator.snapshot
-        }.value
+        }
     }
 
     static func packagedHLSProfile(

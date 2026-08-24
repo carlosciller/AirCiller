@@ -73,7 +73,7 @@ struct PGSSubtitleConverterSmokeTest {
             return
         }
         print(
-            "Real PGS · \(conversion.cueCount) cues · OCR \(Int(conversion.averageConfidence * 100))% · WebVTT timing and position · OK"
+            "Real bitmap subtitle · \(conversion.cueCount) cues · OCR \(Int(conversion.averageConfidence * 100))% · WebVTT timing and position · OK"
         )
         print(conversion.webVTT)
     }

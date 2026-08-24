@@ -57,6 +57,17 @@ compile_and_run power-assertion \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/PlaybackPowerAssertion.swift" \
   "$project_dir/Tests/PlaybackPowerAssertionSmokeTest.swift"
+compile_and_run cancellable-process \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Tests/CancellableProcessSmokeTest.swift"
+compile_and_run local-network-route \
+  "$project_dir/Sources/LocalNetworkRoute.swift" \
+  "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"
+compile_and_run storage \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Tests/AirCillerStorageSmokeTest.swift"
 compile_and_run ass-subtitles \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Tests/ASSSubtitleConverterSmokeTest.swift"
@@ -70,6 +81,7 @@ compile_and_run http-server \
   -framework Network \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/HTTPServerTelemetry.swift" \
+  "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Sources/LocalHTTPServer.swift" \
   "$project_dir/Tests/HTTPServerSmokeTest.swift"
 

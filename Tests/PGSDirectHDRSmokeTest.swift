@@ -91,6 +91,6 @@ struct PGSDirectHDRSmokeTest {
         else {
             throw NSError(domain: "PGSDirectHDRSmokeTest.Output", code: 5)
         }
-        print("Real PGS → local OCR → Dolby Vision MP4 with selectable subtitles · OK")
+        print("Real bitmap subtitle → local OCR → Dolby Vision MP4 with selectable subtitles · OK")
     }
 }

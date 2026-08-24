@@ -41,6 +41,10 @@ struct AirCillerApp: App {
                     .keyboardShortcut(".", modifiers: .command)
             }
         }
+
+        Settings {
+            StorageSettingsView(coordinator: coordinator)
+        }
     }
 }
 
@@ -783,6 +787,87 @@ struct PlaybackInformationRow: View {
                 .textSelection(.enabled)
         }
         .font(.callout)
+    }
+}
+
+struct StorageSettingsView: View {
+    var coordinator: StreamCoordinator
+    @AirCillerState private var cacheLimitMB = AirCillerStorage.subtitleCacheLimitMB
+    @AirCillerState private var snapshot = AirCillerStorage.snapshot()
+
+    var body: some View {
+        Form {
+            Section("Subtítulos gráficos") {
+                LabeledContent("Caché OCR") {
+                    Text(
+                        L10n.format(
+                            "%@ de %@",
+                            byteCount(snapshot.subtitleCacheBytes),
+                            byteCount(snapshot.subtitleCacheLimitBytes)
+                        )
+                    )
+                    .monospacedDigit()
+                }
+
+                Picker("Límite", selection: $cacheLimitMB) {
+                    ForEach(AirCillerStorage.subtitleCacheLimitOptionsMB, id: \.self) { megabytes in
+                        Text(byteCount(Int64(megabytes) * 1_024 * 1_024)).tag(megabytes)
+                    }
+                }
+                .onChange(of: cacheLimitMB) { _, newValue in
+                    AirCillerStorage.setSubtitleCacheLimitMB(newValue)
+                    refresh()
+                }
+
+                Text(
+                    "Solo guarda el WebVTT creado por Apple Vision. Las imágenes temporales se borran y la película original nunca se modifica."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Button("Vaciar caché de subtítulos", role: .destructive) {
+                    try? AirCillerStorage.clearSubtitleCache()
+                    refresh()
+                }
+                .disabled(snapshot.subtitleCacheBytes == 0)
+            }
+
+            Section("Preparación de películas") {
+                LabeledContent("Restos temporales") {
+                    Text(byteCount(snapshot.preparedMediaBytes))
+                        .monospacedDigit()
+                }
+                Text(
+                    "AirCiller conserva el paquete preparado solo mientras se reproduce y lo elimina al detener. Aquí puedes borrar restos de un cierre inesperado."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Button("Eliminar restos temporales", role: .destructive) {
+                    AirCillerStorage.clearPreparedMedia(
+                        excluding: coordinator.activePreparedDirectory
+                    )
+                    refresh()
+                }
+                .disabled(snapshot.preparedMediaBytes == 0 || coordinator.isPreparing)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(16)
+        .frame(width: 560, height: 420)
+        .task { refresh() }
+    }
+
+    private func refresh() {
+        snapshot = AirCillerStorage.snapshot(
+            excluding: coordinator.activePreparedDirectory
+        )
+    }
+
+    private func byteCount(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .file
+        return formatter.string(fromByteCount: bytes)
     }
 }
 

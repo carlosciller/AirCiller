@@ -2,7 +2,7 @@ import Foundation
 
 enum MediaProbeService {
     static func probe(url: URL) async throws -> MediaProbe {
-        try await Task.detached(priority: .userInitiated) {
+        do {
             guard let ffprobeURL = Executables.find("ffprobe") else {
                 throw AirCillerError.ffprobeMissing
             }
@@ -30,16 +30,16 @@ enum MediaProbeService {
             }
             process.standardOutput = output
             process.standardError = errors
-            try process.run()
-            try? output.fileHandleForWriting.close()
-            try? errors.fileHandleForWriting.close()
-            process.waitUntilExit()
+            let status = try await CancellableProcess(process).run {
+                try? output.fileHandleForWriting.close()
+                try? errors.fileHandleForWriting.close()
+            }
             output.fileHandleForReading.readabilityHandler = nil
             errors.fileHandleForReading.readabilityHandler = nil
             outputBuffer.append(output.fileHandleForReading.readDataToEndOfFile())
             errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
 
-            guard process.terminationStatus == 0 else {
+            guard status == 0 else {
                 let data = errorBuffer.snapshot
                 let message = String(data: data, encoding: .utf8) ?? "ffprobe error"
                 throw AirCillerError.probeFailed(message.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -115,7 +115,7 @@ enum MediaProbeService {
                 subtitleTracks: subtitleTracks,
                 chapters: chapters
             )
-        }.value
+        }
     }
 
     static func externalTrack(url: URL) -> SubtitleTrack {

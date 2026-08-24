@@ -97,7 +97,7 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
     }
 
     var usesBitmapOCR: Bool {
-        codec.lowercased() == "hdmv_pgs_subtitle"
+        ["hdmv_pgs_subtitle", "dvd_subtitle"].contains(codec.lowercased())
     }
 
     var isSelectable: Bool {
@@ -107,7 +107,7 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
     var stylingNotice: String? {
         if usesBitmapOCR {
             return L10n.text(
-                "PGS de Blu-ray: AirCiller extrae solo esta pista, usa Apple Vision localmente y crea WebVTT seleccionable. Conserva tiempos y posición aproximada; no quema el texto ni modifica la película."
+                "PGS/VobSub: AirCiller extrae solo esta pista, usa Apple Vision localmente y crea WebVTT seleccionable. Conserva tiempos y posición aproximada; no quema el texto ni modifica la película."
             )
         }
         if usesAdvancedTextStyling {
@@ -160,15 +160,8 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
 
     var unsupportedReason: String? {
         guard !isSelectable else { return nil }
-        switch codec.lowercased() {
-        case "dvd_subtitle":
-            return L10n.text(
-                "Es una pista gráfica VobSub de DVD. Necesita un decodificador distinto al PGS de Blu-ray y todavía no se convierte."
-            )
-        default:
-            return L10n.format(
-                "Apple TV no admite esta clase de subtítulo (%@) como pista HLS nativa.", codec)
-        }
+        return L10n.format(
+            "Apple TV no admite esta clase de subtítulo (%@) como pista HLS nativa.", codec)
     }
 }
 

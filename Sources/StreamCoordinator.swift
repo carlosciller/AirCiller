@@ -53,6 +53,8 @@ final class StreamCoordinator {
     @ObservationIgnored private var ffmpegProcess: Process?
     @ObservationIgnored private var ffmpegLog: ProcessLogBuffer?
     @ObservationIgnored private var temporaryDirectory: URL?
+
+    var activePreparedDirectory: URL? { temporaryDirectory }
     @ObservationIgnored private var streamTask: Task<Void, Never>?
     @ObservationIgnored private var authorizationTask: Task<Void, Never>?
     @ObservationIgnored private var authorizationRequestID: UUID?
@@ -877,11 +879,11 @@ final class StreamCoordinator {
         let fraction = Double(boundedCompleted) / Double(total)
         preparationProgress = baseProgress + (span * fraction)
         status = L10n.format(
-            "Leyendo subtítulos PGS… %lld/%lld", Int64(boundedCompleted), Int64(total))
+            "Leyendo subtítulos gráficos… %lld/%lld", Int64(boundedCompleted), Int64(total))
         detail =
             boundedCompleted == total
             ? "OCR local terminado. Creando la pista WebVTT seleccionable."
-            : "Apple Vision está reconociendo la pista de Blu-ray localmente."
+            : "Apple Vision está reconociendo la pista gráfica localmente."
     }
 
     private func prepareStreamSession(
@@ -943,9 +945,9 @@ final class StreamCoordinator {
 
                 var preparedSubtitle = subtitle
                 if let subtitle, subtitle.usesBitmapOCR {
-                    self.status = "Leyendo subtítulos PGS…"
+                    self.status = "Leyendo subtítulos gráficos…"
                     self.detail =
-                        "Apple Vision reconoce la pista de Blu-ray localmente. La película y el vídeo HDR permanecen intactos."
+                        "Apple Vision reconoce la pista gráfica localmente. La película y el vídeo HDR permanecen intactos."
                     self.preparationProgress = 0.04
                     preparedSubtitle = try await SubtitleService.materializeDirectTrack(
                         subtitle,
@@ -985,8 +987,12 @@ final class StreamCoordinator {
                 self.ffmpegLog = build.log
                 try process.run()
                 build.didStart()
+                let exitTask = Task {
+                    try await CancellableProcess(process).waitForExit()
+                }
                 try await self.waitForVODCompletion(
                     build,
+                    exitTask: exitTask,
                     expectedDuration: info.duration,
                     sessionID: sessionID,
                     preparationName: "MP4 HDR con subtítulos"
@@ -1170,8 +1176,12 @@ final class StreamCoordinator {
                 self.ffmpegLog = build.log
                 try process.run()
                 build.didStart()
+                let exitTask = Task {
+                    try await CancellableProcess(process).waitForExit()
+                }
                 try await self.waitForVODCompletion(
                     build,
+                    exitTask: exitTask,
                     expectedDuration: info.duration,
                     sessionID: sessionID
                 )
@@ -1210,11 +1220,11 @@ final class StreamCoordinator {
                 if let subtitle {
                     self.status =
                         subtitle.usesBitmapOCR
-                        ? "Leyendo subtítulos PGS…"
+                        ? "Leyendo subtítulos gráficos…"
                         : "Alineando subtítulos…"
                     self.detail =
                         subtitle.usesBitmapOCR
-                        ? "Apple Vision reconoce la pista de Blu-ray localmente y la convierte en WebVTT seleccionable."
+                        ? "Apple Vision reconoce la pista gráfica localmente y la convierte en WebVTT seleccionable."
                         : "Creando una pista WebVTT para cada tramo de la película."
                     self.preparationProgress = 0.91
                     try await SubtitleService.prepare(
@@ -1613,8 +1623,7 @@ final class StreamCoordinator {
         playbackPower.end()
         clearItemObservers()
         if let process = ffmpegProcess {
-            process.terminationHandler = nil
-            if process.isRunning { process.terminate() }
+            CancellableProcess(process).terminate()
         }
         ffmpegProcess = nil
         ffmpegLog = nil
@@ -1642,18 +1651,19 @@ final class StreamCoordinator {
         server: LocalHTTPServer?,
         directory: URL?
     ) {
-        process?.terminationHandler = nil
-        if let process, process.isRunning { process.terminate() }
+        if let process { CancellableProcess(process).terminate() }
         server?.stop()
         if let directory { try? FileManager.default.removeItem(at: directory) }
     }
 
     private func waitForVODCompletion(
         _ build: VODBuildProcess,
+        exitTask: Task<Int32, Error>,
         expectedDuration: Double,
         sessionID: UUID,
         preparationName: String = "VOD completo"
     ) async throws {
+        defer { exitTask.cancel() }
         while build.process.isRunning {
             try Task.checkCancellation()
             guard activeSessionID == sessionID else { throw CancellationError() }
@@ -1674,7 +1684,8 @@ final class StreamCoordinator {
             try await Task.sleep(for: .milliseconds(200))
         }
 
-        guard build.process.terminationStatus == 0 else {
+        let status = try await exitTask.value
+        guard status == 0 else {
             throw AirCillerError.ffmpegStopped(build.log.snapshot)
         }
         preparationProgress = 0.90
@@ -1821,19 +1832,8 @@ final class StreamCoordinator {
     }
 
     nonisolated private static func cleanupStaleBuffers() {
-        let root = FileManager.default.temporaryDirectory
-        guard
-            let items = try? FileManager.default.contentsOfDirectory(
-                at: root,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
-        else { return }
-        for item in items where item.lastPathComponent.hasPrefix("AirCiller-") {
-            if (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true {
-                try? FileManager.default.removeItem(at: item)
-            }
-        }
+        AirCillerStorage.clearPreparedMedia()
+        _ = try? AirCillerStorage.pruneSubtitleCache()
     }
 }
 
@@ -1925,44 +1925,5 @@ final class ProcessLogBuffer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-}
-
-enum AirCillerError: LocalizedError {
-    case ffmpegMissing
-    case ffprobeMissing
-    case probeFailed(String)
-    case noVideo
-    case ffmpegStopped(String)
-    case unsupportedSubtitle(String)
-    case subtitlePreparationFailed(String)
-    case invalidVODPackage(String)
-    case receiverDidNotRequestMedia
-
-    var errorDescription: String? {
-        switch self {
-        case .ffmpegMissing:
-            return L10n.text("No se encuentra FFmpeg. Instálalo con Homebrew para usar AirCiller.")
-        case .ffprobeMissing:
-            return L10n.text("No se encuentra ffprobe. Se instala junto con FFmpeg.")
-        case .probeFailed(let message):
-            return L10n.format("No se pudo leer el archivo: %@", message)
-        case .noVideo:
-            return L10n.text("El archivo no contiene ninguna pista de vídeo.")
-        case .ffmpegStopped(let message):
-            return message.isEmpty
-                ? L10n.text("El motor se detuvo antes de completar la película.")
-                : L10n.format("El motor se detuvo: %@", message)
-        case .unsupportedSubtitle(let message):
-            return L10n.text(message)
-        case .subtitlePreparationFailed(let message):
-            return L10n.format("No se pudieron preparar los subtítulos: %@", L10n.text(message))
-        case .invalidVODPackage(let message):
-            return L10n.format("La película preparada no superó la comprobación: %@", L10n.text(message))
-        case .receiverDidNotRequestMedia:
-            return L10n.text(
-                "El Apple TV aceptó la orden, pero no solicitó ningún dato de la película. AirCiller ha cerrado la sesión fantasma."
-            )
-        }
     }
 }

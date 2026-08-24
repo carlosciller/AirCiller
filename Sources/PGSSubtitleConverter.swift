@@ -9,7 +9,7 @@ struct PGSSubtitleConversion: Sendable {
     let usedCache: Bool
 }
 
-/// Converts Blu-ray PGS bitmap subtitles to selectable WebVTT text.
+/// Converts PGS and VobSub bitmap subtitles to selectable WebVTT text.
 ///
 /// FFmpeg is used only to decode the selected subtitle stream into transparent
 /// PNG frames. Apple Vision then performs local OCR. The movie itself is never
@@ -25,11 +25,12 @@ enum PGSSubtitleConverter {
         cacheDirectory explicitCacheDirectory: URL? = nil,
         progress: (@Sendable (_ completed: Int, _ total: Int) -> Void)? = nil
     ) async throws -> PGSSubtitleConversion {
-        guard track.codec.lowercased() == "hdmv_pgs_subtitle",
+        let codec = track.codec.lowercased()
+        guard ["hdmv_pgs_subtitle", "dvd_subtitle"].contains(codec),
             let streamIndex = track.streamIndex
         else {
             throw AirCillerError.unsupportedSubtitle(
-                "Esta conversión local solo admite por ahora pistas gráficas PGS de Blu-ray."
+                "Esta conversión local solo admite pistas gráficas PGS y VobSub."
             )
         }
 
@@ -42,6 +43,7 @@ enum PGSSubtitleConverter {
             cached.hasPrefix("WEBVTT\n"),
             let metadata = cacheMetadata(in: cached)
         {
+            AirCillerStorage.touchCachedSubtitle(cacheURL)
             progress?(1, 1)
             return PGSSubtitleConversion(
                 webVTT: cached,
@@ -52,7 +54,7 @@ enum PGSSubtitleConverter {
         }
 
         let workingDirectory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("AirCiller-PGS-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("AirCiller-Bitmap-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(
             at: workingDirectory,
             withIntermediateDirectories: true
@@ -62,22 +64,22 @@ enum PGSSubtitleConverter {
         let frameBounds = try await renderFrames(
             videoURL: videoURL,
             streamIndex: streamIndex,
+            codec: codec,
             outputDirectory: workingDirectory,
             maximumFrames: maximumRenderedFrames
         )
         try Task.checkCancellation()
 
-        let groups = try await Task.detached(priority: .userInitiated) {
-            try frameGroups(
-                in: workingDirectory,
-                videoDuration: videoDuration,
-                frameBounds: frameBounds
-            )
-        }.value
+        let groups = try frameGroups(
+            in: workingDirectory,
+            videoDuration: videoDuration,
+            isTruncated: maximumRenderedFrames != nil,
+            frameBounds: frameBounds
+        )
         let visibleGroups = groups.filter { $0.bounds != nil }
         guard !visibleGroups.isEmpty else {
             throw AirCillerError.subtitlePreparationFailed(
-                "La pista PGS no produjo ninguna imagen de subtítulo."
+                "La pista gráfica no produjo ninguna imagen de subtítulo."
             )
         }
 
@@ -92,7 +94,7 @@ enum PGSSubtitleConverter {
         let mergedCues = mergeAdjacentDuplicates(cues)
         guard !mergedCues.isEmpty else {
             throw AirCillerError.subtitlePreparationFailed(
-                "Apple Vision no encontró texto legible en la pista PGS elegida."
+                "Apple Vision no encontró texto legible en la pista gráfica elegida."
             )
         }
         let averageConfidence =
@@ -109,6 +111,10 @@ enum PGSSubtitleConverter {
                 withIntermediateDirectories: true
             )
             try webVTT.write(to: cacheURL, atomically: true, encoding: .utf8)
+            _ = try AirCillerStorage.pruneFiles(
+                in: cacheDirectory,
+                limitBytes: AirCillerStorage.subtitleCacheLimitBytes
+            )
         }
         return PGSSubtitleConversion(
             webVTT: webVTT,
@@ -152,6 +158,7 @@ enum PGSSubtitleConverter {
     private static func renderFrames(
         videoURL: URL,
         streamIndex: Int,
+        codec: String,
         outputDirectory: URL,
         maximumFrames: Int?
     ) async throws -> [Int64: CGRect] {
@@ -160,64 +167,63 @@ enum PGSSubtitleConverter {
         }
         let outputPattern = outputDirectory.appendingPathComponent("frame-%016d.png").path
 
-        return try await Task.detached(priority: .userInitiated) {
-            let canvasSize = try detectedCanvasSize(
+        let process = Process()
+        process.executableURL = ffmpegURL
+        var arguments = ["-hide_banner", "-nostdin", "-loglevel", "info"]
+        if codec == "hdmv_pgs_subtitle" {
+            let canvasSize = try await detectedCanvasSize(
                 ffmpegURL: ffmpegURL,
                 videoURL: videoURL,
                 streamIndex: streamIndex
             )
-            let process = Process()
-            process.executableURL = ffmpegURL
-            var arguments = [
-                "-hide_banner", "-nostdin", "-loglevel", "info",
-                "-canvas_size", "\(canvasSize.width)x\(canvasSize.height)",
-                "-i", videoURL.path,
-                "-filter_complex",
-                "[0:\(streamIndex)]split=2[pgs][bounds];[bounds]alphaextract,bbox=min_val=1,nullsink",
-                "-map", "[pgs]",
-            ]
-            if let maximumFrames, maximumFrames > 0 {
-                arguments += ["-frames:v", String(maximumFrames)]
-            }
-            arguments += [
-                "-c:v", "png",
-                "-fps_mode", "passthrough",
-                "-frame_pts", "1",
-                "-y", outputPattern,
-            ]
-            process.arguments = arguments
+            arguments += ["-canvas_size", "\(canvasSize.width)x\(canvasSize.height)"]
+        }
+        arguments += [
+            "-i", videoURL.path,
+            "-filter_complex",
+            "[0:\(streamIndex)]split=2[bitmap][bounds];[bounds]alphaextract,bbox=min_val=1,nullsink",
+            "-map", "[bitmap]",
+        ]
+        if let maximumFrames, maximumFrames > 0 {
+            arguments += ["-frames:v", String(maximumFrames)]
+        }
+        arguments += [
+            "-c:v", "png",
+            "-fps_mode", "passthrough",
+            "-frame_pts", "1",
+            "-y", outputPattern,
+        ]
+        process.arguments = arguments
 
-            let errors = Pipe()
-            let errorBuffer = ProcessDataBuffer(maximumBytes: 16_000_000)
-            errors.fileHandleForReading.readabilityHandler = { handle in
-                errorBuffer.append(handle.availableData)
-            }
-            process.standardError = errors
-            process.standardOutput = FileHandle.nullDevice
-            try process.run()
+        let errors = Pipe()
+        let errorBuffer = ProcessDataBuffer(maximumBytes: 16_000_000)
+        errors.fileHandleForReading.readabilityHandler = { handle in
+            errorBuffer.append(handle.availableData)
+        }
+        process.standardError = errors
+        process.standardOutput = FileHandle.nullDevice
+        let status = try await CancellableProcess(process).run {
             try? errors.fileHandleForWriting.close()
-            process.waitUntilExit()
-            errors.fileHandleForReading.readabilityHandler = nil
-            errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
-            try Task.checkCancellation()
+        }
+        errors.fileHandleForReading.readabilityHandler = nil
+        errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
 
-            guard process.terminationStatus == 0 else {
-                let message =
-                    String(data: errorBuffer.snapshot, encoding: .utf8)
-                    ?? "FFmpeg no pudo decodificar la pista PGS."
-                throw AirCillerError.subtitlePreparationFailed(
-                    message.trimmingCharacters(in: .whitespacesAndNewlines)
-                )
-            }
-            return parsedFrameBounds(from: errorBuffer.snapshot)
-        }.value
+        guard status == 0 else {
+            let message =
+                String(data: errorBuffer.snapshot, encoding: .utf8)
+                ?? "FFmpeg no pudo decodificar la pista gráfica."
+            throw AirCillerError.subtitlePreparationFailed(
+                message.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+        }
+        return parsedFrameBounds(from: errorBuffer.snapshot)
     }
 
     private static func detectedCanvasSize(
         ffmpegURL: URL,
         videoURL: URL,
         streamIndex: Int
-    ) throws -> (width: Int, height: Int) {
+    ) async throws -> (width: Int, height: Int) {
         let process = Process()
         process.executableURL = ffmpegURL
         process.arguments = [
@@ -235,9 +241,9 @@ enum PGSSubtitleConverter {
         }
         process.standardError = errors
         process.standardOutput = FileHandle.nullDevice
-        try process.run()
-        try? errors.fileHandleForWriting.close()
-        process.waitUntilExit()
+        _ = try await CancellableProcess(process).run {
+            try? errors.fileHandleForWriting.close()
+        }
         errors.fileHandleForReading.readabilityHandler = nil
         errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
         if let text = String(data: errorBuffer.snapshot, encoding: .utf8),
@@ -256,10 +262,10 @@ enum PGSSubtitleConverter {
         {
             return (width, height)
         }
-        return try detectedVideoSize(videoURL: videoURL)
+        return try await detectedVideoSize(videoURL: videoURL)
     }
 
-    private static func detectedVideoSize(videoURL: URL) throws -> (width: Int, height: Int) {
+    private static func detectedVideoSize(videoURL: URL) async throws -> (width: Int, height: Int) {
         guard let ffprobeURL = Executables.find("ffprobe") else {
             throw AirCillerError.ffprobeMissing
         }
@@ -275,20 +281,21 @@ enum PGSSubtitleConverter {
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
-        try process.run()
-        process.waitUntilExit()
+        let status = try await CancellableProcess(process).run {
+            try? output.fileHandleForWriting.close()
+        }
         let text = String(
             data: output.fileHandleForReading.readDataToEndOfFile(),
             encoding: .utf8
         )?.trimmingCharacters(in: .whitespacesAndNewlines)
         let values = text?.split(separator: "x", maxSplits: 1).compactMap { Int($0) } ?? []
-        guard process.terminationStatus == 0,
+        guard status == 0,
             values.count == 2,
             values[0] > 0,
             values[1] > 0
         else {
             throw AirCillerError.subtitlePreparationFailed(
-                "FFmpeg no pudo determinar el lienzo de la pista PGS."
+                "FFmpeg no pudo determinar el lienzo de la pista gráfica."
             )
         }
         return (values[0], values[1])
@@ -297,6 +304,7 @@ enum PGSSubtitleConverter {
     private static func frameGroups(
         in directory: URL,
         videoDuration: Double,
+        isTruncated: Bool,
         frameBounds: [Int64: CGRect]
     ) throws -> [FrameGroup] {
         let files = try FileManager.default.contentsOfDirectory(
@@ -318,6 +326,7 @@ enum PGSSubtitleConverter {
         var currentStart = first.time
 
         for frame in timedFiles.dropFirst() {
+            try Task.checkCancellation()
             let data = try Data(contentsOf: frame.url, options: .mappedIfSafe)
             guard data != currentData else { continue }
             if frame.time > currentStart {
@@ -336,9 +345,9 @@ enum PGSSubtitleConverter {
         }
 
         let fallbackEnd =
-            videoDuration > currentStart
-            ? videoDuration
-            : currentStart + 5
+            isTruncated
+            ? currentStart + 5
+            : max(videoDuration, currentStart + 5)
         groups.append(
             FrameGroup(
                 start: currentStart,
@@ -480,7 +489,7 @@ enum PGSSubtitleConverter {
             let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
         else {
             throw AirCillerError.subtitlePreparationFailed(
-                "No se pudo abrir una imagen temporal de la pista PGS."
+                "No se pudo abrir una imagen temporal de la pista gráfica."
             )
         }
         let padding = max(12, Int((Double(image.height) * 0.018).rounded()))
@@ -489,7 +498,7 @@ enum PGSSubtitleConverter {
             .integral
         guard let cropped = image.cropping(to: crop) else {
             throw AirCillerError.subtitlePreparationFailed(
-                "No se pudo recortar una imagen temporal de la pista PGS."
+                "No se pudo recortar una imagen temporal de la pista gráfica."
             )
         }
         return RenderedSubtitle(
@@ -539,7 +548,7 @@ enum PGSSubtitleConverter {
     ) -> String {
         var blocks = [
             "WEBVTT",
-            "NOTE AirCiller PGS OCR v\(cacheVersion); cues=\(cues.count); confidence=\(String(format: "%.4f", averageConfidence))",
+            "NOTE AirCiller Bitmap OCR v\(cacheVersion); cues=\(cues.count); confidence=\(String(format: "%.4f", averageConfidence))",
         ]
         blocks += cues.map { cue in
             "\(timestamp(cue.start)) --> \(timestamp(cue.end)) \(cue.settings)\n\(cue.text)"
@@ -548,9 +557,13 @@ enum PGSSubtitleConverter {
     }
 
     private static func cacheMetadata(in webVTT: String) -> CacheMetadata? {
+        let supportedPrefixes = [
+            "NOTE AirCiller Bitmap OCR v\(cacheVersion);",
+            "NOTE AirCiller PGS OCR v\(cacheVersion);",
+        ]
         guard
-            let note = webVTT.components(separatedBy: .newlines).first(where: {
-                $0.hasPrefix("NOTE AirCiller PGS OCR v\(cacheVersion);")
+            let note = webVTT.components(separatedBy: .newlines).first(where: { line in
+                supportedPrefixes.contains(where: line.hasPrefix)
             })
         else { return nil }
         let fields = note.split(separator: ";").reduce(into: [String: String]()) { result, field in
@@ -567,20 +580,7 @@ enum PGSSubtitleConverter {
     }
 
     private static func defaultCacheDirectory() throws -> URL {
-        guard
-            let base = FileManager.default.urls(
-                for: .cachesDirectory,
-                in: .userDomainMask
-            ).first
-        else {
-            throw AirCillerError.subtitlePreparationFailed(
-                "macOS no proporcionó una carpeta de caché para el OCR."
-            )
-        }
-        return
-            base
-            .appendingPathComponent("local.carlosciller.AirCiller", isDirectory: true)
-            .appendingPathComponent("SubtitleOCR", isDirectory: true)
+        try AirCillerStorage.subtitleCacheDirectory()
     }
 
     private static func cacheFileName(track: SubtitleTrack, videoURL: URL) -> String {

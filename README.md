@@ -11,7 +11,7 @@ AirCiller is a lightweight macOS app for opening a local video file and sending 
 - Preserves the original H.264/HEVC video, including HDR and Dolby Vision when supported by the file and tvOS.
 - Keeps two playback paths independent: direct MP4 for HDR/Dolby Vision and HLS/fMP4 VOD for other cases.
 - Lets you select audio tracks, adjust audio timing, and convert audio only after an explicit choice.
-- Provides selectable SRT, WebVTT, ASS/SSA, and Blu-ray PGS subtitles through local Apple Vision OCR.
+- Provides selectable SRT, WebVTT, ASS/SSA, Blu-ray PGS, and DVD VobSub subtitles through local Apple Vision OCR.
 - Keeps a local playlist, playback progress, chapters, and synchronized Apple TV controls.
 - Analyzes media demand and network capacity on request, without telemetry or permanent background processes.
 

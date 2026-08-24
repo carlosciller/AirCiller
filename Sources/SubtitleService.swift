@@ -106,7 +106,7 @@ enum SubtitleService {
             throw AirCillerError.unsupportedSubtitle(track.unsupportedReason ?? "Pista de subtítulos no compatible.")
         }
 
-        try await Task.detached(priority: .userInitiated) {
+        do {
             let segments = try parseVODPlaylist(at: videoPlaylistURL)
             guard !segments.isEmpty else {
                 throw AirCillerError.invalidVODPackage("La película no contiene segmentos de vídeo.")
@@ -125,7 +125,7 @@ enum SubtitleService {
             } else {
                 let rawExtension = track.usesAdvancedTextStyling ? "ass" : "vtt"
                 let rawURL = outputDirectory.appendingPathComponent("subtitles-raw.\(rawExtension)")
-                try extractWebVTT(track: track, videoURL: videoURL, outputURL: rawURL)
+                try await extractWebVTT(track: track, videoURL: videoURL, outputURL: rawURL)
                 defer { try? FileManager.default.removeItem(at: rawURL) }
 
                 let raw = (try? String(contentsOf: rawURL, encoding: .utf8)) ?? "WEBVTT\n"
@@ -140,7 +140,7 @@ enum SubtitleService {
                 try writeWebVTTSegment(segment, cues: cues, outputDirectory: outputDirectory)
             }
             try writeSubtitlePlaylist(segments: segments, outputDirectory: outputDirectory)
-        }.value
+        }
     }
 
     /// Materializes a graphical subtitle as a temporary text track so the
@@ -530,7 +530,11 @@ enum SubtitleService {
         )
     }
 
-    private static func extractWebVTT(track: SubtitleTrack, videoURL: URL, outputURL: URL) throws {
+    private static func extractWebVTT(
+        track: SubtitleTrack,
+        videoURL: URL,
+        outputURL: URL
+    ) async throws {
         guard let ffmpegURL = Executables.find("ffmpeg") else {
             throw AirCillerError.ffmpegMissing
         }
@@ -561,13 +565,13 @@ enum SubtitleService {
         }
         process.standardError = errors
         process.standardOutput = FileHandle.nullDevice
-        try process.run()
-        try? errors.fileHandleForWriting.close()
-        process.waitUntilExit()
+        let status = try await CancellableProcess(process).run {
+            try? errors.fileHandleForWriting.close()
+        }
         errors.fileHandleForReading.readabilityHandler = nil
         errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
 
-        guard process.terminationStatus == 0 else {
+        guard status == 0 else {
             let data = errorBuffer.snapshot
             let message =
                 String(data: data, encoding: .utf8)

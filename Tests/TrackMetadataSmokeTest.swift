@@ -97,7 +97,7 @@ struct TrackMetadataSmokeTest {
             isHearingImpaired: false,
             externalPath: nil
         )
-        guard !vobSub.isSelectable, vobSub.unsupportedReason != nil else {
+        guard vobSub.isSelectable, vobSub.usesBitmapOCR, vobSub.unsupportedReason == nil else {
             throw NSError(domain: "TrackMetadataSmokeTest.VobSub", code: 8)
         }
 

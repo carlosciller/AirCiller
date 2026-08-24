@@ -63,7 +63,8 @@ final class LocalHTTPServer: @unchecked Sendable {
                     switch state {
                     case .ready:
                         guard let port = listener.port?.rawValue,
-                            let address = Self.localIPv4Address(allowLoopback: self.allowsLoopbackAddress),
+                            let address = self.receiverRoutedAddress
+                                ?? Self.localIPv4Address(allowLoopback: self.allowsLoopbackAddress),
                             let url = URL(string: "http://\(address):\(port)/\(self.pathToken)/")
                         else {
                             gate.resume(continuation, with: .failure(ServerError.noLocalAddress))
@@ -786,6 +787,13 @@ final class LocalHTTPServer: @unchecked Sendable {
         }
 
         return candidates.sorted { $0.priority < $1.priority }.first?.address
+    }
+
+    private var receiverRoutedAddress: String? {
+        guard let telemetryClientAddress else { return nil }
+        let address = LocalNetworkRoute.ipv4Address(to: telemetryClientAddress)
+        if !allowsLoopbackAddress, address == "127.0.0.1" { return nil }
+        return address
     }
 
     private static func decodeNullTerminatedUTF8(_ characters: UnsafePointer<CChar>) -> String {
