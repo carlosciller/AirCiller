@@ -90,8 +90,9 @@ enum SubtitleOCRService {
             return SubtitleOCRResult(text: "", confidence: 0)
         }
         let confidence = orderedLines.reduce(Float.zero) { $0 + $1.confidence } / Float(orderedLines.count)
+        let text = orderedLines.map(\.text).joined(separator: "\n")
         return SubtitleOCRResult(
-            text: orderedLines.map(\.text).joined(separator: "\n"),
+            text: SubtitleOCRTextNormalizer.normalize(text),
             confidence: confidence
         )
     }

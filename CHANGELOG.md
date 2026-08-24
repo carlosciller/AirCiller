@@ -4,13 +4,15 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+## Version 0.10.1
+
 - Cancels FFmpeg, ffprobe, text-subtitle extraction, and bitmap OCR with the task that owns them, including progress-reporting preparation jobs.
 - Adds selectable DVD VobSub through the existing on-demand FFmpeg and local Apple Vision OCR pipeline; no subtitle is burned in and originals remain untouched.
 - Adds native macOS Storage settings with a visible 128 MB–2 GB OCR cache limit, clear controls, LRU pruning, and safe removal of abandoned preparation files.
 - Chooses the Mac's serving address from the effective route to the selected Apple TV, with the existing interface scan retained as a fallback for VPN and multi-interface setups.
 - Adds deterministic Swift 6 tests for process cancellation, cache limits, temporary-file cleanup, route selection, and VobSub metadata.
-- Locally validates VobSub as positioned HLS/WebVTT and as a selectable track in a copied Dolby Vision MP4. Physical Apple TV validation remains pending before installation.
-- Publishes the signed, physically validated 0.9.8 app as an asset in the private GitHub release after a clean source and bundle audit.
+- Validates VobSub locally as positioned HLS/WebVTT and as a selectable track in a copied Dolby Vision MP4, then physically validates selectable OCR subtitles, picture, and audio on Apple TV 4K with tvOS 27.0.
+- Corrects the tightly scoped `& … s` Apple Vision misreading around song lyrics back to `♪ … ♪`, including multiline cues, without replacing normal ampersands or plural words; VobSub OCR cache revision 2 regenerates affected tracks once.
 
 ## Version 0.9.8
 

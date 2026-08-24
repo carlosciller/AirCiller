@@ -588,7 +588,7 @@ enum PGSSubtitleConverter {
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
         let modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
         let identity = [
-            "v\(cacheVersion)",
+            track.codec.lowercased() == "dvd_subtitle" ? "v2" : "v\(cacheVersion)",
             videoURL.standardizedFileURL.path,
             String(size),
             String(format: "%.3f", modified),

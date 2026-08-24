@@ -68,6 +68,9 @@ compile_and_run storage \
   "$project_dir/Sources/AirCillerError.swift" \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Tests/AirCillerStorageSmokeTest.swift"
+compile_and_run subtitle-ocr-text \
+  "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
+  "$project_dir/Tests/SubtitleOCRTextNormalizerSmokeTest.swift"
 compile_and_run ass-subtitles \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Tests/ASSSubtitleConverterSmokeTest.swift"
