@@ -1,14 +1,14 @@
-# Dependencias de terceros
+# Third-party dependencies
 
-AirCiller se apoya en proyectos independientes que conservan sus propias licencias:
+AirCiller relies on independent projects that retain their own licenses:
 
-| Proyecto | Uso | Licencia |
+| Project | Use | License |
 | --- | --- | --- |
-| [pyatv](https://github.com/postlund/pyatv) | Descubrimiento, autenticación y base del transporte AirPlay 2 | MIT |
-| [FFmpeg](https://ffmpeg.org/) | Análisis y preparación local de contenedores, audio y subtítulos | Según la compilación instalada; normalmente LGPL o GPL |
+| [pyatv](https://github.com/postlund/pyatv) | Discovery, authentication, and the foundation of AirPlay 2 transport | MIT |
+| [FFmpeg](https://ffmpeg.org/) | Local analysis and preparation of containers, audio, and subtitles | Depends on the installed build; usually LGPL or GPL |
 
-`Scripts/airplay_helper.py` amplía y adapta comportamiento del transporte AirPlay 2 de pyatv. Se conserva el aviso y texto MIT correspondiente en [LICENSES/pyatv-MIT.md](LICENSES/pyatv-MIT.md).
+`Scripts/airplay_helper.py` extends and adapts pyatv's AirPlay 2 transport behavior. The corresponding MIT notice and license are preserved in [LICENSES/pyatv-MIT.md](LICENSES/pyatv-MIT.md).
 
-Las dependencias Python transitivas se instalan localmente desde `requirements.lock` y no se guardan en Git. Sus metadatos y textos de licencia quedan incluidos dentro de la aplicación compilada cuando así los proporciona el paquete.
+Transitive Python dependencies are installed locally from `requirements.lock` and are not committed to Git. Their metadata and license texts are included in the built application when provided by the package.
 
-AirCiller no incorpora binarios de FFmpeg: utiliza la instalación existente en el Mac. La licencia concreta de FFmpeg depende de las opciones con las que se haya compilado ese binario.
+AirCiller does not bundle FFmpeg binaries; it uses the existing installation on the Mac. The exact FFmpeg license depends on the options used to build that binary.

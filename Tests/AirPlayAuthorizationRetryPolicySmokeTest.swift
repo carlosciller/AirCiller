@@ -17,6 +17,6 @@ struct AirPlayAuthorizationRetryPolicySmokeTest {
             throw NSError(domain: "AirPlayAuthorizationRetryPolicySmokeTest.Reset", code: 2)
         }
 
-        print("Autorización AirPlay limitada a una renovación automática: OK")
+        print("AirPlay authorization limited to one automatic renewal: OK")
     }
 }

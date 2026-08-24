@@ -43,6 +43,6 @@ struct StreamDiagnosticsSmokeTest {
             throw NSError(domain: "StreamDiagnosticsSmokeTest.Progress", code: 4)
         }
 
-        print("Pico de 6 s, audio elegido, margen de red y ETA de preparación: OK")
+        print("Six-second peak, selected audio, network margin, and preparation ETA: OK")
     }
 }

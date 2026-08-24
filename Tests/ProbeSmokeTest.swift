@@ -27,7 +27,7 @@ struct ProbeSmokeTest {
                 print("  audio \(audio.streamIndex): \(audio.displayName) · \(audio.technicalDescription)")
             }
             for subtitle in probe.subtitleTracks {
-                print("  subs \(subtitle.streamIndex.map(String.init) ?? "externo"): \(subtitle.displayName)")
+                print("  subtitles \(subtitle.streamIndex.map(String.init) ?? "external"): \(subtitle.displayName)")
             }
         }
     }

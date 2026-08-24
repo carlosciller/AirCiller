@@ -20,15 +20,15 @@ struct VODPlaybackSmokeTest {
         let subtitleArguments = Array(CommandLine.arguments.dropFirst(4))
 
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-        mark("analizando")
+        mark("probing")
         let probe = try await MediaProbeService.probe(url: input)
         guard let audio = probe.audioTracks.first(where: { $0.streamIndex == audioIndex }) else {
             throw NSError(domain: "VODPlaybackSmokeTest.Audio", code: 4)
         }
         if FileManager.default.fileExists(atPath: output.appendingPathComponent("video.m3u8").path) {
-            mark("reutilizando VOD existente")
+            mark("reusing existing VOD")
         } else {
-            mark("empaquetando VOD")
+            mark("packaging VOD")
             try packageVOD(
                 input: input,
                 output: output,
@@ -39,7 +39,7 @@ struct VODPlaybackSmokeTest {
                 multiplexed: multiplexed,
                 durationLimit: durationLimit
             )
-            mark("VOD terminado")
+            mark("VOD complete")
         }
         try SubtitleService.alignRenditionPlaylists(
             outputDirectory: output,
@@ -63,7 +63,7 @@ struct VODPlaybackSmokeTest {
                 subtitle = MediaProbeService.externalTrack(url: URL(fileURLWithPath: subtitleArgument))
             }
             if let subtitle {
-                mark("preparando subtítulo \(subtitleArgument)")
+                mark("preparing subtitle \(subtitleArgument)")
                 try await SubtitleService.prepare(
                     track: subtitle,
                     videoURL: input,
@@ -76,7 +76,7 @@ struct VODPlaybackSmokeTest {
                     expectedDuration: min(probe.duration, durationLimit ?? probe.duration)
                 )
             } else {
-                mark("probando sin subtítulos")
+                mark("testing without subtitles")
             }
             try SubtitleService.writeMasterPlaylist(
                 probe: probe,
@@ -136,11 +136,11 @@ struct VODPlaybackSmokeTest {
 
             let trackDescription =
                 subtitle.map {
-                    "pista \(subtitleArgument) · \($0.displayName) · "
-                } ?? "sin subtítulos · "
+                    "track \(subtitleArgument) · \($0.displayName) · "
+                } ?? "without subtitles · "
             print(
                 trackDescription + "VOD \(TimeFormatting.duration(loadedDuration)) · "
-                    + (subtitle == nil ? "vídeo y audio · OK" : "WebVTT seleccionable · OK")
+                    + (subtitle == nil ? "video and audio · OK" : "selectable WebVTT · OK")
             )
         }
     }

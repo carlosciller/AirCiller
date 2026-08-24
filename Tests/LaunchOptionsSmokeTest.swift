@@ -28,6 +28,6 @@ struct LaunchOptionsSmokeTest {
             throw NSError(domain: "LaunchOptionsSmokeTest.IncompleteOption", code: 2)
         }
 
-        print("Opciones de arranque centralizadas: OK")
+        print("Centralized launch options: OK")
     }
 }

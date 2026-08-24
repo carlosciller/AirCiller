@@ -17,7 +17,7 @@ struct PGSDirectHDRSmokeTest {
                 code: 1,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "Indica primero un archivo con PGS y después un archivo HDR/Dolby Vision."
+                        "Provide a file containing PGS followed by an HDR/Dolby Vision file."
                 ]
             )
         }
@@ -91,6 +91,6 @@ struct PGSDirectHDRSmokeTest {
         else {
             throw NSError(domain: "PGSDirectHDRSmokeTest.Output", code: 5)
         }
-        print("PGS real → OCR local → MP4 Dolby Vision con subtítulo seleccionable · OK")
+        print("Real PGS → local OCR → Dolby Vision MP4 with selectable subtitles · OK")
     }
 }

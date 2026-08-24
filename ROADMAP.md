@@ -1,26 +1,35 @@
-# Hoja de ruta técnica
+# Technical roadmap
 
-La prioridad es robustez medible, no añadir funciones por añadir.
+The priority is measurable robustness, not adding features for their own sake.
 
-## Siguientes correcciones aisladas
+## Next isolated fixes
 
-1. Unificar la ejecución de FFmpeg/ffprobe en un proceso cancelable para que Detener o cambiar de archivo termine inmediatamente análisis, preparación y OCR abandonados.
-2. Añadir un fixture sintético con portada adjunta y seleccionar/mapear siempre el índice exacto del vídeo real.
-3. Elegir la dirección local según la ruta efectiva hacia el Apple TV en Macs con varias interfaces o VPN, manteniendo el comportamiento actual como fallback.
-4. Añadir pruebas de caracterización del controlador AirPlay, carrera del Llavero y persistencia corrupta antes de dividir los archivos coordinadores grandes.
+1. Unify FFmpeg/ffprobe execution behind a cancellable process so Stop or switching files immediately ends abandoned analysis, preparation, and OCR work.
+2. Add a synthetic attached-artwork fixture and always select/map the exact index of the real video stream.
+3. Select the local address from the effective route to the Apple TV on Macs with multiple interfaces or a VPN, while keeping the current behavior as a fallback.
+4. Add characterization tests for the AirPlay controller, Keychain races, and corrupt persistence before splitting the large coordinator files.
 
-Cada cambio de reproducción se validará primero de forma local, después por separado en MP4 directo y HLS/fMP4, y finalmente en un Apple TV físico antes de instalarlo.
+Each playback change must be validated locally first, then independently through direct MP4 and HLS/fMP4, and finally on a physical Apple TV before installation.
 
-## Mantenimiento y publicación
+## Maintenance and publication
 
-- Adoptar catálogos de cadenas nativos con inglés como idioma de desarrollo y una localización completa al castellano, respetando la selección de idioma de macOS.
-- Traducir al inglés README, documentación, plantillas y textos de GitHub antes de publicar el repositorio.
-- Añadir un proceso reproducible para regenerar y verificar `requirements.lock`; los saltos mayores, como protobuf 7, solo se incorporarán con el lock actualizado, pruebas locales completas y validación física cuando puedan afectar al motor AirPlay.
+- [x] Use English as the development language with a complete native Spanish localization that follows the macOS language setting.
+- [x] Publish the main documentation and GitHub templates in English while keeping a Spanish README.
+- [ ] Add a reproducible process for regenerating and verifying `requirements.lock`; major upgrades such as protobuf 7 require an updated lock, full local checks, and physical validation when they can affect the AirPlay engine.
+- [ ] Enable GitHub private vulnerability reporting.
+- [ ] Create the first version tag and release after the localized build passes the physical Apple TV matrix.
 
-## Fuera de alcance
+## Functional candidates
 
-- Telemetría o analítica.
-- Nube o subida de películas/subtítulos.
-- Servidor permanente o indexación en segundo plano.
-- Recodificación silenciosa.
-- Dependencias pesadas sin una ventaja demostrable.
+1. Reuse the Apple Vision pipeline for local, on-demand DVD VobSub OCR.
+2. Add a visible limit and controls for prepared-media and subtitle caches.
+3. Add an App Intent/Shortcut for “Send to Apple TV”.
+4. Add an anonymized, local diagnostic export.
+
+## Out of scope
+
+- Telemetry or analytics.
+- Cloud storage or uploading movies/subtitles.
+- A permanent server or background indexing.
+- Silent transcoding.
+- Heavy dependencies without a demonstrated benefit.

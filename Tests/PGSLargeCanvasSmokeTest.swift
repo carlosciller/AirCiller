@@ -12,7 +12,7 @@ struct PGSLargeCanvasSmokeTest {
                 code: 1,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "Indica un archivo PGS de lienzo grande como argumento o en AIRCILLER_TEST_PGS_LARGE_MEDIA."
+                        "Provide a large-canvas PGS file as an argument or through AIRCILLER_TEST_PGS_LARGE_MEDIA."
                 ]
             )
         }

@@ -14,7 +14,7 @@ vendor_path="$project_dir/VendorPython"
 runtime_marker="$vendor_path/.airciller-python-executable"
 
 if [[ ! -d "$vendor_path" || ! -f "$runtime_marker" ]]; then
-  echo "Falta el motor Python reproducible. Ejecuta ./Scripts/bootstrap_dependencies.sh." >&2
+  echo "The reproducible Python engine is missing. Run ./Scripts/bootstrap_dependencies.sh." >&2
   exit 2
 fi
 

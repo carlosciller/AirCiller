@@ -9,7 +9,7 @@ swiftc_path="$(xcrun --find swiftc)"
 sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
 
 if [[ ! -f "$project_dir/VendorPython/.airciller-python-executable" ]]; then
-  echo "Falta VendorPython. Ejecuta ./Scripts/bootstrap_dependencies.sh." >&2
+  echo "VendorPython is missing. Run ./Scripts/bootstrap_dependencies.sh." >&2
   exit 2
 fi
 
@@ -84,4 +84,4 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/en.lproj/Localizable.strings"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/es.lproj/Localizable.strings"
 
-echo "Comprobaciones locales de AirCiller: OK"
+echo "AirCiller local checks: OK"

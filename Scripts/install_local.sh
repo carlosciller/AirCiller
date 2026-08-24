@@ -5,7 +5,7 @@ project_dir="${0:A:h:h}"
 source_app="$project_dir/.build/AirCiller.app"
 
 if (( $# != 1 )); then
-  echo "Uso: ./Scripts/install_local.sh /ruta/explicita/AirCiller.app" >&2
+  echo "Usage: ./Scripts/install_local.sh /explicit/path/AirCiller.app" >&2
   exit 2
 fi
 
@@ -15,12 +15,12 @@ staged_app="$target_parent/.AirCiller.installing.app"
 rollback_app="$target_parent/AirCiller.rollback.app"
 
 if [[ ! -d "$source_app" ]]; then
-  echo "Primero compila AirCiller con ./build.sh." >&2
+  echo "Build AirCiller with ./build.sh first." >&2
   exit 2
 fi
 
 if pgrep -x AirCiller >/dev/null 2>&1; then
-  echo "Cierra AirCiller antes de instalar una candidata." >&2
+  echo "Quit AirCiller before installing a candidate." >&2
   exit 2
 fi
 
@@ -34,8 +34,8 @@ if [[ -e "$target_app" ]]; then
 fi
 
 if mv "$staged_app" "$target_app"; then
-  echo "Instalada: $target_app"
-  [[ -e "$rollback_app" ]] && echo "Copia de retorno: $rollback_app"
+  echo "Installed: $target_app"
+  [[ -e "$rollback_app" ]] && echo "Rollback copy: $rollback_app"
 else
   [[ ! -e "$target_app" && -e "$rollback_app" ]] && mv "$rollback_app" "$target_app"
   exit 1

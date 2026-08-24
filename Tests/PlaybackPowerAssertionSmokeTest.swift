@@ -21,6 +21,6 @@ struct PlaybackPowerAssertionSmokeTest {
             throw NSError(domain: "PlaybackPowerAssertionSmokeTest.End", code: 3)
         }
 
-        print("Reposo automático bloqueado de forma idempotente durante la sesión: OK")
+        print("Automatic sleep blocked idempotently during the session: OK")
     }
 }

@@ -10,6 +10,7 @@ scan_paths=(
   Scripts/airplay_helper.py
   Scripts/make_icon.swift
   README.md
+  README.es.md
   CHANGELOG.md
   ARCHITECTURE.md
   CONTRIBUTING.md
@@ -25,36 +26,36 @@ scan_paths=(
 failed=0
 
 if rg -n '/Users/[^/[:space:]]+/' "${scan_paths[@]}"; then
-  echo "Se encontraron rutas personales." >&2
+  echo "Personal filesystem paths were found." >&2
   failed=1
 fi
 
 if rg -n '192\.168\.|Monsieur Hulot|YTS\.MX|BYNDR|SARTRE|The Invite|Supergirl|Disclosure Day|The Apartment' "${scan_paths[@]}"; then
-  echo "Se encontraron datos de medios o red usados durante el desarrollo." >&2
+  echo "Development media or network data was found." >&2
   failed=1
 fi
 
 if rg -n 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}' \
   Sources Tests Scripts/airplay_helper.py Scripts/make_icon.swift; then
-  echo "Se encontró material con aspecto de secreto." >&2
+  echo "Content resembling secret material was found." >&2
   failed=1
 fi
 
 if find Sources Tests Scripts -type f \( -name '*.pyc' -o -name '*.pyo' \) -print -quit | grep -q .; then
-  echo "Se encontró bytecode Python generado." >&2
+  echo "Generated Python bytecode was found." >&2
   failed=1
 fi
 
 if [[ -d .git ]]; then
   for generated in .build VendorPython; do
     if ! git check-ignore -q "$generated"; then
-      echo "$generated no está protegido por .gitignore." >&2
+      echo "$generated is not protected by .gitignore." >&2
       failed=1
     fi
   done
 
   if git ls-files | rg '(^|/)(\.build|VendorPython|__pycache__)(/|$)|\.app/|\.(mkv|mp4|m4v|mov|m2ts)$'; then
-    echo "Git contiene artefactos generados o medios." >&2
+    echo "Git contains generated artifacts or media files." >&2
     failed=1
   fi
 fi
@@ -63,4 +64,4 @@ if (( failed != 0 )); then
   exit 1
 fi
 
-echo "Contenido preparado para revisión pública: OK"
+echo "Public repository content check: OK"

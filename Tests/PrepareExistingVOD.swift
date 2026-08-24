@@ -56,6 +56,6 @@ struct PrepareExistingVOD {
             hasAudio: true,
             hasSubtitles: subtitle != nil
         )
-        print("VOD preparado: \(TimeFormatting.duration(duration))")
+        print("VOD prepared: \(TimeFormatting.duration(duration))")
     }
 }

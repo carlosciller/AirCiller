@@ -44,6 +44,6 @@ struct DirectMP4SmokeTest {
         try await Task.sleep(for: .milliseconds(700))
         guard item.error == nil else { throw item.error! }
         player.pause()
-        print("MP4 directo HTTP · vídeo + audio + subtítulo seleccionable · \(TimeFormatting.duration(duration)) · OK")
+        print("Direct HTTP MP4 · video + audio + selectable subtitles · \(TimeFormatting.duration(duration)) · OK")
     }
 }

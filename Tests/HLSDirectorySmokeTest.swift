@@ -51,6 +51,6 @@ struct HLSDirectorySmokeTest {
         try await Task.sleep(for: .milliseconds(700))
         guard item.error == nil else { throw item.error! }
         player.pause()
-        print("HLS \(TimeFormatting.duration(duration)) · vídeo y audio · OK")
+        print("HLS \(TimeFormatting.duration(duration)) · video and audio · OK")
     }
 }

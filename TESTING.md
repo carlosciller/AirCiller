@@ -1,24 +1,24 @@
-# Estrategia de pruebas
+# Testing strategy
 
-AirCiller distingue tres niveles de validación para no confundir una compilación correcta con una reproducción real.
+AirCiller separates three levels of validation so that a successful build is never mistaken for successful playback.
 
-## 1. Comprobaciones deterministas
+## 1. Deterministic checks
 
-`./Scripts/check.sh` valida formato, compila el código con Swift 6 estricto, ejecuta las pruebas sin medios privados y comprueba el puente Python de forma simulada.
+`./Scripts/check.sh` validates formatting, compiles the code in strict Swift 6 mode, runs tests without private media, and checks the Python bridge through a simulation.
 
-## 2. Pruebas locales con medios
+## 2. Local tests with media
 
-Los ejecutables de `Tests/` que requieren un archivo real reciben su ruta como argumento o variable de entorno. Los medios permanecen fuera del repositorio. Estas pruebas verifican contenedores, OCR, AVPlayer y listas VOD, pero no demuestran que tvOS acepte la sesión.
+Executables in `Tests/` that require a real file receive its path through an argument or environment variable. Media remains outside the repository. These tests validate containers, OCR, AVPlayer, and VOD playlists, but they do not prove that tvOS will accept the session.
 
-## 3. Matriz física en Apple TV
+## 3. Physical Apple TV matrix
 
-Una versión no se considera validada para instalar hasta completar, por separado:
+A version is not considered ready to install until these cases have been completed separately:
 
-| Ruta | Caso mínimo | Resultado esperado |
+| Path | Minimum case | Expected result |
 | --- | --- | --- |
-| MP4 directo | HDR/Dolby Vision, E-AC-3/Atmos, con subtítulo seleccionable | Imagen y pistas correctas; duración y posición sincronizadas |
-| HLS/fMP4 | Sin subtítulos | VOD completo, sin indicador de directo ni pausas de preparación |
-| HLS/fMP4 | Con WebVTT | Subtítulo seleccionable y sincronizado, sin quemarlo en la imagen |
-| Control | Pausa larga y reanudación desde el mando | AirPlay sigue enlazado y el Mac no entra en reposo automático |
+| Direct MP4 | HDR/Dolby Vision, E-AC-3/Atmos, with selectable subtitles | Correct picture and tracks; synchronized duration and position |
+| HLS/fMP4 | Without subtitles | Complete VOD, no live indicator or preparation pauses |
+| HLS/fMP4 | With WebVTT | Selectable, synchronized subtitles that are not burned into the picture |
+| Control | Long pause and resume from the remote | AirPlay remains linked and the Mac does not sleep automatically |
 
-Tras la prueba se comprueba también detener, volver a reproducir y cerrar la aplicación. Solo entonces se incrementa la versión patch y se sustituye la app instalada, conservando una copia de retorno.
+After playback, also test stop, replay, and closing the app. Only then should the patch version be increased and the installed app replaced, while keeping a rollback copy.

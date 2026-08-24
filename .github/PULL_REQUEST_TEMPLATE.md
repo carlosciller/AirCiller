@@ -1,11 +1,11 @@
-## Cambio
+## Change
 
-Describe una sola mejora o corrección y por qué es necesaria.
+Describe one improvement or fix and why it is needed.
 
-## Validación
+## Validation
 
-- [ ] `./Scripts/check.sh` termina correctamente.
-- [ ] No modifica originales ni recodifica silenciosamente.
-- [ ] No incluye medios, rutas personales, IP, receptores o credenciales.
-- [ ] Indico claramente si la prueba en Apple TV físico está pendiente.
-- [ ] Si afecta a reproducción, he probado MP4 directo y HLS/fMP4 por separado.
+- [ ] `./Scripts/check.sh` completes successfully.
+- [ ] Does not modify originals or transcode silently.
+- [ ] Does not include media, personal paths, IP addresses, receivers, or credentials.
+- [ ] Clearly states whether testing on a physical Apple TV is still pending.
+- [ ] If playback is affected, direct MP4 and HLS/fMP4 were tested separately.

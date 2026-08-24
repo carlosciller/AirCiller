@@ -1,20 +1,20 @@
-# Privacidad
+# Privacy
 
-AirCiller no incluye cuentas, telemetría, analítica, publicidad, nube ni actualización automática.
+AirCiller has no accounts, telemetry, analytics, advertising, cloud service, or automatic updater.
 
-## Datos procesados en el Mac
+## Data processed on the Mac
 
-- Playlist, recientes, posición y rutas de archivos se guardan en las preferencias locales de la aplicación.
-- Las credenciales AirPlay se guardan en el Llavero de macOS.
-- El OCR de subtítulos PGS se ejecuta mediante Apple Vision y su WebVTT resultante puede conservarse en la caché local para evitar repetir el reconocimiento.
-- Los VOD y pistas preparados se crean en almacenamiento temporal y se eliminan al terminar la sesión o durante la limpieza posterior.
+- The playlist, recent items, playback position, and file paths are stored in the app's local preferences.
+- AirPlay credentials are stored in the macOS Keychain.
+- PGS subtitle OCR runs through Apple Vision. Its WebVTT result may remain in a local cache to avoid repeating recognition.
+- Prepared VODs and tracks are created in temporary storage and removed when the session ends or during later cleanup.
 
-## Red local
+## Local network
 
-Durante la reproducción, AirCiller abre un servidor HTTP temporal en la red local para que el Apple TV lea el archivo o VOD. La URL utiliza una ruta aleatoria de sesión y el servidor se cierra al detener la reproducción. AirPlay requiere este transporte local sin TLS; no se publica en Internet ni funciona como servidor permanente.
+During playback, AirCiller opens a temporary HTTP server on the local network so the Apple TV can read the file or VOD. The URL contains a random session path, and the server closes when playback stops. AirPlay requires this local transport without TLS; it is not exposed to the Internet and does not act as a permanent server.
 
-## Registros
+## Logs
 
-El registro unificado de macOS puede contener estados técnicos, pero los nombres de archivos, receptores, direcciones y URI se marcan como privados. Antes de compartir un diagnóstico, revisa y elimina cualquier dato personal restante.
+The macOS unified log may contain technical state, but filenames, receivers, addresses, and URIs are marked private. Before sharing diagnostics, review and remove any remaining personal data.
 
-AirCiller no transmite la biblioteca, subtítulos, diagnósticos o credenciales a su mantenedor, OpenAI ni terceros.
+AirCiller does not send your library, subtitles, diagnostics, or credentials to its maintainer, OpenAI, or any third party.

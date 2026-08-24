@@ -21,6 +21,6 @@ struct AirPlayPairingIntentSmokeTest {
             throw NSError(domain: "AirPlayPairingIntentSmokeTest.Cancel", code: 3)
         }
 
-        print("Emparejamiento manual separado de la reanudación de reproducción: OK")
+        print("Manual pairing kept separate from playback resume: OK")
     }
 }

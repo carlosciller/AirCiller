@@ -1,20 +1,20 @@
-# Contribuir a AirCiller
+# Contributing to AirCiller
 
-AirCiller es un proyecto personal, pero las revisiones y propuestas pequeñas son bienvenidas.
+AirCiller is a personal project, but focused reviews and small proposals are welcome.
 
-## Antes de proponer un cambio
+## Before proposing a change
 
-- Mantén el flujo abrir–enviar–ver rápido y ligero.
-- No añadas telemetría, nube, un servidor permanente o trabajo en segundo plano.
-- No modifiques originales ni recodifiques silenciosamente.
-- No cambies a la vez MP4 directo y HLS/fMP4.
-- No incluyas películas, subtítulos comerciales, direcciones de red, nombres de dispositivos ni credenciales.
+- Keep the open–send–watch workflow fast and lightweight.
+- Do not add telemetry, cloud services, a permanent server, or background work.
+- Do not modify originals or transcode silently.
+- Do not change direct MP4 and HLS/fMP4 in the same delivery.
+- Do not include movies, commercial subtitles, network addresses, device names, or credentials.
 
-## Validación mínima
+## Minimum validation
 
-1. Ejecuta `./Scripts/check.sh`.
-2. Compila con `./build.sh` usando Swift 6 estricto y warnings-as-errors.
-3. Describe qué prueba es local y qué prueba se ha realizado físicamente en Apple TV.
-4. Para cambios de reproducción, valida por separado las dos rutas descritas en [TESTING.md](TESTING.md).
+1. Run `./Scripts/check.sh`.
+2. Build with `./build.sh` using strict Swift 6 and warnings-as-errors.
+3. State clearly which tests are local and which were performed on a physical Apple TV.
+4. For playback changes, validate the two paths in [TESTING.md](TESTING.md) separately.
 
-Los cambios generados con herramientas de IA son admisibles, pero deben ser revisados, comprensibles y sometidos a las mismas pruebas que cualquier otro cambio.
+Changes produced with AI tools are acceptable, but they must be reviewed, understandable, and held to the same validation standard as any other change.

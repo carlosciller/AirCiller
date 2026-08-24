@@ -11,7 +11,9 @@ struct PGSSubtitleHLSSmokeTest {
                 domain: "PGSSubtitleHLSSmokeTest.Input",
                 code: 1,
                 userInfo: [
-                    NSLocalizedDescriptionKey: "Indica un archivo con PGS como argumento o en AIRCILLER_TEST_PGS_MEDIA."
+                    NSLocalizedDescriptionKey:
+                        "Provide a file containing PGS as an argument "
+                        + "or through AIRCILLER_TEST_PGS_MEDIA."
                 ]
             )
         }
@@ -71,6 +73,6 @@ struct PGSSubtitleHLSSmokeTest {
                 userInfo: [NSLocalizedDescriptionKey: webVTT]
             )
         }
-        print("PGS real · OCR local · WebVTT HLS segmentado y posicionado · OK")
+        print("Real PGS · local OCR · segmented and positioned HLS WebVTT · OK")
     }
 }

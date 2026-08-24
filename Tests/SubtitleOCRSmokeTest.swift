@@ -44,9 +44,9 @@ struct SubtitleOCRSmokeTest {
             throw NSError(
                 domain: "SubtitleOCRSmokeTest.Recognition",
                 code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "OCR inesperado: \(result.text) (\(result.confidence))"]
+                userInfo: [NSLocalizedDescriptionKey: "Unexpected OCR: \(result.text) (\(result.confidence))"]
             )
         }
-        print("OCR local · dos líneas · \(Int(result.confidence * 100)) % · OK")
+        print("Local OCR · two lines · \(Int(result.confidence * 100))% · OK")
     }
 }

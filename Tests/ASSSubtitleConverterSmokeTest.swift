@@ -39,6 +39,6 @@ struct ASSSubtitleConverterSmokeTest {
                 userInfo: [NSLocalizedDescriptionKey: conversion.webVTT]
             )
         }
-        print("ASS/SSA · posición, formato básico y simplificación explícita · OK")
+        print("ASS/SSA · position, basic formatting, and explicit simplification · OK")
     }
 }

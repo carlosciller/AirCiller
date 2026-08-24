@@ -61,6 +61,6 @@ struct DirectFilePackagingSmokeTest {
         else {
             throw NSError(domain: "DirectFilePackagingSmokeTest.AVPlayer", code: 5)
         }
-        print("Dolby Vision directo · audio intacto · subtítulo seleccionable · OK")
+        print("Direct Dolby Vision · untouched audio · selectable subtitles · OK")
     }
 }

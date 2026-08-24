@@ -1,37 +1,39 @@
 # AirCiller
 
-AirCiller es una aplicación macOS ligera para abrir un archivo de vídeo local y enviarlo a un Apple TV mediante AirPlay 2. Está pensada para el flujo **abrir, enviar y ver**: sin biblioteca permanente, nube, telemetría ni recodificación silenciosa.
+[Leer en español](README.es.md)
 
-> Estado: proyecto personal en desarrollo. La versión instalada y validada físicamente es la 0.9.7; la rama de trabajo puede contener cambios todavía pendientes de probar en un Apple TV real.
+AirCiller is a lightweight macOS app for opening a local video file and sending it to an Apple TV over AirPlay 2. It is designed around a simple **open, send, watch** workflow, with no permanent library, cloud service, telemetry, or silent transcoding.
 
-## Qué hace
+> Status: personal project under active development. Version 0.9.7 is currently installed and has been validated on a physical Apple TV. The development branch may contain changes that still require real-device testing.
 
-- Conserva el vídeo H.264/HEVC original, incluidos HDR y Dolby Vision cuando el archivo y tvOS son compatibles.
-- Mantiene dos rutas independientes: MP4 directo para HDR/Dolby Vision y VOD HLS/fMP4 para el resto de casos.
-- Permite elegir pista de audio, ajustar su sincronización y convertir audio solo tras una elección explícita.
-- Ofrece subtítulos seleccionables SRT, WebVTT, ASS/SSA y PGS de Blu-ray mediante OCR local con Apple Vision.
-- Conserva una playlist local, progreso, capítulos y control sincronizado con el Apple TV.
-- Analiza demanda y red bajo petición, sin telemetría ni procesos permanentes.
+## Features
 
-AirCiller no descarga contenidos ni incluye medios. Utilízalo únicamente con archivos que tengas derecho a reproducir.
+- Preserves the original H.264/HEVC video, including HDR and Dolby Vision when supported by the file and tvOS.
+- Keeps two playback paths independent: direct MP4 for HDR/Dolby Vision and HLS/fMP4 VOD for other cases.
+- Lets you select audio tracks, adjust audio timing, and convert audio only after an explicit choice.
+- Provides selectable SRT, WebVTT, ASS/SSA, and Blu-ray PGS subtitles through local Apple Vision OCR.
+- Keeps a local playlist, playback progress, chapters, and synchronized Apple TV controls.
+- Analyzes media demand and network capacity on request, without telemetry or permanent background processes.
 
-## Principios del proyecto
+AirCiller does not download or include media. Use it only with files you have the right to play.
 
-- Nunca modificar el archivo original.
-- Nunca recodificar vídeo o audio sin explicarlo y pedir una decisión.
-- Nunca quemar subtítulos en la imagen ni subirlos a un servicio externo.
-- Mantener separadas y probadas las rutas MP4 directo y HLS/fMP4.
-- No declarar una función validada en Apple TV basándose solo en una prueba local.
+## Project principles
 
-## Requisitos
+- Never modify the original file.
+- Never transcode video or audio without explaining why and asking first.
+- Never burn subtitles into the picture or upload them to an external service.
+- Keep the direct MP4 and HLS/fMP4 paths separate and independently tested.
+- Never claim Apple TV validation based only on a local test.
 
-- Mac con Apple Silicon y macOS 14 o posterior.
-- Xcode Command Line Tools con Swift 6.
-- [FFmpeg](https://ffmpeg.org/) y `ffprobe` accesibles mediante Homebrew o MacPorts. La referencia validada actualmente es FFmpeg 9.0.1.
-- Python 3.11 o posterior para preparar el motor AirPlay local.
-- Apple TV compatible con AirPlay 2 en la misma red local.
+## Requirements
 
-## Preparar y compilar
+- Apple Silicon Mac running macOS 14 or later.
+- Xcode Command Line Tools with Swift 6.
+- [FFmpeg](https://ffmpeg.org/) and `ffprobe`, available through Homebrew or MacPorts. The current validated reference is FFmpeg 9.0.1.
+- Python 3.11 or later to prepare the local AirPlay engine.
+- An AirPlay 2-compatible Apple TV on the same local network.
+
+## Setup and build
 
 ```sh
 brew bundle
@@ -39,36 +41,36 @@ brew bundle
 ./build.sh
 ```
 
-El resultado queda en `.build/AirCiller.app`. Compilar no sustituye ni abre ninguna aplicación instalada. Para evitar incompatibilidades binarias, vuelve a preparar `VendorPython` en cada Mac o después de cambiar la versión de Python.
+The build is written to `.build/AirCiller.app`. Building does not replace or launch any installed copy. Rebuild `VendorPython` on each Mac and whenever the Python version changes to avoid binary incompatibilities.
 
-## Comprobaciones
+## Checks
 
 ```sh
 ./Scripts/check.sh
 ```
 
-Las pruebas automáticas cubren lógica, servidor HTTP, subtítulos y el puente AirPlay sin contactar con un Apple TV. Las pruebas que necesitan películas reales reciben las rutas mediante argumentos o variables de entorno y no forman parte del repositorio.
+Automated checks cover application logic, the HTTP server, subtitles, and a simulated AirPlay bridge without contacting an Apple TV. Tests that require real media receive file paths through arguments or environment variables; those files are never part of the repository.
 
-Antes de instalar una versión se verifican físicamente, por separado:
+Before installing a release, validate these cases separately on a physical Apple TV:
 
-1. MP4 directo HDR/Dolby Vision con E-AC-3/Atmos y subtítulo seleccionable.
-2. HLS/fMP4 VOD con WebVTT, tanto con subtítulos como sin ellos.
-3. Pausa larga, reanudación, posición, parada y control remoto.
+1. Direct HDR/Dolby Vision MP4 with E-AC-3/Atmos and selectable subtitles.
+2. HLS/fMP4 VOD with WebVTT, both with and without subtitles.
+3. Long pause and resume, position updates, stop, and remote control.
 
-Consulta [ARCHITECTURE.md](ARCHITECTURE.md) para el diseño, [TESTING.md](TESTING.md) para la validación, [ROADMAP.md](ROADMAP.md) para el trabajo pendiente y [CHANGELOG.md](CHANGELOG.md) para el historial.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the design, [TESTING.md](TESTING.md) for validation, [ROADMAP.md](ROADMAP.md) for planned work, and [CHANGELOG.md](CHANGELOG.md) for release history.
 
-## Privacidad y seguridad
+## Privacy and security
 
-Todo el procesamiento se realiza en el Mac. AirCiller abre un servidor HTTP temporal limitado a la red local y protegido por una ruta aleatoria durante la reproducción; no incluye cuentas, analítica, nube ni actualización automática. Las credenciales AirPlay se guardan en el Llavero de macOS.
+All processing happens on the Mac. During playback, AirCiller opens a temporary HTTP server restricted to the local network and protected by a random session path. It has no accounts, analytics, cloud service, or automatic updater. AirPlay credentials are stored in the macOS Keychain.
 
-No abras incidencias públicas con registros que contengan nombres de dispositivos, direcciones locales o nombres de archivos privados. Consulta [SECURITY.md](SECURITY.md) antes de compartir un diagnóstico.
+Do not open public issues containing device names, local addresses, or private filenames. Read [SECURITY.md](SECURITY.md) before sharing diagnostics.
 
-## Origen y atribución
+## Origin and attribution
 
-AirCiller es un proyecto independiente desarrollado, revisado y depurado con asistencia sustancial de **OpenAI Codex**. Las decisiones de producto y la validación física corresponden al mantenedor. OpenAI no patrocina ni respalda este proyecto.
+AirCiller is an independent project developed, reviewed, and debugged with substantial assistance from **OpenAI Codex**. Product decisions and physical validation remain the maintainer's responsibility. OpenAI does not sponsor or endorse this project.
 
-AirCiller es un proyecto independiente y no está afiliado con Apple. Apple, macOS, tvOS, Apple TV y AirPlay son marcas de Apple Inc. El nombre y el icono de AirCiller son originales y forman parte de la identidad propia del proyecto.
+AirCiller is not affiliated with Apple. Apple, macOS, tvOS, Apple TV, and AirPlay are trademarks of Apple Inc. The AirCiller name and icon are original parts of the project's own identity.
 
-## Licencia
+## License
 
-El código fuente y los recursos gráficos originales de AirCiller se publican bajo la [GNU General Public License v3.0](LICENSE). Si distribuyes una versión modificada, debes ofrecer también su código fuente bajo la misma licencia. Las dependencias conservan sus propias licencias; consulta [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+AirCiller source code and original artwork are released under the [GNU General Public License v3.0](LICENSE). If you distribute a modified version, you must make its corresponding source available under the same license. Dependencies retain their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

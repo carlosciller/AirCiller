@@ -16,17 +16,17 @@ elif [[ -x /opt/homebrew/bin/python3 ]]; then
 elif [[ -x /usr/local/bin/python3 ]]; then
   python_path="/usr/local/bin/python3"
 else
-  echo "AirCiller necesita Python 3.11 o posterior. Instálalo con Homebrew o define AIRCILLER_PYTHON." >&2
+  echo "AirCiller requires Python 3.11 or later. Install it with Homebrew or set AIRCILLER_PYTHON." >&2
   exit 2
 fi
 
 if [[ ! -x "$python_path" ]]; then
-  echo "El intérprete indicado no existe o no es ejecutable: $python_path" >&2
+  echo "The selected interpreter does not exist or is not executable: $python_path" >&2
   exit 2
 fi
 
 if ! "$python_path" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)'; then
-  echo "AirCiller necesita Python 3.11 o posterior: $($python_path --version 2>&1)" >&2
+  echo "AirCiller requires Python 3.11 or later: $($python_path --version 2>&1)" >&2
   exit 2
 fi
 
@@ -58,4 +58,4 @@ else
   exit 1
 fi
 
-echo "Motor AirPlay preparado con $($python_path --version 2>&1): $target"
+echo "AirPlay engine prepared with $($python_path --version 2>&1): $target"

@@ -272,7 +272,7 @@ async def test_receiver_end_event():
 
 
 async def test_pairing_pin_has_timeout():
-    config = type("Config", (), {"name": "Apple TV de prueba"})()
+    config = type("Config", (), {"name": "Test Apple TV"})()
     pairing = type(
         "Pairing",
         (),
@@ -292,7 +292,7 @@ async def test_pairing_pin_has_timeout():
         patch.object(
             HELPER,
             "describe_device",
-            return_value={"id": "device", "name": "Apple TV de prueba"},
+            return_value={"id": "device", "name": "Test Apple TV"},
         ),
         patch.object(HELPER.pyatv, "pair", return_value=pairing),
         patch.object(HELPER, "connect_stdin", return_value=asyncio.StreamReader()),
@@ -312,7 +312,7 @@ async def test_pairing_is_verified_before_credentials_are_emitted():
         "Config",
         (),
         {
-            "name": "Apple TV de prueba",
+            "name": "Test Apple TV",
             "address": "198.51.100.33",
             "get_service": lambda self, _protocol: service,
         },
@@ -352,7 +352,7 @@ async def test_pairing_is_verified_before_credentials_are_emitted():
     args = type("Args", (), {"timeout": 5, "address": "198.51.100.33"})()
     with (
         patch.object(HELPER, "discover", return_value=[config]),
-        patch.object(HELPER, "describe_device", return_value={"name": "Apple TV de prueba"}),
+        patch.object(HELPER, "describe_device", return_value={"name": "Test Apple TV"}),
         patch.object(HELPER.pyatv, "pair", return_value=Pairing()),
         patch.object(HELPER, "connect_stdin", return_value=reader),
         patch.object(HELPER, "http_connect", return_value=connection),
@@ -377,7 +377,7 @@ async def test_pairing_verification_failure_is_bounded():
         "Config",
         (),
         {
-            "name": "Apple TV de prueba",
+            "name": "Test Apple TV",
             "address": "198.51.100.33",
             "get_service": lambda self, _protocol: service,
         },
@@ -420,7 +420,7 @@ async def test_pairing_verification_failure_is_bounded():
     args = type("Args", (), {"timeout": 5, "address": "198.51.100.33"})()
     with (
         patch.object(HELPER, "discover", return_value=[config]),
-        patch.object(HELPER, "describe_device", return_value={"name": "Apple TV de prueba"}),
+        patch.object(HELPER, "describe_device", return_value={"name": "Test Apple TV"}),
         patch.object(HELPER.pyatv, "pair", return_value=Pairing()),
         patch.object(HELPER, "connect_stdin", return_value=reader),
         patch.object(HELPER, "http_connect", side_effect=connect),
@@ -467,7 +467,7 @@ async def test_authorization_preflight_uses_stdin_credential():
     args = type("Args", (), {"timeout": 5, "address": "198.51.100.33"})()
     with (
         patch.object(HELPER, "discover", return_value=[config]),
-        patch.object(HELPER, "describe_device", return_value={"name": "Apple TV de prueba"}),
+        patch.object(HELPER, "describe_device", return_value={"name": "Test Apple TV"}),
         patch.object(HELPER, "connect_stdin", return_value=reader),
         patch.object(HELPER, "http_connect", side_effect=connect),
         patch.object(HELPER, "extract_credentials", return_value="parsed-secret"),
@@ -506,7 +506,7 @@ async def test_authorization_preflight_allows_transient_hap():
     args = type("Args", (), {"timeout": 5, "address": "198.51.100.33"})()
     with (
         patch.object(HELPER, "discover", return_value=[config]),
-        patch.object(HELPER, "describe_device", return_value={"name": "Apple TV de prueba"}),
+        patch.object(HELPER, "describe_device", return_value={"name": "Test Apple TV"}),
         patch.object(HELPER, "connect_stdin", return_value=reader),
         patch.object(HELPER, "http_connect", return_value=connection),
         patch.object(HELPER, "extract_credentials", return_value="transient"),

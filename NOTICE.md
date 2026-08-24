@@ -1,17 +1,17 @@
-# Avisos
+# Notices
 
-Copyright (C) 2026 Carlos Ciller y colaboradores de AirCiller.
+Copyright (C) 2026 Carlos Ciller and AirCiller contributors.
 
-AirCiller se distribuye bajo GNU GPL v3.0, sin garantía. Consulta [LICENSE](LICENSE) para conocer los términos completos.
+AirCiller is distributed under GNU GPL v3.0 without warranty. See [LICENSE](LICENSE) for the complete terms.
 
-## Asistencia de IA
+## AI assistance
 
-AirCiller ha sido desarrollado y mantenido por Carlos Ciller con asistencia sustancial de OpenAI Codex en implementación, refactorización, revisión, documentación y diseño de pruebas. Todo cambio publicado ha sido revisado y validado por el mantenedor. OpenAI no patrocina ni respalda este proyecto.
+AirCiller has been developed and maintained by Carlos Ciller with substantial assistance from OpenAI Codex in implementation, refactoring, review, documentation, and test design. Every published change has been reviewed and validated by the maintainer. OpenAI does not sponsor or endorse this project.
 
-## Marcas y proyectos independientes
+## Trademarks and independent projects
 
-AirCiller es un proyecto independiente y no está afiliado con Apple Inc. ni OpenAI.
+AirCiller is an independent project and is not affiliated with Apple Inc. or OpenAI.
 
-Apple, macOS, tvOS, Apple TV y AirPlay son marcas de Apple Inc. Las demás marcas pertenecen a sus respectivos titulares.
+Apple, macOS, tvOS, Apple TV, and AirPlay are trademarks of Apple Inc. Other trademarks belong to their respective owners.
 
-El nombre y el icono de AirCiller son originales y forman parte de la identidad propia del proyecto. El proyecto no distribuye aplicaciones, código ni recursos gráficos de Apple.
+The AirCiller name and icon are original parts of the project's own identity. The project does not distribute Apple applications, code, or artwork.

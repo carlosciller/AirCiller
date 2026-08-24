@@ -1,5 +1,5 @@
-# Código de conducta
+# Code of conduct
 
-Este proyecto espera conversaciones respetuosas, concretas y centradas en mejorar el software. No se aceptan acoso, ataques personales, publicación de datos privados ni distribución de contenidos sin autorización.
+This project expects respectful, specific conversations focused on improving the software. Harassment, personal attacks, publication of private data, and distribution of unauthorized content are not accepted.
 
-Las incidencias que incumplan estas normas pueden cerrarse o eliminarse. Al tratarse de un proyecto personal, el mantenedor se reserva la decisión final sobre su alcance y dirección.
+Issues that violate these rules may be closed or removed. As a personal project, its maintainer retains the final decision on scope and direction.

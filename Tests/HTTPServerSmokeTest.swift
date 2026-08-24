@@ -33,7 +33,7 @@ struct HTTPServerSmokeTest {
         let session = URLSession(configuration: .ephemeral)
         defer { session.invalidateAndCancel() }
 
-        mark("ruta privada")
+        mark("private path")
         var unprotectedComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         unprotectedComponents.path = "/segment.m4s"
         let (_, unprotectedResponse) = try await session.data(from: unprotectedComponents.url!)
@@ -53,7 +53,7 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.HEAD", code: 1)
         }
 
-        mark("rango")
+        mark("range")
         var range = URLRequest(url: baseURL.appendingPathComponent("segment.m4s"))
         range.setValue("bytes=100-199", forHTTPHeaderField: "Range")
         let (rangeData, rangeResponse) = try await session.data(for: range)
@@ -67,10 +67,10 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.Range", code: 2)
         }
 
-        mark("keep-alive persistente")
+        mark("persistent keep-alive")
         try verifyPersistentRanges(baseURL: baseURL, expected: segment)
 
-        mark("rango inválido")
+        mark("invalid range")
         var invalidRange = URLRequest(url: baseURL.appendingPathComponent("segment.m4s"))
         invalidRange.setValue("bytes=2000000-2000010", forHTTPHeaderField: "Range")
         do {
@@ -85,7 +85,7 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.InvalidRangeTransport", code: error.code)
         }
 
-        mark("archivo completo")
+        mark("complete file")
         let (completeSegment, completeResponse) = try await session.data(
             from: baseURL.appendingPathComponent("segment.m4s")
         )
@@ -95,7 +95,7 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.Complete", code: 5)
         }
 
-        mark("rango mayor de 4 GB")
+        mark("range larger than 4 GB")
         let largeSession = URLSession(configuration: .ephemeral)
         var largeRange = URLRequest(url: baseURL.appendingPathComponent("large.mp4"))
         largeRange.setValue("bytes=0-\(hugeFileSize - 1)", forHTTPHeaderField: "Range")
@@ -159,7 +159,7 @@ struct HTTPServerSmokeTest {
             )
         }
 
-        mark("filtro de telemetría")
+        mark("telemetry filter")
         let excludedRecorder = TelemetryRecorder()
         let filteredServer = LocalHTTPServer(
             rootDirectory: directory,
@@ -203,7 +203,7 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.TelemetryInclude", code: 18)
         }
 
-        print("HTTP privado, Range, >4 GB, keep-alive, caché, telemetría filtrada, MIME y HLS: OK")
+        print("Private HTTP, Range, >4 GB, keep-alive, cache, filtered telemetry, MIME, and HLS: OK")
     }
 
     private static func mark(_ message: String) {

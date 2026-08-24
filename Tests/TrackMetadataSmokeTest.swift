@@ -137,6 +137,6 @@ struct TrackMetadataSmokeTest {
             throw NSError(domain: "TrackMetadataSmokeTest.QueueOrderingUpward", code: 9)
         }
 
-        print("Pistas, 4K scope, perfil Dolby Vision y reordenado: OK")
+        print("Tracks, scope 4K, Dolby Vision profile, and reordering: OK")
     }
 }

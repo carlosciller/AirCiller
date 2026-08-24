@@ -13,7 +13,9 @@ struct PGSSubtitleConverterSmokeTest {
                 domain: "PGSSubtitleConverterSmokeTest.Input",
                 code: 1,
                 userInfo: [
-                    NSLocalizedDescriptionKey: "Indica un archivo con PGS como argumento o en AIRCILLER_TEST_PGS_MEDIA."
+                    NSLocalizedDescriptionKey:
+                        "Provide a file containing PGS as an argument "
+                        + "or through AIRCILLER_TEST_PGS_MEDIA."
                 ]
             )
         }
@@ -42,7 +44,7 @@ struct PGSSubtitleConverterSmokeTest {
             throw NSError(
                 domain: "PGSSubtitleConverterSmokeTest.Conversion",
                 code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "Conversión PGS inesperada:\n\(conversion.webVTT)"]
+                userInfo: [NSLocalizedDescriptionKey: "Unexpected PGS conversion:\n\(conversion.webVTT)"]
             )
         }
         if fullTrack {
@@ -50,7 +52,7 @@ struct PGSSubtitleConverterSmokeTest {
                 throw NSError(
                     domain: "PGSSubtitleConverterSmokeTest.FullTrack",
                     code: 3,
-                    userInfo: [NSLocalizedDescriptionKey: "Solo se reconocieron \(conversion.cueCount) cues."]
+                    userInfo: [NSLocalizedDescriptionKey: "Only \(conversion.cueCount) cues were recognized."]
                 )
             }
             let cached = try await PGSSubtitleConverter.convert(
@@ -66,12 +68,12 @@ struct PGSSubtitleConverterSmokeTest {
                 throw NSError(domain: "PGSSubtitleConverterSmokeTest.Cache", code: 4)
             }
             print(
-                "PGS completo · \(conversion.cueCount) cues · OCR \(Int(conversion.averageConfidence * 100)) % · caché reutilizada · OK"
+                "Complete PGS · \(conversion.cueCount) cues · OCR \(Int(conversion.averageConfidence * 100))% · reused cache · OK"
             )
             return
         }
         print(
-            "PGS real · \(conversion.cueCount) cues · OCR \(Int(conversion.averageConfidence * 100)) % · tiempos y posición WebVTT · OK"
+            "Real PGS · \(conversion.cueCount) cues · OCR \(Int(conversion.averageConfidence * 100))% · WebVTT timing and position · OK"
         )
         print(conversion.webVTT)
     }
