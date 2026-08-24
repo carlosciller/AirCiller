@@ -5,14 +5,21 @@ project_dir="${0:A:h:h}"
 cd "$project_dir"
 
 scan_paths=(
+  .github
+  .gitattributes
+  .gitignore
+  .swift-format
   Sources
   Tests
-  Scripts/airplay_helper.py
-  Scripts/make_icon.swift
+  Scripts
+  Resources
+  Info.plist
+  Brewfile
   README.md
   README.es.md
   CHANGELOG.md
   ARCHITECTURE.md
+  CODE_OF_CONDUCT.md
   CONTRIBUTING.md
   NOTICE.md
   PRIVACY.md
@@ -21,22 +28,29 @@ scan_paths=(
   THIRD_PARTY_NOTICES.md
   ROADMAP.md
   LICENSES
+  requirements.in
+  requirements.lock
+  build.sh
 )
 
 failed=0
 
-if rg -n '/Users/[^/[:space:]]+/' "${scan_paths[@]}"; then
+if rg -n --glob '!check_publication.sh' '/Users/[^/[:space:]]+/' "${scan_paths[@]}"; then
   echo "Personal filesystem paths were found." >&2
   failed=1
 fi
 
-if rg -n '192\.168\.|Monsieur Hulot|YTS\.MX|BYNDR|SARTRE|The Invite|Supergirl|Disclosure Day|The Apartment' "${scan_paths[@]}"; then
+if rg -n --glob '!check_publication.sh' \
+  '192\.168\.|Monsieur Hulot|YTS\.MX|BYNDR|SARTRE|The Invite|Supergirl|Disclosure Day|The Apartment' \
+  "${scan_paths[@]}"; then
   echo "Development media or network data was found." >&2
   failed=1
 fi
 
-if rg -n 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}' \
-  Sources Tests Scripts/airplay_helper.py Scripts/make_icon.swift; then
+if rg -n \
+  --glob '!check_publication.sh' \
+  'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}|github_pat_[A-Za-z0-9_]{20,}|gh[oprsu]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}' \
+  "${scan_paths[@]}"; then
   echo "Content resembling secret material was found." >&2
   failed=1
 fi

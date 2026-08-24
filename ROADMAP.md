@@ -17,7 +17,7 @@ Each playback change must be validated locally first, then independently through
 - [x] Publish the main documentation and GitHub templates in English while keeping a Spanish README.
 - [ ] Add a reproducible process for regenerating and verifying `requirements.lock`; major upgrades such as protobuf 7 require an updated lock, full local checks, and physical validation when they can affect the AirPlay engine.
 - [ ] Enable GitHub private vulnerability reporting.
-- [ ] Create the first version tag and release after the localized build passes the physical Apple TV matrix.
+- [x] Create the first version tag and private release after the localized build passes the physical Apple TV matrix.
 
 ## Functional candidates
 
