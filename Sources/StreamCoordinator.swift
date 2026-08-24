@@ -124,7 +124,11 @@ final class StreamCoordinator {
             self.isPreparing = false
             self.isStreaming = false
             self.isPlaying = false
-            self.presentError(title: "Apple TV rechazó la reproducción", detail: message)
+            let title =
+                message == L10n.text("Se perdió el canal de control con el Apple TV.")
+                ? L10n.text("Se perdió la conexión con el Apple TV.")
+                : L10n.text("Apple TV rechazó la reproducción")
+            self.presentError(title: title, detail: message)
         }
         airPlay.onAuthorizationRequired = { [weak self] message in
             guard let self else { return }
@@ -1084,6 +1088,9 @@ final class StreamCoordinator {
                     duration: prepared.duration,
                     title: self.selectedURL?.deletingPathExtension().lastPathComponent
                 )
+                self.status = "Confirmando el stream en el Apple TV…"
+                self.detail = "Esperando la primera petición real de vídeo del receptor."
+                try await self.waitForReceiverMediaRequest(sessionID: sessionID)
                 self.authorizationRetryPolicy.reset()
 
                 self.duration = prepared.duration
@@ -1317,6 +1324,9 @@ final class StreamCoordinator {
                     duration: packagedDuration,
                     title: self.selectedURL?.deletingPathExtension().lastPathComponent
                 )
+                self.status = "Confirmando el stream en el Apple TV…"
+                self.detail = "Esperando la primera petición real de vídeo del receptor."
+                try await self.waitForReceiverMediaRequest(sessionID: sessionID)
                 self.authorizationRetryPolicy.reset()
 
                 self.duration = packagedDuration
@@ -1580,6 +1590,22 @@ final class StreamCoordinator {
                 self.streamTelemetry = telemetry
             }
         }
+    }
+
+    private func waitForReceiverMediaRequest(sessionID: UUID) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(20))
+        while activeSessionID == sessionID {
+            if streamTelemetry.lastActivity != nil || streamTelemetry.totalBytesSent > 0 {
+                return
+            }
+            if clock.now >= deadline {
+                airPlay.stop(silently: true)
+                throw AirCillerError.receiverDidNotRequestMedia
+            }
+            try await Task.sleep(for: .milliseconds(200))
+        }
+        throw CancellationError()
     }
 
     private func cleanupRuntime() {
@@ -1911,6 +1937,7 @@ enum AirCillerError: LocalizedError {
     case unsupportedSubtitle(String)
     case subtitlePreparationFailed(String)
     case invalidVODPackage(String)
+    case receiverDidNotRequestMedia
 
     var errorDescription: String? {
         switch self {
@@ -1932,6 +1959,10 @@ enum AirCillerError: LocalizedError {
             return L10n.format("No se pudieron preparar los subtítulos: %@", L10n.text(message))
         case .invalidVODPackage(let message):
             return L10n.format("La película preparada no superó la comprobación: %@", L10n.text(message))
+        case .receiverDidNotRequestMedia:
+            return L10n.text(
+                "El Apple TV aceptó la orden, pero no solicitó ningún dato de la película. AirCiller ha cerrado la sesión fantasma."
+            )
         }
     }
 }

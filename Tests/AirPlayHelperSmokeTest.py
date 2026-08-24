@@ -72,6 +72,19 @@ class FakeRTSP:
         return FakeResponse()
 
 
+class FeedbackRTSP:
+    def __init__(self, outcomes):
+        self.outcomes = list(outcomes)
+        self.feedback_calls = 0
+
+    async def feedback(self):
+        self.feedback_calls += 1
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return FakeResponse()
+
+
 class FakeProtocol:
     def __init__(self):
         self.did_teardown = False
@@ -79,10 +92,11 @@ class FakeProtocol:
         self.rates = []
         self.seeks = []
         self.stop_calls = 0
+        self.end_reason = True
 
     async def wait_for_media_end(self):
         await self.end_event.wait()
-        return True
+        return self.end_reason
 
     async def set_rate(self, value):
         self.rates.append(value)
@@ -269,6 +283,78 @@ async def test_receiver_end_event():
 
     assert '"event": "ended"' in output.getvalue()
     assert protocol.did_teardown
+
+
+async def test_receiver_disconnect_event():
+    rtsp = FakeRTSP()
+    protocol = FakeProtocol()
+    protocol.end_reason = "disconnected"
+    reader = asyncio.StreamReader()
+
+    async def disconnect():
+        await asyncio.sleep(0.01)
+        protocol.end_event.set()
+
+    disconnector = asyncio.create_task(disconnect())
+    output = io.StringIO()
+    with redirect_stdout(output):
+        await HELPER.playback_loop(rtsp, protocol, True, reader)
+    await disconnector
+
+    event = json.loads(output.getvalue())
+    assert event == {
+        "event": "error",
+        "message": "Se perdió el canal de control con el Apple TV.",
+        "reason": "connectionFailed",
+    }
+    assert protocol.did_teardown
+
+
+async def test_feedback_failure_does_not_end_healthy_media():
+    protocol = QueueProtocol()
+    protocol.rtsp = FeedbackRTSP(
+        [
+            ConnectionError("first"),
+            ConnectionError("second"),
+            ConnectionError("third"),
+        ]
+    )
+
+    output = io.StringIO()
+    with redirect_stdout(output), patch.object(
+        HELPER, "FEEDBACK_INTERVAL_SECONDS", 0.0
+    ):
+        await protocol._feedback_task_loop()
+
+    assert protocol.rtsp.feedback_calls == 3
+    assert not protocol._media_ended.is_set()
+    assert protocol._terminal_reason is None
+    warning = json.loads(output.getvalue())
+    assert warning["event"] == "warning"
+    assert "mantendrá el stream" in warning["message"]
+
+
+async def test_successful_feedback_resets_failure_count():
+    protocol = QueueProtocol()
+    protocol.rtsp = FeedbackRTSP(
+        [
+            ConnectionError("first"),
+            ConnectionError("second"),
+            None,
+            ConnectionError("new first"),
+            ConnectionError("new second"),
+            ConnectionError("new third"),
+        ]
+    )
+
+    with redirect_stdout(io.StringIO()), patch.object(
+        HELPER, "FEEDBACK_INTERVAL_SECONDS", 0.0
+    ):
+        await protocol._feedback_task_loop()
+
+    assert protocol.rtsp.feedback_calls == 6
+    assert not protocol._media_ended.is_set()
+    assert protocol._terminal_reason is None
 
 
 async def test_pairing_pin_has_timeout():
@@ -647,6 +733,16 @@ def test_error_classification():
     assert HELPER.error_reason(timeout) == "timeout"
     assert HELPER.error_reason(session_rejected) == "playbackRejected"
     assert "autenticación" in HELPER.plain_error(authentication)
+    disconnected = RuntimeError("not connected to remote")
+    assert HELPER.error_reason(disconnected) == "connectionFailed"
+    assert HELPER.plain_error(disconnected) == (
+        "Se perdió el canal de control con el Apple TV."
+    )
+    initial_connection = HELPER.exceptions.ConnectionFailedError("could not connect")
+    assert HELPER.error_reason(initial_connection) == "connectionFailed"
+    assert HELPER.plain_error(initial_connection) == (
+        "No se pudo abrir la conexión AirPlay con el Apple TV."
+    )
 
 
 async def main():
@@ -656,6 +752,9 @@ async def main():
     await test_event_without_timeline_does_not_reset_position()
     await test_playback_loop_uses_events_not_playback_info()
     await test_receiver_end_event()
+    await test_receiver_disconnect_event()
+    await test_feedback_failure_does_not_end_healthy_media()
+    await test_successful_feedback_resets_failure_count()
     await test_pairing_pin_has_timeout()
     await test_pairing_is_verified_before_credentials_are_emitted()
     await test_pairing_verification_failure_is_bounded()

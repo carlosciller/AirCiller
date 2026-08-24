@@ -52,6 +52,8 @@ EVENTS_READ_INFO = "Events-Read-Encryption-Key"
 MR_NOW_PLAYING_PREFIX = "kMRMediaRemoteNowPlayingInfo"
 MR_MEDIA_TYPE_VIDEO = "kMRMediaRemoteNowPlayingInfoTypeVideo"
 MAX_ARTWORK_BYTES = 2 * 1024 * 1024
+FEEDBACK_INTERVAL_SECONDS = 2.0
+MAX_CONSECUTIVE_FEEDBACK_FAILURES = 3
 
 
 class AirPlaySessionRejectedError(exceptions.PlaybackError):
@@ -340,6 +342,7 @@ class AirCillerAirPlayV2(AirPlayV2):
         # /feedback and /command share one RTSP connection. Serializing them
         # prevents tvOS from closing the session when a remote action or a
         # metadata update lands while feedback is in flight.
+        consecutive_failures = 0
         while True:
             try:
                 async with self._control_lock:
@@ -347,8 +350,30 @@ class AirCillerAirPlayV2(AirPlayV2):
             except asyncio.CancelledError:
                 raise
             except Exception as error:
-                logging.debug("Feedback AirPlay 2 fallido: %s", error)
-            await asyncio.sleep(2.0)
+                consecutive_failures += 1
+                logging.warning(
+                    "Feedback AirPlay 2 fallido (%d/%d): %s",
+                    consecutive_failures,
+                    MAX_CONSECUTIVE_FEEDBACK_FAILURES,
+                    error,
+                )
+                if consecutive_failures >= MAX_CONSECUTIVE_FEEDBACK_FAILURES:
+                    # Current tvOS can close the RTSP /feedback path while the
+                    # independent event channel and the HTTP media transfer
+                    # continue normally. Treating that as the end of playback
+                    # tears down a healthy stream. The macOS side verifies the
+                    # real start separately from receiver HTTP traffic.
+                    emit(
+                        "warning",
+                        message=(
+                            "El canal de feedback dejó de responder; AirCiller "
+                            "mantendrá el stream mientras siga activo el Apple TV."
+                        ),
+                    )
+                    return
+            else:
+                consecutive_failures = 0
+            await asyncio.sleep(FEEDBACK_INTERVAL_SECONDS)
 
     async def send_now_playing_metadata(
         self,
@@ -673,6 +698,8 @@ def plain_error(error: BaseException) -> str:
         return "El Apple TV no respondió a tiempo. Comprueba que siga encendido y en la misma red."
     if isinstance(error, exceptions.ConnectionFailedError):
         return "No se pudo abrir la conexión AirPlay con el Apple TV."
+    if is_connection_lost_error(error):
+        return "Se perdió el canal de control con el Apple TV."
     return text or error.__class__.__name__
 
 
@@ -684,11 +711,26 @@ def error_reason(error: BaseException) -> str:
         return "authorizationRequired"
     if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
         return "timeout"
-    if isinstance(error, exceptions.ConnectionFailedError):
+    if isinstance(error, exceptions.ConnectionFailedError) or is_connection_lost_error(error):
         return "connectionFailed"
     if isinstance(error, exceptions.PlaybackError):
         return "playbackRejected"
     return "unexpected"
+
+
+def is_connection_lost_error(error: BaseException) -> bool:
+    if isinstance(error, (exceptions.ConnectionFailedError, ConnectionError, BrokenPipeError)):
+        return True
+    compact = str(error).casefold()
+    return any(
+        marker in compact
+        for marker in (
+            "not connected to remote",
+            "connection closed",
+            "connection lost",
+            "broken pipe",
+        )
+    )
 
 
 async def discover(timeout: int, address: Optional[str] = None):
@@ -875,7 +917,14 @@ async def playback_loop(
             if media_end is not None and media_end in done:
                 terminal_reason = media_end.result()
                 if terminal_reason:
-                    emit(terminal_reason if isinstance(terminal_reason, str) else "ended")
+                    if terminal_reason == "disconnected":
+                        emit(
+                            "error",
+                            message="Se perdió el canal de control con el Apple TV.",
+                            reason="connectionFailed",
+                        )
+                    else:
+                        emit(terminal_reason if isinstance(terminal_reason, str) else "ended")
                     return
                 media_end = None
 

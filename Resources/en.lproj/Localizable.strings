@@ -142,6 +142,10 @@
 "Deteniendo AirPlay…" = "Stopping AirPlay…";
 "No hay un canal de control activo con el Apple TV." = "There is no active control channel with Apple TV.";
 "Se perdió el canal de control con el Apple TV." = "The control channel with Apple TV was lost.";
+"Se perdió la conexión con el Apple TV." = "The connection to Apple TV was lost.";
+"Confirmando el stream en el Apple TV…" = "Confirming the stream on Apple TV…";
+"Esperando la primera petición real de vídeo del receptor." = "Waiting for the receiver's first real video request.";
+"El Apple TV aceptó la orden, pero no solicitó ningún dato de la película. AirCiller ha cerrado la sesión fantasma." = "Apple TV accepted the command but did not request any movie data. AirCiller closed the ghost session.";
 "Introduce en AirCiller el código mostrado en %@" = "Enter the code shown on %@ in AirCiller";
 "el Apple TV" = "Apple TV";
 "El Apple TV no devolvió una credencial válida." = "Apple TV did not return a valid credential.";
