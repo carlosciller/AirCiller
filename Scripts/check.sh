@@ -60,6 +60,12 @@ compile_and_run power-assertion \
 compile_and_run cancellable-process \
   "$project_dir/Sources/CancellableProcess.swift" \
   "$project_dir/Tests/CancellableProcessSmokeTest.swift"
+compile_and_run component-manager \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/ComponentManager.swift" \
+  "$project_dir/Tests/ComponentManagerSmokeTest.swift"
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"

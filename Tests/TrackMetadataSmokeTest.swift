@@ -17,6 +17,35 @@ struct TrackMetadataSmokeTest {
             throw NSError(domain: "TrackMetadataSmokeTest.AudioName", code: 1)
         }
 
+        let spanishDefaultAudio = AudioTrack(
+            streamIndex: 2,
+            codec: "aac",
+            profile: nil,
+            channels: 2,
+            channelLayout: "stereo",
+            language: "spa",
+            title: "Español",
+            isDefault: true
+        )
+        let englishAlternateAudio = AudioTrack(
+            streamIndex: 3,
+            codec: "eac3",
+            profile: nil,
+            channels: 6,
+            channelLayout: "5.1",
+            language: "eng",
+            title: "English Atmos",
+            isDefault: false
+        )
+        guard
+            AudioTrackSelection.preferredTrack(
+                in: [spanishDefaultAudio, englishAlternateAudio],
+                language: "eng"
+            )?.id == englishAlternateAudio.id
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.AudioPreference", code: 10)
+        }
+
         let englishSDH = SubtitleTrack(
             streamIndex: 2,
             codec: "subrip",
@@ -137,6 +166,6 @@ struct TrackMetadataSmokeTest {
             throw NSError(domain: "TrackMetadataSmokeTest.QueueOrderingUpward", code: 9)
         }
 
-        print("Tracks, scope 4K, Dolby Vision profile, and reordering: OK")
+        print("Track preferences, scope 4K, Dolby Vision profile, and reordering: OK")
     }
 }

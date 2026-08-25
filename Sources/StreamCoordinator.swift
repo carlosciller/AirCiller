@@ -33,6 +33,8 @@ final class StreamCoordinator {
     var audioDelay: Double = 0
     var subtitleDelay: Double = 0
     var audioOutputMode: AudioOutputMode = .original
+    private(set) var preferredAudioLanguage: String =
+        UserDefaults.standard.string(forKey: "preferredAudioLanguage") ?? ""
     private(set) var preferredSubtitleLanguage: String =
         UserDefaults.standard.string(forKey: "preferredSubtitleLanguage") ?? ""
 
@@ -382,15 +384,14 @@ final class StreamCoordinator {
         )
     }
 
+    func setPreferredAudioLanguage(_ language: String) {
+        preferredAudioLanguage = language
+        UserDefaults.standard.set(language, forKey: "preferredAudioLanguage")
+    }
+
     func setPreferredSubtitleLanguage(_ language: String) {
         preferredSubtitleLanguage = language
         UserDefaults.standard.set(language, forKey: "preferredSubtitleLanguage")
-        guard !language.isEmpty else { return }
-        selectedSubtitleID =
-            SubtitleTrackSelection.preferredTrack(
-                in: subtitleTracks,
-                language: language
-            )?.id
     }
 
     func chooseVideos() {
@@ -501,7 +502,17 @@ final class StreamCoordinator {
                 self.audioTracks = info.audioTracks
                 self.subtitleTracks = info.subtitleTracks
                 self.chapters = info.chapters
-                self.selectedAudioID = (info.audioTracks.first(where: \.isDefault) ?? info.audioTracks.first)?.id
+                if !self.preferredAudioLanguage.isEmpty,
+                    let preferredAudio = AudioTrackSelection.preferredTrack(
+                        in: info.audioTracks,
+                        language: self.preferredAudioLanguage
+                    )
+                {
+                    self.selectedAudioID = preferredAudio.id
+                } else {
+                    self.selectedAudioID =
+                        (info.audioTracks.first(where: \.isDefault) ?? info.audioTracks.first)?.id
+                }
                 if let commandLineSubtitleIndex {
                     self.selectedSubtitleID =
                         info.subtitleTracks.first(where: {

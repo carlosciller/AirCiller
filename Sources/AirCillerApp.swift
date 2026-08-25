@@ -43,7 +43,7 @@ struct AirCillerApp: App {
         }
 
         Settings {
-            StorageSettingsView(coordinator: coordinator)
+            AirCillerSettingsView(coordinator: coordinator)
         }
     }
 }
@@ -790,6 +790,214 @@ struct PlaybackInformationRow: View {
     }
 }
 
+struct AirCillerSettingsView: View {
+    @Bindable var coordinator: StreamCoordinator
+    @AirCillerState private var components = ComponentManager()
+
+    var body: some View {
+        TabView {
+            PlaybackSettingsView(coordinator: coordinator)
+                .tabItem {
+                    Label("Reproducción", systemImage: "play.circle")
+                }
+
+            ComponentSettingsView(coordinator: coordinator, components: components)
+                .tabItem {
+                    Label("Componentes", systemImage: "shippingbox")
+                }
+
+            StorageSettingsView(coordinator: coordinator)
+                .tabItem {
+                    Label("Almacenamiento", systemImage: "internaldrive")
+                }
+        }
+        .frame(width: 640, height: 500)
+    }
+}
+
+struct PlaybackSettingsView: View {
+    @Bindable var coordinator: StreamCoordinator
+
+    var body: some View {
+        Form {
+            Section("Pistas predeterminadas") {
+                Picker(
+                    "Idioma de audio",
+                    selection: Binding(
+                        get: { coordinator.preferredAudioLanguage },
+                        set: { coordinator.setPreferredAudioLanguage($0) }
+                    )
+                ) {
+                    Text("Pista predeterminada del archivo").tag("")
+                    ForEach(LanguageNames.subtitlePreferenceOptions) { option in
+                        Text(L10n.text(option.name)).tag(option.code)
+                    }
+                }
+
+                Text(
+                    "Si el idioma no está disponible, AirCiller usa la pista marcada como predeterminada en el archivo."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Picker(
+                    "Idioma de subtítulos",
+                    selection: Binding(
+                        get: { coordinator.preferredSubtitleLanguage },
+                        set: { coordinator.setPreferredSubtitleLanguage($0) }
+                    )
+                ) {
+                    Text("No activar automáticamente").tag("")
+                    ForEach(LanguageNames.subtitlePreferenceOptions) { option in
+                        Text(L10n.text(option.name)).tag(option.code)
+                    }
+                }
+
+                Text(
+                    "AirCiller prefiere una pista normal y usa SDH si es la única opción del idioma elegido."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            Section("Conversión") {
+                Text(
+                    "Estas preferencias solo eligen pistas. Si un audio necesita conversión, AirCiller seguirá explicando el motivo y pidiendo permiso para esa película."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(16)
+    }
+}
+
+struct ComponentSettingsView: View {
+    var coordinator: StreamCoordinator
+    @Bindable var components: ComponentManager
+
+    private var playbackIsBusy: Bool {
+        coordinator.isPreparing || coordinator.isStreaming
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Gestor") {
+                    if let path = components.homebrewPath {
+                        Text("Homebrew")
+                            .help(path)
+                    } else {
+                        Text("No disponible")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if components.isRefreshing {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Comprobando componentes…")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let message = components.operationMessage {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if components.activeComponent != nil {
+                            ProgressView()
+                                .progressViewStyle(.linear)
+                        }
+                        Text(L10n.text(message))
+                        if let output = components.operationOutput, !output.isEmpty {
+                            Text(output)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                                .lineLimit(3)
+                                .textSelection(.enabled)
+                        }
+                        if components.activeComponent != nil {
+                            Button("Cancelar") {
+                                components.cancelOperation()
+                            }
+                        }
+                    }
+                }
+            } footer: {
+                Text(
+                    "AirCiller no instala ni actualiza componentes por su cuenta. Homebrew descarga desde sus fuentes oficiales y muestra aquí el estado de la operación."
+                )
+            }
+
+            ForEach(ManagedComponent.allCases) { component in
+                componentSection(component)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(16)
+        .task {
+            await components.refresh()
+        }
+    }
+
+    @ViewBuilder
+    private func componentSection(_ component: ManagedComponent) -> some View {
+        let status = components.status(for: component)
+        Section {
+            LabeledContent("Estado") {
+                Label(
+                    status.isCompatible ? "Listo" : (status.isInstalled ? "Incompatible" : "No instalado"),
+                    systemImage: status.isCompatible
+                        ? "checkmark.circle.fill"
+                        : "exclamationmark.triangle.fill"
+                )
+                .foregroundStyle(status.isCompatible ? .green : .orange)
+            }
+
+            if let version = status.version {
+                LabeledContent("Versión", value: version)
+            }
+            if let source = status.source {
+                LabeledContent("Origen", value: source)
+            }
+            if let path = status.path {
+                LabeledContent("Ubicación") {
+                    Text(path)
+                        .font(.caption.monospaced())
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .textSelection(.enabled)
+                        .help(path)
+                }
+            }
+
+            Text(L10n.text(component.purpose))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button(
+                status.isInstalled && status.source == "Homebrew"
+                    ? "Actualizar con Homebrew"
+                    : "Instalar con Homebrew"
+            ) {
+                components.installOrUpdate(component)
+            }
+            .disabled(
+                components.homebrewPath == nil
+                    || components.activeComponent != nil
+                    || playbackIsBusy
+            )
+        } header: {
+            Text(component.title)
+        } footer: {
+            if playbackIsBusy {
+                Text("Detén la reproducción antes de cambiar componentes.")
+            }
+        }
+    }
+}
+
 struct StorageSettingsView: View {
     var coordinator: StreamCoordinator
     @AirCillerState private var cacheLimitMB = AirCillerStorage.subtitleCacheLimitMB
@@ -854,7 +1062,6 @@ struct StorageSettingsView: View {
         }
         .formStyle(.grouped)
         .padding(16)
-        .frame(width: 560, height: 420)
         .task { refresh() }
     }
 
@@ -1160,24 +1367,6 @@ struct TrackSettingsView: View {
 
             GroupBox("Subtítulos") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Picker(
-                        "Idioma automático",
-                        selection: Binding(
-                            get: { coordinator.preferredSubtitleLanguage },
-                            set: { coordinator.setPreferredSubtitleLanguage($0) }
-                        )
-                    ) {
-                        Text("No activar automáticamente").tag("")
-                        ForEach(LanguageNames.subtitlePreferenceOptions) { option in
-                            Text(L10n.text(option.name)).tag(option.code)
-                        }
-                    }
-                    Text(
-                        "Al abrir una película se elegirá una pista compatible de ese idioma. Se prefiere la pista normal y se usa SDH si es la única disponible."
-                    )
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-
                     Picker("Pista", selection: $coordinator.selectedSubtitleID) {
                         Text("Desactivados").tag(String?.none)
                         ForEach(coordinator.subtitleTracks) { track in

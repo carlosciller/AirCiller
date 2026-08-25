@@ -4,6 +4,9 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+- Adds native Playback, Components and Storage settings, including preferred audio and subtitle languages with safe file-track fallbacks.
+- Shows the installed FFmpeg and AirPlay engine versions, source and path, with explicit Homebrew install or update actions, an activity indicator and cancellation. Component changes stay disabled during playback.
+- Keeps automatic app updates disabled while releases are ad hoc signed; no component or app update runs silently.
 - Records the current Developer ID and notarization blockers, adds a repeatable distribution audit, and defines signed hosting for future updates and managed components.
 - Corrects the public requirements to include Python until AirCiller provides its own managed runtime.
 - Removes formulaic wording from the remaining public project text.

@@ -432,6 +432,28 @@ enum SubtitleTrackSelection {
     }
 }
 
+enum AudioTrackSelection {
+    static func preferredTrack(in tracks: [AudioTrack], language: String) -> AudioTrack? {
+        tracks
+            .filter {
+                LanguageNames.matches(
+                    preferred: language,
+                    language: $0.language,
+                    title: $0.title
+                )
+            }
+            .sorted(by: isPreferred)
+            .first
+    }
+
+    private static func isPreferred(_ left: AudioTrack, _ right: AudioTrack) -> Bool {
+        if left.isDefault != right.isDefault {
+            return left.isDefault
+        }
+        return left.streamIndex < right.streamIndex
+    }
+}
+
 private enum TrackNames {
     static func cleaned(_ value: String?) -> String? {
         guard let value else { return nil }

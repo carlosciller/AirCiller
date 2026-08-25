@@ -33,6 +33,21 @@ scan_paths=(
   build.sh
 )
 
+public_prose_paths=(
+  .github
+  README.md
+  ARCHITECTURE.md
+  CODE_OF_CONDUCT.md
+  CONTRIBUTING.md
+  DISTRIBUTION.md
+  NOTICE.md
+  PRIVACY.md
+  ROADMAP.md
+  SECURITY.md
+  TESTING.md
+  THIRD_PARTY_NOTICES.md
+)
+
 failed=0
 
 if rg -n --glob '!check_publication.sh' '/Users/[^/[:space:]]+/' "${scan_paths[@]}"; then
@@ -44,6 +59,13 @@ if rg -n --glob '!check_publication.sh' \
   '192\.168\.|Salón|Monsieur Hulot|YTS\.MX|BYNDR|SARTRE|The Invite|Supergirl|Disclosure Day|The Apartment|Airflow|Infuse' \
   "${scan_paths[@]}"; then
   echo "Development media or network data was found." >&2
+  failed=1
+fi
+
+if rg -ni \
+  '[—–]|made for .+ not|built for .+ not|not just|not only|more than just|rather than' \
+  "${public_prose_paths[@]}"; then
+  echo "Formulaic public wording or long dashes were found." >&2
   failed=1
 fi
 

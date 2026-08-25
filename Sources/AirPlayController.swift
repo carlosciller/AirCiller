@@ -969,7 +969,15 @@ final class AirPlayController {
         let runtimeMarker = vendor.appendingPathComponent(".airciller-python-executable")
         let pythonPath = try? String(contentsOf: runtimeMarker, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let python = pythonPath.map(URL.init(fileURLWithPath:))
+        let pythonCandidates = [
+            pythonPath,
+            "/opt/homebrew/opt/python@3.13/bin/python3.13",
+            "/usr/local/opt/python@3.13/bin/python3.13",
+        ].compactMap { $0 }
+        let python =
+            pythonCandidates
+            .first(where: { FileManager.default.isExecutableFile(atPath: $0) })
+            .map(URL.init(fileURLWithPath:))
         guard FileManager.default.fileExists(atPath: script.path),
             FileManager.default.fileExists(atPath: vendor.path),
             FileManager.default.fileExists(atPath: artwork.path),
