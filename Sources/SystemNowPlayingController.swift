@@ -18,6 +18,8 @@ final class SystemNowPlayingController {
     private var publishedDuration = 0.0
     private var publishedPosition = 0.0
     private var publishedPlaying = false
+    private var publishedQueueIndex: Int?
+    private var publishedQueueCount: Int?
     private var publishedAt = Date.distantPast
     private lazy var artwork: MPMediaItemArtwork? = {
         guard
@@ -78,7 +80,14 @@ final class SystemNowPlayingController {
         }
     }
 
-    func update(title: String, duration: Double, position: Double, playing: Bool) {
+    func update(
+        title: String,
+        duration: Double,
+        position: Double,
+        playing: Bool,
+        queueIndex: Int?,
+        queueCount: Int?
+    ) {
         guard duration.isFinite, duration > 0, position.isFinite else { return }
         let now = Date()
         let predictedPosition =
@@ -86,13 +95,17 @@ final class SystemNowPlayingController {
             ? min(publishedDuration, publishedPosition + now.timeIntervalSince(publishedAt))
             : publishedPosition
         let timelineChanged = abs(position - predictedPosition) > 2
-        let identityChanged = title != publishedTitle || abs(duration - publishedDuration) > 0.5
+        let identityChanged =
+            title != publishedTitle || abs(duration - publishedDuration) > 0.5
+            || queueIndex != publishedQueueIndex || queueCount != publishedQueueCount
         guard identityChanged || timelineChanged || playing != publishedPlaying else { return }
 
         publishedTitle = title
         publishedDuration = duration
         publishedPosition = min(max(0, position), duration)
         publishedPlaying = playing
+        publishedQueueIndex = queueIndex
+        publishedQueueCount = queueCount
         publishedAt = now
         setCommandsEnabled(true)
 
@@ -102,8 +115,19 @@ final class SystemNowPlayingController {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: publishedPosition,
             MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0,
             MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0,
+            MPNowPlayingInfoPropertyPlaybackProgress: publishedPosition / duration,
+            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.video.rawValue,
+            MPMediaItemPropertyMediaType: MPMediaType.movie.rawValue,
+            MPNowPlayingInfoPropertyIsLiveStream: false,
             MPNowPlayingInfoPropertyExternalContentIdentifier: "local.carlosciller.AirCiller:\(title)",
         ]
+        if #available(macOS 15.0, *) {
+            info[MPNowPlayingInfoPropertyExcludeFromSuggestions] = true
+        }
+        if let queueIndex, let queueCount, queueIndex >= 0, queueCount > queueIndex {
+            info[MPNowPlayingInfoPropertyPlaybackQueueIndex] = queueIndex
+            info[MPNowPlayingInfoPropertyPlaybackQueueCount] = queueCount
+        }
         if let artwork {
             info[MPMediaItemPropertyArtwork] = artwork
         }
@@ -118,6 +142,8 @@ final class SystemNowPlayingController {
         publishedDuration = 0
         publishedPosition = 0
         publishedPlaying = false
+        publishedQueueIndex = nil
+        publishedQueueCount = nil
         publishedAt = .distantPast
         setCommandsEnabled(false)
     }

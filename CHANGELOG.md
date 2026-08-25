@@ -4,6 +4,8 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+- Updates FFmpeg to Homebrew revision 9.0.1_1 and Python to 3.13.15, then aligns the Brewfile, dependency bootstrap and runtime fallback with Python 3.13.
+- Identifies Now Playing content explicitly as a finite movie, publishes playlist position and progress, and keeps local filenames out of system content suggestions.
 - Adds native Playback, Components and Storage settings, including preferred audio and subtitle languages with safe file-track fallbacks.
 - Shows the installed FFmpeg and AirPlay engine versions, source and path, with explicit Homebrew install or update actions, an activity indicator and cancellation. Component changes stay disabled during playback.
 - Keeps automatic app updates disabled while releases are ad hoc signed; no component or app update runs silently.

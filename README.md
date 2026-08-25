@@ -75,7 +75,7 @@ Requirements:
 - Apple silicon Mac with macOS 14 or later.
 - Xcode Command Line Tools with Swift 6.
 - FFmpeg and `ffprobe`. The current validated reference is FFmpeg 9.0.1.
-- Python 3.11 or later for the AirPlay bridge environment.
+- Python 3.13 for the AirPlay bridge environment.
 
 ```sh
 brew bundle

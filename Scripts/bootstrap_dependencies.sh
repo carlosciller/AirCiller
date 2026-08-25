@@ -9,14 +9,20 @@ previous="$build_dir/VendorPython.previous"
 
 if [[ -n "${AIRCILLER_PYTHON:-}" ]]; then
   python_path="$AIRCILLER_PYTHON"
-elif [[ -x /opt/homebrew/opt/python@3.14/bin/python3.14 ]]; then
-  python_path="/opt/homebrew/opt/python@3.14/bin/python3.14"
+elif [[ -x /opt/homebrew/opt/python@3.13/bin/python3.13 ]]; then
+  python_path="/opt/homebrew/opt/python@3.13/bin/python3.13"
+elif [[ -x /opt/homebrew/bin/python3.13 ]]; then
+  python_path="/opt/homebrew/bin/python3.13"
 elif [[ -x /opt/homebrew/bin/python3 ]]; then
   python_path="/opt/homebrew/bin/python3"
+elif [[ -x /usr/local/opt/python@3.13/bin/python3.13 ]]; then
+  python_path="/usr/local/opt/python@3.13/bin/python3.13"
+elif [[ -x /usr/local/bin/python3.13 ]]; then
+  python_path="/usr/local/bin/python3.13"
 elif [[ -x /usr/local/bin/python3 ]]; then
   python_path="/usr/local/bin/python3"
 else
-  echo "AirCiller requires Python 3.11 or later. Install it with Homebrew or set AIRCILLER_PYTHON." >&2
+  echo "AirCiller requires Python 3.13. Install python@3.13 with Homebrew or set AIRCILLER_PYTHON." >&2
   exit 2
 fi
 
@@ -25,8 +31,8 @@ if [[ ! -x "$python_path" ]]; then
   exit 2
 fi
 
-if ! "$python_path" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)'; then
-  echo "AirCiller requires Python 3.11 or later: $($python_path --version 2>&1)" >&2
+if ! "$python_path" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] == (3, 13) else 1)'; then
+  echo "AirCiller requires Python 3.13: $($python_path --version 2>&1)" >&2
   exit 2
 fi
 

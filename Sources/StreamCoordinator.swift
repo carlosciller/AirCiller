@@ -87,11 +87,16 @@ final class StreamCoordinator {
                 self.currentTime = min(self.duration, max(0, position))
             }
             self.isPlaying = playing
+            let queueIndex = self.selectedURL.flatMap { selectedURL in
+                self.queueItems.firstIndex(where: { $0.path == selectedURL.path })
+            }
             self.nowPlaying.update(
                 title: self.selectedURL?.deletingPathExtension().lastPathComponent ?? "AirCiller",
                 duration: self.duration,
                 position: self.currentTime,
-                playing: playing
+                playing: playing,
+                queueIndex: queueIndex,
+                queueCount: queueIndex == nil ? nil : self.queueItems.count
             )
             if self.isStreaming, previousState != playing {
                 self.status =
