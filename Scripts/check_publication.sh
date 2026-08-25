@@ -16,7 +16,6 @@ scan_paths=(
   Info.plist
   Brewfile
   README.md
-  README.es.md
   CHANGELOG.md
   ARCHITECTURE.md
   CODE_OF_CONDUCT.md
@@ -27,6 +26,7 @@ scan_paths=(
   TESTING.md
   THIRD_PARTY_NOTICES.md
   ROADMAP.md
+  DISTRIBUTION.md
   LICENSES
   requirements.in
   requirements.lock

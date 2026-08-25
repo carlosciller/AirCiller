@@ -41,6 +41,7 @@ You will also need:
 
 - An AirPlay 2 compatible Apple TV on the same local network.
 - [FFmpeg](https://ffmpeg.org/) and `ffprobe` from Homebrew or MacPorts.
+- Python 3.13 from Homebrew. Version 0.10.1 uses the interpreter installed on the Mac and its bundled AirPlay modules were built for CPython 3.13.
 
 ## Privacy
 
@@ -65,7 +66,7 @@ Most of AirCiller is written in Swift 6 with SwiftUI and AppKit. The repository 
 
 FFmpeg inspects and packages media when required. Apple Vision handles subtitle OCR on the Mac. A temporary HTTP server supplies the selected file or prepared VOD to Apple TV during playback. Internet access is not required.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) and [TESTING.md](TESTING.md) for more detail.
+See [ARCHITECTURE.md](ARCHITECTURE.md), [TESTING.md](TESTING.md) and [DISTRIBUTION.md](DISTRIBUTION.md) for more detail.
 
 ## Build from source
 

@@ -4,6 +4,9 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+- Records the current Developer ID and notarization blockers, adds a repeatable distribution audit, and defines signed hosting for future updates and managed components.
+- Corrects the public requirements to include Python until AirCiller provides its own managed runtime.
+- Removes formulaic wording from the remaining public project text.
 - Rewrites the public README in a more direct, personal voice and removes the separate Spanish README. The app remains available in English and Spanish.
 - Redesigns the public GitHub landing page around download, real-world use, privacy and the project's origin, with technical details later in the document.
 - Adds privacy-aware bug and feature forms, enables private vulnerability reporting, and documents the future signed Sparkle updater without changing the app itself.

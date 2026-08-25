@@ -1,6 +1,6 @@
 # Architecture
 
-AirCiller deliberately keeps a small native application and a single helper process for AirPlay 2.
+AirCiller consists of a native application and one helper process for AirPlay 2.
 
 ## Main flow
 

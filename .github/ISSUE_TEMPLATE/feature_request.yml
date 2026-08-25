@@ -7,7 +7,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        AirCiller stays deliberately small: no telemetry, cloud library, permanent server, background indexing, or silent transcoding. Concrete ideas that preserve that character are welcome.
+        AirCiller has no telemetry, cloud library, permanent server, background indexing, or silent transcoding. Focused ideas are welcome.
   - type: textarea
     id: problem
     attributes:
@@ -19,7 +19,7 @@ body:
     id: proposal
     attributes:
       label: What would feel natural on macOS?
-      description: Describe the simplest interaction you would expect as a user.
+      description: Describe the interaction you would expect on macOS.
     validations:
       required: true
   - type: textarea

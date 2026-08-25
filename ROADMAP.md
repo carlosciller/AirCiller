@@ -1,6 +1,6 @@
 # Technical roadmap
 
-The priority is measurable robustness, not adding features for their own sake.
+Current work focuses on reliability and measurable playback behavior.
 
 ## Next isolated fixes
 
@@ -18,7 +18,19 @@ Each playback change must be validated locally first, then independently through
 - [ ] Add a reproducible process for regenerating and verifying `requirements.lock`; major upgrades such as protobuf 7 require an updated lock, full local checks, and physical validation when they can affect the AirPlay engine.
 - [x] Enable GitHub private vulnerability reporting.
 - [x] Create the first version tag and public release after the localized build passes the physical Apple TV matrix.
-- [ ] Add a lightweight Sparkle 2 updater with a signed feed, explicit installation, and no checks during playback or media preparation.
+- [ ] Sign releases with Developer ID, enable Hardened Runtime and notarize them with Apple.
+- [ ] Package a fixed Python runtime so the AirPlay engine does not depend on a path from the build Mac.
+- [ ] Add a component manager for Python/pyatv and FFmpeg with signed manifests, progress, cancellation and rollback.
+- [ ] Add a Sparkle 2 updater with a signed feed and explicit installation. Updates remain idle during analysis, preparation and playback.
+
+## Settings
+
+1. Add native panes for Playback, Updates, Components and Storage.
+2. Move the preferred subtitle language into Playback settings and add separate choices for standard, forced and SDH tracks.
+3. Add a preferred audio language with the file's default track as fallback. Audio conversion continues to require confirmation for each movie.
+4. Show component version, source, location, size and status. Downloads include a progress bar and Cancel button.
+5. Add actions to export a sanitized diagnosis and reset Apple TV authorization.
+6. Consider an OpenSubtitles.com search for the selected movie. It must be initiated by the user, use the current REST API and store credentials in Keychain.
 
 ## Functional candidates
 
