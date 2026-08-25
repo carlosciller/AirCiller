@@ -4,7 +4,7 @@ AirCiller is a personal project, but focused reviews and small proposals are wel
 
 ## Before proposing a change
 
-- Keep the open–send–watch workflow fast and lightweight.
+- Keep opening a file and starting playback fast and lightweight.
 - Do not add telemetry, cloud services, a permanent server, or background work.
 - Do not modify originals or transcode silently.
 - Do not change direct MP4 and HLS/fMP4 in the same delivery.
