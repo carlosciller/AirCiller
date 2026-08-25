@@ -41,7 +41,7 @@ if rg -n --glob '!check_publication.sh' '/Users/[^/[:space:]]+/' "${scan_paths[@
 fi
 
 if rg -n --glob '!check_publication.sh' \
-  '192\.168\.|Monsieur Hulot|YTS\.MX|BYNDR|SARTRE|The Invite|Supergirl|Disclosure Day|The Apartment' \
+  '192\.168\.|Salón|Monsieur Hulot|YTS\.MX|BYNDR|SARTRE|The Invite|Supergirl|Disclosure Day|The Apartment|Airflow|Infuse' \
   "${scan_paths[@]}"; then
   echo "Development media or network data was found." >&2
   failed=1

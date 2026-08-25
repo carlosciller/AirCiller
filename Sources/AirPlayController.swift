@@ -188,10 +188,7 @@ final class AirPlayController {
             if let selectedDeviceID, devices.contains(where: { $0.id == selectedDeviceID }) {
                 // Keep the user's current selection.
             } else {
-                selectedDeviceID =
-                    devices.first(where: {
-                        $0.name.localizedCaseInsensitiveContains("salón")
-                    })?.id ?? devices.first?.id
+                selectedDeviceID = devices.first?.id
             }
             await refreshAuthorization()
             status =

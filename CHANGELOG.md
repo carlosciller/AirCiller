@@ -4,6 +4,9 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+- Removes the local receiver-name preference from discovery so public builds select Apple TV devices without relying on a developer-specific room name.
+- Extends the publication audit to reject local receiver names and legacy third-party product references.
+
 ## Version 0.10.1
 
 - Cancels FFmpeg, ffprobe, text-subtitle extraction, and bitmap OCR with the task that owns them, including progress-reporting preparation jobs.
