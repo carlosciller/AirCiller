@@ -26,5 +26,8 @@ jobs:
       - name: Prepare locked AirPlay dependencies
         run: AIRCILLER_PYTHON="$(command -v python3)" ./Scripts/bootstrap_dependencies.sh
 
+      - name: Prepare Sparkle
+        run: ./Scripts/bootstrap_sparkle.sh
+
       - name: Build and test
         run: ./Scripts/check.sh

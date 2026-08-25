@@ -26,6 +26,7 @@ AirCiller is available in English and Spanish.
 - Keeps playback position, pause, resume and seeking synchronized with the Apple TV remote.
 - Includes an ordered playlist, recent movies, chapters and saved progress.
 - Provides optional network and preparation diagnostics.
+- Checks for signed updates through Sparkle when a release feed is configured.
 
 AirCiller does not download or include media. Use it with files you have the right to play.
 
@@ -80,6 +81,7 @@ Requirements:
 ```sh
 brew bundle
 ./Scripts/bootstrap_dependencies.sh
+./Scripts/bootstrap_sparkle.sh
 ./build.sh
 ```
 

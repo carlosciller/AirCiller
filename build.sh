@@ -12,9 +12,16 @@ generated_resources="$build_dir/generated-resources"
 module_cache="$build_dir/module-cache"
 vendor_path="$project_dir/VendorPython"
 runtime_marker="$vendor_path/.airciller-python-executable"
+sparkle_distribution="$build_dir/dependencies/Sparkle-2.9.6"
+sparkle_framework="$sparkle_distribution/Sparkle.framework"
 
 if [[ ! -d "$vendor_path" || ! -f "$runtime_marker" ]]; then
   echo "The reproducible Python engine is missing. Run ./Scripts/bootstrap_dependencies.sh." >&2
+  exit 2
+fi
+
+if [[ ! -d "$sparkle_framework" ]]; then
+  echo "Sparkle is missing. Run ./Scripts/bootstrap_sparkle.sh." >&2
   exit 2
 fi
 
@@ -22,7 +29,12 @@ sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
 swiftc_path="$(xcrun --find swiftc)"
 
 rm -rf "$staged_app_path" "$previous_app_path" "$generated_resources"
-mkdir -p "$contents_path/MacOS" "$contents_path/Resources" "$generated_resources" "$module_cache"
+mkdir -p \
+  "$contents_path/MacOS" \
+  "$contents_path/Frameworks" \
+  "$contents_path/Resources" \
+  "$generated_resources" \
+  "$module_cache"
 
 "$swiftc_path" \
   -sdk "$sdk_path" \
@@ -46,6 +58,10 @@ mkdir -p "$contents_path/MacOS" "$contents_path/Resources" "$generated_resources
   -warnings-as-errors \
   -O \
   -Xlinker -dead_strip \
+  -Xlinker -rpath \
+  -Xlinker @executable_path/../Frameworks \
+  -F "$sparkle_distribution" \
+  -framework Sparkle \
   -framework SwiftUI \
   -framework AppKit \
   -framework AVKit \
@@ -60,6 +76,7 @@ mkdir -p "$contents_path/MacOS" "$contents_path/Resources" "$generated_resources
   -o "$binary_path"
 
 cp "$project_dir/Info.plist" "$contents_path/Info.plist"
+ditto "$sparkle_framework" "$contents_path/Frameworks/Sparkle.framework"
 cp "$generated_resources/AirCiller.icns" "$contents_path/Resources/AirCiller.icns"
 cp "$generated_resources/AirCiller-1024.png" "$contents_path/Resources/AirCillerArtwork.png"
 cp "$project_dir/Scripts/airplay_helper.py" "$contents_path/Resources/AirCillerAirPlay.py"
@@ -70,11 +87,12 @@ cp "$project_dir/LICENSE" "$contents_path/Resources/Legal/AirCiller-LICENSE.txt"
 cp "$project_dir/NOTICE.md" "$contents_path/Resources/Legal/NOTICE.md"
 cp "$project_dir/THIRD_PARTY_NOTICES.md" "$contents_path/Resources/Legal/THIRD_PARTY_NOTICES.md"
 cp "$project_dir/LICENSES/pyatv-MIT.md" "$contents_path/Resources/Legal/pyatv-MIT.md"
+cp "$sparkle_distribution/LICENSE" "$contents_path/Resources/Legal/Sparkle-LICENSE.txt"
 ditto "$vendor_path" "$contents_path/Resources/VendorPython"
 rm -rf "$contents_path/Resources/VendorPython/bin"
 find "$contents_path/Resources/VendorPython" -type d -name __pycache__ -prune -exec rm -rf {} +
 
-codesign --force --deep --sign - "$staged_app_path"
+codesign --force --sign - "$staged_app_path"
 codesign --verify --deep --strict "$staged_app_path"
 
 if [[ -e "$app_path" ]]; then

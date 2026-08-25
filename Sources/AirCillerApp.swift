@@ -21,6 +21,12 @@ struct AirCillerApp: App {
         .defaultSize(width: 1_080, height: 812)
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Buscar actualizaciones…") {
+                    appDelegate.updateController.checkForUpdates()
+                }
+                .disabled(!appDelegate.updateController.canCheckForUpdates)
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Abrir película…") { coordinator.chooseVideos() }
                     .keyboardShortcut("o", modifiers: .command)
@@ -43,12 +49,18 @@ struct AirCillerApp: App {
         }
 
         Settings {
-            AirCillerSettingsView(coordinator: coordinator)
+            AirCillerSettingsView(
+                coordinator: coordinator,
+                updateController: appDelegate.updateController
+            )
         }
     }
 }
 
+@MainActor
 final class AirCillerAppDelegate: NSObject, NSApplicationDelegate {
+    let updateController = UpdateController()
+
     private var pendingURLs: [URL] = []
     private var openHandler: (([URL]) -> Void)?
 
@@ -59,6 +71,7 @@ final class AirCillerAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        updateController.start()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -129,15 +142,28 @@ struct ContentView: View {
             appDelegate.installOpenHandler { urls in
                 coordinator.handleURLs(urls)
             }
+            synchronizeUpdateAvailability()
         }
         .onDisappear {
             appDelegate.removeOpenHandler()
             coordinator.stop(resetStatus: false)
         }
+        .onChange(of: coordinator.isPreparing) { _, _ in
+            synchronizeUpdateAvailability()
+        }
+        .onChange(of: coordinator.isStreaming) { _, _ in
+            synchronizeUpdateAvailability()
+        }
         .dropDestination(for: URL.self) { urls, _ in
             coordinator.handleURLs(urls)
             return true
         }
+    }
+
+    private func synchronizeUpdateAvailability() {
+        appDelegate.updateController.setPlaybackBusy(
+            coordinator.isPreparing || coordinator.isStreaming
+        )
     }
 
     private var mainContent: some View {
@@ -792,6 +818,7 @@ struct PlaybackInformationRow: View {
 
 struct AirCillerSettingsView: View {
     @Bindable var coordinator: StreamCoordinator
+    @Bindable var updateController: UpdateController
     @AirCillerState private var components = ComponentManager()
 
     var body: some View {
@@ -810,8 +837,78 @@ struct AirCillerSettingsView: View {
                 .tabItem {
                     Label("Almacenamiento", systemImage: "internaldrive")
                 }
+
+            UpdateSettingsView(updateController: updateController)
+                .tabItem {
+                    Label("Actualizaciones", systemImage: "arrow.triangle.2.circlepath")
+                }
         }
         .frame(width: 640, height: 500)
+    }
+}
+
+struct UpdateSettingsView: View {
+    @Bindable var updateController: UpdateController
+
+    private var appVersion: String {
+        let version =
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
+            as? String ?? "?"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        return L10n.format("%@ (compilación %@)", version, build)
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("AirCiller", value: appVersion)
+                LabeledContent(
+                    "Motor de actualizaciones",
+                    value: "Sparkle \(UpdateController.sparkleVersion)"
+                )
+                LabeledContent("Estado") {
+                    Label(
+                        updateController.isConfigured ? "Listo" : "No configurado",
+                        systemImage: updateController.isConfigured
+                            ? "checkmark.circle.fill"
+                            : "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(updateController.isConfigured ? .green : .orange)
+                }
+                if let feedHost = updateController.feedHost {
+                    LabeledContent("Servidor", value: feedHost)
+                }
+            }
+
+            Section {
+                Toggle(
+                    "Buscar actualizaciones automáticamente",
+                    isOn: Binding(
+                        get: { updateController.automaticallyChecksForUpdates },
+                        set: { updateController.setAutomaticallyChecksForUpdates($0) }
+                    )
+                )
+                .disabled(!updateController.isStarted)
+
+                Button("Buscar actualizaciones…") {
+                    updateController.checkForUpdates()
+                }
+                .disabled(!updateController.canCheckForUpdates)
+            } footer: {
+                Text(
+                    updateController.isPlaybackBusy
+                        ? "Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película."
+                        : updateController.isConfigured
+                            ? "Las comprobaciones usan HTTPS y firmas EdDSA. AirCiller siempre pide confirmación antes de instalar."
+                            : "Esta compilación local todavía necesita la URL HTTPS del appcast y la clave pública EdDSA."
+                )
+            }
+        }
+        .formStyle(.grouped)
+        .padding(16)
+        .onAppear {
+            updateController.refreshPreferences()
+        }
     }
 }
 

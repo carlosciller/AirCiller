@@ -41,6 +41,10 @@
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
 	<string>0.10.2</string>
+    <key>CFBundleSupportedPlatforms</key>
+    <array>
+        <string>MacOSX</string>
+    </array>
     <key>CFBundleVersion</key>
 	<string>42</string>
     <key>LSApplicationCategoryType</key>
@@ -61,6 +65,16 @@
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
+    <true/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <false/>
+    <key>SUFeedURL</key>
+    <string>https://github.com/carlosciller/AirCiller/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>c0FRrYu8+xpbJYIH8NLKhqGohUbazVIsgsqivCBj5/8=</string>
+    <key>SURequireSignedFeed</key>
+    <true/>
+    <key>SUVerifyUpdateBeforeExtraction</key>
     <true/>
 </dict>
 </plist>

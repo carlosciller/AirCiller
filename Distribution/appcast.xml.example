@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Example only. Generate the published feed with Sparkle's generate_appcast tool. -->
+<rss version="2.0"
+    xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>AirCiller updates</title>
+        <link>__APP_WEBSITE_URL__</link>
+        <description>AirCiller stable releases</description>
+        <language>en</language>
+        <item>
+            <title>AirCiller __SHORT_VERSION__</title>
+            <pubDate>__RFC_2822_DATE__</pubDate>
+            <sparkle:version>__BUILD_NUMBER__</sparkle:version>
+            <sparkle:shortVersionString>__SHORT_VERSION__</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description>__RELEASE_NOTES__</description>
+            <enclosure
+                url="__HTTPS_RELEASE_ARCHIVE_URL__"
+                sparkle:edSignature="__EDDSA_SIGNATURE__"
+                length="__ARCHIVE_SIZE_BYTES__"
+                type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>

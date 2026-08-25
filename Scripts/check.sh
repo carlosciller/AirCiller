@@ -13,6 +13,11 @@ if [[ ! -f "$project_dir/VendorPython/.airciller-python-executable" ]]; then
   exit 2
 fi
 
+if [[ ! -d "$project_dir/.build/dependencies/Sparkle-2.9.6/Sparkle.framework" ]]; then
+  echo "Sparkle is missing. Run ./Scripts/bootstrap_sparkle.sh." >&2
+  exit 2
+fi
+
 mkdir -p "$test_dir" "$module_cache" "$build_dir/python-cache"
 
 common_swift_arguments=(
@@ -53,6 +58,9 @@ compile_and_run pairing-intent \
 compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
+compile_and_run update-configuration \
+  "$project_dir/Sources/UpdateConfiguration.swift" \
+  "$project_dir/Tests/UpdateConfigurationSmokeTest.swift"
 compile_and_run power-assertion \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/PlaybackPowerAssertion.swift" \
@@ -104,5 +112,10 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
 
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/en.lproj/Localizable.strings"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/es.lproj/Localizable.strings"
+test -d "$project_dir/.build/AirCiller.app/Contents/Frameworks/Sparkle.framework"
+test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Legal/Sparkle-LICENSE.txt"
+otool -L "$project_dir/.build/AirCiller.app/Contents/MacOS/AirCiller" | \
+  rg -q '@rpath/Sparkle.framework/'
+codesign --verify --deep --strict "$project_dir/.build/AirCiller.app"
 
 echo "AirCiller local checks: OK"

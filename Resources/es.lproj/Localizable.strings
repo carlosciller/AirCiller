@@ -477,3 +477,21 @@
 "Operación cancelada." = "Operación cancelada.";
 "No se pudo preparar %@." = "No se pudo preparar %@.";
 "Sistema" = "Sistema";
+
+/* Actualizaciones */
+"Actualizaciones" = "Actualizaciones";
+"Buscar actualizaciones…" = "Buscar actualizaciones…";
+"%@ (compilación %@)" = "%@ (compilación %@)";
+"Motor de actualizaciones" = "Motor de actualizaciones";
+"No configurado" = "No configurado";
+"Servidor" = "Servidor";
+"Buscar actualizaciones automáticamente" = "Buscar actualizaciones automáticamente";
+"Las comprobaciones usan HTTPS y firmas EdDSA. AirCiller siempre pide confirmación antes de instalar." = "Las comprobaciones usan HTTPS y firmas EdDSA. AirCiller siempre pide confirmación antes de instalar.";
+"Esta compilación local todavía necesita la URL HTTPS del appcast y la clave pública EdDSA." = "Esta compilación local todavía necesita la URL HTTPS del appcast y la clave pública EdDSA.";
+"Las actualizaciones no están configuradas" = "Las actualizaciones no están configuradas";
+"Esta compilación local todavía no tiene una URL de actualizaciones y una clave pública EdDSA válidas." = "Esta compilación local todavía no tiene una URL de actualizaciones y una clave pública EdDSA válidas.";
+"Aceptar" = "Aceptar";
+"Actualización aplazada" = "Actualización aplazada";
+"Detén la reproducción o la preparación de la película antes de buscar actualizaciones." = "Detén la reproducción o la preparación de la película antes de buscar actualizaciones.";
+"AirCiller aplazará la actualización hasta que termine la reproducción." = "AirCiller aplazará la actualización hasta que termine la reproducción.";
+"Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película." = "Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película.";

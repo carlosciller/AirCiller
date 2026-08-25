@@ -4,6 +4,12 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+## Version 0.10.2
+
+- Integrates the official Sparkle 2.9.6 framework through a pinned, SHA-256 verified download and embeds it in the custom Swift build without requiring Xcode or an Apple Developer Program membership.
+- Adds a standard Check for Updates command and native Updates settings for manual checks and the user's automatic-check preference. Automatic downloading and installation remain disabled.
+- Requires HTTPS, EdDSA-signed archives, a signed appcast, and verification before extraction. The feed uses the signed `appcast.xml` attached to the latest GitHub Release.
+- Adds update configuration tests, framework and runtime-link checks, a release packager, an appcast example, and the complete local release procedure.
 - Updates FFmpeg to Homebrew revision 9.0.1_1 and Python to 3.13.15, then aligns the Brewfile, dependency bootstrap and runtime fallback with Python 3.13.
 - Identifies Now Playing content explicitly as a finite movie, publishes playlist position and progress, and keeps local filenames out of system content suggestions.
 - Adds native Playback, Components and Storage settings, including preferred audio and subtitle languages with safe file-track fallbacks.

@@ -21,11 +21,12 @@ Each playback change must be validated locally first, then independently through
 - [ ] Sign releases with Developer ID, enable Hardened Runtime and notarize them with Apple.
 - [ ] Package a fixed Python runtime so the AirPlay engine does not depend on a path from the build Mac.
 - [ ] Add a component manager for Python/pyatv and FFmpeg with signed manifests, progress, cancellation and rollback.
-- [ ] Add a Sparkle 2 updater with a signed feed and explicit installation. Updates remain idle during analysis, preparation and playback.
+- [x] Integrate Sparkle 2 with a verified framework download, signed appcast support, manual checks, optional automatic checks and explicit installation.
+- [x] Publish the first signed appcast through GitHub Releases after generating the EdDSA key and configuring the final HTTPS feed location.
 
 ## Settings
 
-1. Add native panes for Playback, Updates, Components and Storage.
+1. [x] Add native panes for Playback, Updates, Components and Storage.
 2. Move the preferred subtitle language into Playback settings and add separate choices for standard, forced and SDH tracks.
 3. Add a preferred audio language with the file's default track as fallback. Audio conversion continues to require confirmation for each movie.
 4. Show component version, source, location, size and status. Downloads include a progress bar and Cancel button.

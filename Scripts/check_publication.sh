@@ -12,6 +12,7 @@ scan_paths=(
   Sources
   Tests
   Scripts
+  Distribution
   Resources
   Info.plist
   Brewfile
@@ -35,6 +36,7 @@ scan_paths=(
 
 public_prose_paths=(
   .github
+  Distribution
   README.md
   ARCHITECTURE.md
   CODE_OF_CONDUCT.md

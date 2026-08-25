@@ -477,3 +477,21 @@
 "Operación cancelada." = "Operation Cancelled.";
 "No se pudo preparar %@." = "%@ Could Not Be Prepared.";
 "Sistema" = "System";
+
+/* Updates */
+"Actualizaciones" = "Updates";
+"Buscar actualizaciones…" = "Check for Updates…";
+"%@ (compilación %@)" = "%@ (build %@)";
+"Motor de actualizaciones" = "Update System";
+"No configurado" = "Not Configured";
+"Servidor" = "Server";
+"Buscar actualizaciones automáticamente" = "Automatically Check for Updates";
+"Las comprobaciones usan HTTPS y firmas EdDSA. AirCiller siempre pide confirmación antes de instalar." = "Checks use HTTPS and EdDSA signatures. AirCiller always asks for confirmation before installing.";
+"Esta compilación local todavía necesita la URL HTTPS del appcast y la clave pública EdDSA." = "This local build still needs the appcast HTTPS URL and EdDSA public key.";
+"Las actualizaciones no están configuradas" = "Updates Are Not Configured";
+"Esta compilación local todavía no tiene una URL de actualizaciones y una clave pública EdDSA válidas." = "This local build does not yet contain a valid update URL and EdDSA public key.";
+"Aceptar" = "OK";
+"Actualización aplazada" = "Update Postponed";
+"Detén la reproducción o la preparación de la película antes de buscar actualizaciones." = "Stop playback or movie preparation before checking for updates.";
+"AirCiller aplazará la actualización hasta que termine la reproducción." = "AirCiller will postpone the update until playback ends.";
+"Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película." = "Updates are postponed while AirCiller prepares or plays a movie.";
