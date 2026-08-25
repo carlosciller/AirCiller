@@ -32,6 +32,13 @@ Each playback change must be validated locally first, then independently through
 5. Add actions to export a sanitized diagnosis and reset Apple TV authorization.
 6. Consider an OpenSubtitles.com search for the selected movie. It must be initiated by the user, use the current REST API and store credentials in Keychain.
 
+## Now Playing and remote control
+
+1. [ ] Make Now Playing metadata complete and reliable on macOS: original movie title, artwork, duration, elapsed time, playback state and non-live status must stay accurate from start to finish.
+2. [ ] Finish bidirectional remote synchronization. Play, pause, seek and skip commands from AirCiller, the physical Apple TV remote and the iPhone Apple TV Remote must update every other control surface immediately without losing the AirPlay 2 session.
+3. [ ] Investigate automatic Now Playing presentation on the iPhone Lock Screen for an AirPlay 2 queue started by the Mac. Document the operating-system and entitlement boundary, and do not promise parity with native tvOS streaming apps unless it works without requiring an AirCiller app for tvOS or iOS.
+4. [ ] Validate the complete flow on a physical Apple TV and iPhone: automatic Lock Screen appearance where supported, correct title/artwork/timing, no Live label, two-way play/pause/seek/skip, long pause and resume, end-of-file behavior, and clean removal after Stop.
+
 ## Functional candidates
 
 1. [x] Reuse the Apple Vision pipeline for local, on-demand DVD VobSub OCR.
