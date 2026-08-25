@@ -16,8 +16,9 @@ Each playback change must be validated locally first, then independently through
 - [x] Use English as the development language with a complete native Spanish localization that follows the macOS language setting.
 - [x] Publish the main documentation and GitHub templates in English while keeping a Spanish README.
 - [ ] Add a reproducible process for regenerating and verifying `requirements.lock`; major upgrades such as protobuf 7 require an updated lock, full local checks, and physical validation when they can affect the AirPlay engine.
-- [ ] Enable GitHub private vulnerability reporting.
-- [x] Create the first version tag and private release after the localized build passes the physical Apple TV matrix.
+- [x] Enable GitHub private vulnerability reporting.
+- [x] Create the first version tag and public release after the localized build passes the physical Apple TV matrix.
+- [ ] Add a lightweight Sparkle 2 updater with a signed feed, explicit installation, and no checks during playback or media preparation.
 
 ## Functional candidates
 

@@ -1,49 +1,80 @@
 name: Bug report
-description: Report a reproducible AirCiller problem without attaching private data.
-title: "[Bug] "
+description: Tell us what went wrong without exposing private media or network details.
+title: "[Bug]: "
 labels:
   - bug
 body:
   - type: markdown
     attributes:
       value: |
-        Do not publish credentials, pairing codes, personal paths, IP addresses, Apple TV names, movies, or commercial subtitles.
+        Thanks for helping improve AirCiller. Please anonymize filenames, Apple TV names, addresses, and logs. Never paste pairing codes or credentials.
   - type: input
     id: version
     attributes:
-      label: AirCiller, macOS, and tvOS versions
-      placeholder: AirCiller 0.9.7, macOS 27.x, tvOS 27.x
+      label: AirCiller version
+      placeholder: "0.10.1 (build 41)"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Mac and Apple TV
+      description: Share models and OS versions, but not the receiver name or network address.
+      placeholder: "Apple silicon Mac, macOS 27.0; Apple TV 4K, tvOS 27.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Opening or analyzing a file
+        - Connecting or authorizing AirPlay 2
+        - Direct HDR or Dolby Vision playback
+        - HLS/fMP4 playback
+        - Audio tracks or conversion
+        - Text subtitles
+        - PGS or VobSub OCR subtitles
+        - Playlist, recents, or interface
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the visible behavior and any understandable message shown by AirCiller.
     validations:
       required: true
   - type: textarea
     id: steps
     attributes:
       label: Steps to reproduce
-      description: Use generic names for files and receivers.
+      placeholder: |
+        1. Opened a local file
+        2. Selected an anonymized audio/subtitle track
+        3. Pressed Play
+        4. ...
     validations:
       required: true
   - type: textarea
+    id: media
+    attributes:
+      label: Anonymized media details
+      description: Include only relevant codecs, resolution, HDR/Dolby Vision profile, and track formats. Do not attach the movie or commercial subtitles.
+      placeholder: "2160p HEVC, Dolby Vision profile 8; E-AC-3 5.1; PGS subtitles"
+  - type: textarea
     id: expected
     attributes:
-      label: Expected and actual results
-    validations:
-      required: true
-  - type: dropdown
-    id: route
-    attributes:
-      label: Affected path
-      options:
-        - Direct HDR/Dolby Vision MP4
-        - HLS/fMP4 without subtitles
-        - HLS/fMP4 with subtitles
-        - Interface, playlist, or controls
-        - I do not know
+      label: What did you expect?
     validations:
       required: true
   - type: checkboxes
     id: privacy
     attributes:
-      label: Privacy
+      label: Privacy check
       options:
-        - label: I removed paths, IP addresses, device names, credentials, and protected content.
+        - label: I removed private filenames, receiver names, addresses, pairing codes, and credentials.
+          required: true
+        - label: I am not attaching copyrighted media or subtitles.
           required: true

@@ -2,7 +2,11 @@
 
 ## Reporting a vulnerability
 
-This repository does not yet have a private security channel. Before making it public, enable **Private vulnerability reporting** in GitHub. Until then, do not open a public issue that reveals credentials, private network addresses, or personal data.
+Please use GitHub's private **[Report a vulnerability](https://github.com/carlosciller/AirCiller/security/advisories/new)** form. It lets you describe the issue to the maintainer without exposing it in a public issue.
+
+If that form is unavailable, open a public issue containing only a request for private contact. Do not include the vulnerability, credentials, network details, filenames, or personal data.
+
+Security fixes target the latest published release. Older versions may be asked to update before a report can be reproduced.
 
 ## Data that must not be attached
 

@@ -4,6 +4,8 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+- Redesigns the public GitHub landing page in English and Spanish around download, real-world use, privacy, and the project's human origin, with the technical detail moved below the product story.
+- Adds privacy-aware bug and feature forms, enables private vulnerability reporting, and documents the future signed Sparkle updater without changing the app itself.
 - Removes the local receiver-name preference from discovery so public builds select Apple TV devices without relying on a developer-specific room name.
 - Extends the publication audit to reject local receiver names and legacy third-party product references.
 

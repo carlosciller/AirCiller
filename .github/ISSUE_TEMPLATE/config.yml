@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/carlosciller/AirCiller/security/advisories/new
+    about: Never publish credentials, local addresses, private filenames, or vulnerability details in an issue.

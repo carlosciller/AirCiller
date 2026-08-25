@@ -1,0 +1,36 @@
+name: Feature idea
+description: Suggest one focused improvement to the open–send–watch experience.
+title: "[Idea]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AirCiller stays deliberately small: no telemetry, cloud library, permanent server, background indexing, or silent transcoding. Concrete ideas that preserve that character are welcome.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Start with the viewing situation, not the implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would feel natural on macOS?
+      description: Describe the simplest interaction you would expect as a user.
+    validations:
+      required: true
+  - type: textarea
+    id: tradeoffs
+    attributes:
+      label: Trade-offs or alternatives
+      description: Optional. Mention anything that could affect quality, privacy, performance, or Apple TV compatibility.
+  - type: checkboxes
+    id: fit
+    attributes:
+      label: Project fit
+      options:
+        - label: This does not require uploading media, telemetry, or silent transcoding.
+          required: true
