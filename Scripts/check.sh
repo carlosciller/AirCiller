@@ -115,7 +115,7 @@ test -f "$project_dir/.build/AirCiller.app/Contents/Resources/es.lproj/Localizab
 test -d "$project_dir/.build/AirCiller.app/Contents/Frameworks/Sparkle.framework"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Legal/Sparkle-LICENSE.txt"
 otool -L "$project_dir/.build/AirCiller.app/Contents/MacOS/AirCiller" | \
-  rg -q '@rpath/Sparkle.framework/'
+  grep -Eq '@rpath/Sparkle.framework/'
 codesign --verify --deep --strict "$project_dir/.build/AirCiller.app"
 
 echo "AirCiller local checks: OK"

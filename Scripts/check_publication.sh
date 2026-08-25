@@ -52,27 +52,28 @@ public_prose_paths=(
 
 failed=0
 
-if rg -n --glob '!check_publication.sh' '/Users/[^/[:space:]]+/' "${scan_paths[@]}"; then
+if grep -RInE --exclude='check_publication.sh' \
+  '/Users/[^/[:space:]]+/' "${scan_paths[@]}"; then
   echo "Personal filesystem paths were found." >&2
   failed=1
 fi
 
-if rg -n --glob '!check_publication.sh' \
+if grep -RInE --exclude='check_publication.sh' \
   '192\.168\.|Salón|Monsieur Hulot|YTS\.MX|BYNDR|SARTRE|The Invite|Supergirl|Disclosure Day|The Apartment|Airflow|Infuse' \
   "${scan_paths[@]}"; then
   echo "Development media or network data was found." >&2
   failed=1
 fi
 
-if rg -ni \
+if grep -RInE \
   '[—–]|made for .+ not|built for .+ not|not just|not only|more than just|rather than' \
   "${public_prose_paths[@]}"; then
   echo "Formulaic public wording or long dashes were found." >&2
   failed=1
 fi
 
-if rg -n \
-  --glob '!check_publication.sh' \
+if grep -RInE \
+  --exclude='check_publication.sh' \
   'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}|github_pat_[A-Za-z0-9_]{20,}|gh[oprsu]_[A-Za-z0-9]{30,}|sk-[A-Za-z0-9]{20,}' \
   "${scan_paths[@]}"; then
   echo "Content resembling secret material was found." >&2
@@ -92,7 +93,7 @@ if [[ -d .git ]]; then
     fi
   done
 
-  if git ls-files | rg '(^|/)(\.build|VendorPython|__pycache__)(/|$)|\.app/|\.(mkv|mp4|m4v|mov|m2ts)$'; then
+  if git ls-files | grep -E '(^|/)(\.build|VendorPython|__pycache__)(/|$)|\.app/|\.(mkv|mp4|m4v|mov|m2ts)$'; then
     echo "Git contains generated artifacts or media files." >&2
     failed=1
   fi
