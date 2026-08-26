@@ -2,6 +2,12 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
+## Unreleased
+
+### Improvements
+
+- Keeps Playlist and Recents rows aligned to a consistent two-line layout while retaining the complete filename in the hover text.
+
 ## 0.10.3 (26 August 2026)
 
 ### Maintenance

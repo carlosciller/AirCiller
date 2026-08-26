@@ -24,7 +24,7 @@ struct NativePlaylistTable: NSViewRepresentable {
         tableView.gridStyleMask = []
         tableView.intercellSpacing = .zero
         tableView.rowHeight = 62
-        tableView.usesAutomaticRowHeights = true
+        tableView.usesAutomaticRowHeights = false
         tableView.selectionHighlightStyle = .none
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true

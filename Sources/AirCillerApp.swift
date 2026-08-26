@@ -1260,8 +1260,9 @@ struct LibrarySidebar: View {
                                 VStack(alignment: .leading, spacing: 5) {
                                     Text(item.title.softWrappedFilename)
                                         .font(.callout.weight(.medium))
-                                        .lineLimit(nil)
-                                        .fixedSize(horizontal: false, vertical: true)
+                                        .lineLimit(2)
+                                        .truncationMode(.tail)
+                                        .frame(minHeight: 34, alignment: .topLeading)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     if item.duration > 0 {
                                         ProgressView(value: item.progress)
@@ -1346,24 +1347,26 @@ struct PlaylistMediaRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .top, spacing: 9) {
-                    Text("\(index + 1)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .frame(width: 20, alignment: .trailing)
-                    Text(item.title.softWrappedFilename)
-                        .font(.callout.weight(.medium))
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(alignment: .center, spacing: 9) {
+                Group {
+                    if isSelected {
+                        Image(systemName: "play.fill")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(Color.airCillerYellow)
+                            .accessibilityLabel("Seleccionada")
+                    } else {
+                        Text("\(index + 1)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                if isSelected {
-                    Label("Seleccionada", systemImage: "play.fill")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Color.airCillerYellow)
-                        .padding(.leading, 29)
-                }
+                .frame(width: 20, alignment: .trailing)
+
+                Text(item.title.softWrappedFilename)
+                    .font(.callout.weight(.medium))
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
