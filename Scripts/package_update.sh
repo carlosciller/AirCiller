@@ -22,9 +22,19 @@ if [[ "$feed_url" != https://* || -z "$public_key" ]]; then
 fi
 
 archive_path="$release_dir/AirCiller-$version-$build.zip"
+release_notes_source="$project_dir/Distribution/ReleaseNotes/$version.md"
+release_notes_path="$release_dir/AirCiller-$version-$build.md"
+
+if [[ ! -f "$release_notes_source" ]]; then
+    echo "Release notes are missing: $release_notes_source" >&2
+    exit 2
+fi
+
 mkdir -p "$release_dir"
 rm -f "$archive_path"
 ditto -c -k --sequesterRsrc --keepParent "$app_path" "$archive_path"
+cp "$release_notes_source" "$release_notes_path"
 
 codesign --verify --deep --strict "$app_path"
 echo "$archive_path"
+echo "$release_notes_path"

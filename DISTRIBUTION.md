@@ -62,7 +62,7 @@ Sparkle's `generate_appcast` tool should create the published XML. It signs the 
 ## Release procedure
 
 1. Increase `CFBundleShortVersionString` and the numeric `CFBundleVersion`.
-2. Update `CHANGELOG.md` and complete all local checks.
+2. Update `CHANGELOG.md` and write concise, user-facing notes in `Distribution/ReleaseNotes/<version>.md`. Use `TEMPLATE.md` as the starting point, describe visible outcomes, and omit implementation details.
 3. Build AirCiller and verify its ad hoc signature.
 4. Package the app:
 
@@ -70,7 +70,7 @@ Sparkle's `generate_appcast` tool should create the published XML. It signs the 
    ./Scripts/package_update.sh
    ```
 
-5. Add a Markdown release-notes file beside the ZIP with the same base filename.
+5. Confirm that `package_update.sh` copied the versioned release notes beside the ZIP with the same base filename.
 6. Generate and sign the appcast using the real release asset prefix and project link:
 
    ```sh
