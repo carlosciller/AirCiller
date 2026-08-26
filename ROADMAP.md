@@ -20,25 +20,32 @@ Each playback change must be validated locally first, then independently through
 - [x] Create the first version tag and public release after the localized build passes the physical Apple TV matrix.
 - [ ] Sign releases with Developer ID, enable Hardened Runtime and notarize them with Apple.
 - [ ] Package a fixed Python runtime so the AirPlay engine does not depend on a path from the build Mac.
-- [ ] Add a component manager for Python/pyatv and FFmpeg with signed manifests, progress, cancellation and rollback.
+- [x] Show the active Python/AirPlay and FFmpeg versions, paths, sources, and explicit Homebrew maintenance actions.
+- [ ] Replace the Homebrew-dependent setup with managed component downloads, signed manifests, progress, cancellation and rollback.
 - [x] Integrate Sparkle 2 with a verified framework download, signed appcast support, manual checks, optional automatic checks and explicit installation.
 - [x] Publish the first signed appcast through GitHub Releases after generating the EdDSA key and configuring the final HTTPS feed location.
 
 ## Settings
 
 1. [x] Add native panes for Playback, Updates, Components and Storage.
-2. Move the preferred subtitle language into Playback settings and add separate choices for standard, forced and SDH tracks.
-3. Add a preferred audio language with the file's default track as fallback. Audio conversion continues to require confirmation for each movie.
-4. Show component version, source, location, size and status. Downloads include a progress bar and Cancel button.
+2. [ ] Extend the existing preferred subtitle language with separate choices for standard, forced and SDH tracks.
+3. [x] Add a preferred audio language with the file's default track as fallback. Audio conversion continues to require confirmation for each movie.
+4. [x] Show component version, source, location and status, with explicit Homebrew actions, activity and cancellation.
 5. Add actions to export a sanitized diagnosis and reset Apple TV authorization.
 6. Consider an OpenSubtitles.com search for the selected movie. It must be initiated by the user, use the current REST API and store credentials in Keychain.
 
+## Library
+
+1. [x] Keep Playlist and Recents rows on a consistent two-line rhythm while exposing the complete filename on hover.
+2. [ ] Add keyboard reordering and clearer VoiceOver position feedback to complement drag and drop.
+
 ## Now Playing and remote control
 
-1. [ ] Make Now Playing metadata complete and reliable on macOS: original movie title, artwork, duration, elapsed time, playback state and non-live status must stay accurate from start to finish.
-2. [ ] Finish bidirectional remote synchronization. Play, pause, seek and skip commands from AirCiller, the physical Apple TV remote and the iPhone Apple TV Remote must update every other control surface immediately without losing the AirPlay 2 session.
-3. [ ] Investigate automatic Now Playing presentation on the iPhone Lock Screen for an AirPlay 2 queue started by the Mac. Document the operating-system and entitlement boundary, and do not promise parity with native tvOS streaming apps unless it works without requiring an AirCiller app for tvOS or iOS.
-4. [ ] Validate the complete flow on a physical Apple TV and iPhone: automatic Lock Screen appearance where supported, correct title/artwork/timing, no Live label, two-way play/pause/seek/skip, long pause and resume, end-of-file behavior, and clean removal after Stop.
+1. [x] Publish duration, elapsed time, playback state and non-live status to macOS Now Playing.
+2. [x] Accept basic play, pause, seek and skip commands from macOS and the iPhone Apple TV Remote while synchronizing the main timeline.
+3. [x] Trigger automatic Now Playing presentation on the iPhone Lock Screen without an AirCiller iOS or tvOS app.
+4. [ ] Determine whether public macOS APIs can reliably add the original movie title and AirCiller artwork to the Apple TV-owned Lock Screen card.
+5. [ ] Validate long pause, end-of-file, stop and rapid command edge cases across the Mac, physical Apple TV remote and iPhone.
 
 ## Functional candidates
 
