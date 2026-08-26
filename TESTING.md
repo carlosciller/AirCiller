@@ -22,3 +22,9 @@ A version is not considered ready to install until these cases have been complet
 | Control | Long pause and resume from the remote | AirPlay remains linked and the Mac does not sleep automatically |
 
 After playback, also test stop, replay, and closing the app. Only then should the patch version be increased and the installed app replaced, while keeping a rollback copy.
+
+## 4. Signed application updates
+
+The first complete Sparkle update was validated on 26 August 2026. The installed app moved from AirCiller 0.10.2 (build 42) to 0.10.3 (build 43) through the public signed appcast, installed the update, and relaunched successfully. The resulting app bundle and every embedded Sparkle helper passed strict code-signature verification.
+
+Version 0.10.3 did not change playback or media preparation, so this result validates the update path only. Apple TV playback remains subject to the separate physical matrix above.
