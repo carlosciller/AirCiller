@@ -4,6 +4,11 @@ Installed versions are validated separately on macOS and on a physical Apple TV.
 
 ## Unreleased
 
+## Version 0.10.3
+
+- Removes the hidden ripgrep requirement from repository checks so a clean GitHub macOS runner can validate the complete project.
+- Provides a deliberately small signed update for validating AirCiller's first end-to-end Sparkle installation. Playback code and media handling are unchanged.
+
 ## Version 0.10.2
 
 - Integrates the official Sparkle 2.9.6 framework through a pinned, SHA-256 verified download and embeds it in the custom Swift build without requiring Xcode or an Apple Developer Program membership.
