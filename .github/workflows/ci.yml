@@ -29,5 +29,16 @@ jobs:
       - name: Prepare Sparkle
         run: ./Scripts/bootstrap_sparkle.sh
 
+      - name: Prepare verified FFmpeg test fixture
+        run: |
+          mkdir -p .build/ci-ffmpeg
+          curl --fail --location --silent --show-error \
+            https://github.com/carlosciller/AirCiller/releases/download/v0.10.3/ffmpeg-9.0.1-macos-arm64.zip \
+            --output .build/ci-ffmpeg.zip
+          echo "059a683433d3b05f7fe1f2231942cebeb51bbbded3cbed46da1d702f3a451c83  .build/ci-ffmpeg.zip" | shasum -a 256 --check
+          ditto -x -k --norsrc --noextattr --noqtn --noacl .build/ci-ffmpeg.zip .build/ci-ffmpeg
+
       - name: Build and test
         run: ./Scripts/check.sh
+        env:
+          AIRCILLER_TEST_FFMPEG: ${{ github.workspace }}/.build/ci-ffmpeg/ffmpeg/bin/ffmpeg

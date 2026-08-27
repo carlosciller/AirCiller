@@ -1,9 +1,9 @@
 import Foundation
 
 enum MediaProbeService {
-    static func probe(url: URL) async throws -> MediaProbe {
+    static func probe(url: URL, ffprobeURL explicitFFprobeURL: URL? = nil) async throws -> MediaProbe {
         do {
-            guard let ffprobeURL = Executables.find("ffprobe") else {
+            guard let ffprobeURL = explicitFFprobeURL ?? Executables.find("ffprobe") else {
                 throw AirCillerError.ffprobeMissing
             }
 
