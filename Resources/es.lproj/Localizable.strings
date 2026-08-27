@@ -452,6 +452,12 @@
 "Si el idioma no está disponible, AirCiller usa la pista marcada como predeterminada en el archivo." = "Si el idioma no está disponible, AirCiller usa la pista marcada como predeterminada en el archivo.";
 "Idioma de subtítulos" = "Idioma de subtítulos";
 "AirCiller prefiere una pista normal y usa SDH si es la única opción del idioma elegido." = "AirCiller prefiere una pista normal y usa SDH si es la única opción del idioma elegido.";
+"Tipo de subtítulo" = "Tipo de subtítulo";
+"Normales" = "Normales";
+"Solo forzados" = "Solo forzados";
+"Prefiere subtítulos normales y usa SDH si no hay otra pista del idioma elegido." = "Prefiere subtítulos normales y usa SDH si no hay otra pista del idioma elegido.";
+"Prefiere SDH y usa una pista normal si no hay SDH en el idioma elegido." = "Prefiere SDH y usa una pista normal si no hay SDH en el idioma elegido.";
+"Activa únicamente una pista forzada. Si no existe, deja los subtítulos desactivados." = "Activa únicamente una pista forzada. Si no existe, deja los subtítulos desactivados.";
 "Conversión" = "Conversión";
 "Estas preferencias solo eligen pistas. Si un audio necesita conversión, AirCiller seguirá explicando el motivo y pidiendo permiso para esa película." = "Estas preferencias solo eligen pistas. Si un audio necesita conversión, AirCiller seguirá explicando el motivo y pidiendo permiso para esa película.";
 "Gestor" = "Gestor";
@@ -477,6 +483,53 @@
 "Operación cancelada." = "Operación cancelada.";
 "No se pudo preparar %@." = "No se pudo preparar %@.";
 "Sistema" = "Sistema";
+
+/* Componentes gestionados */
+"AirCiller comprueba un catálogo firmado, verifica tamaño y SHA-256, instala en una carpeta propia y conserva una versión para volver atrás. Homebrew sigue disponible como alternativa manual." = "AirCiller comprueba un catálogo firmado, verifica tamaño y SHA-256, instala en una carpeta propia y conserva una versión para volver atrás. Homebrew sigue disponible como alternativa manual.";
+"Buscar actualización" = "Buscar actualización";
+"Descargar con AirCiller" = "Descargar con AirCiller";
+"Volver a la versión anterior" = "Volver a la versión anterior";
+"Usar Homebrew…" = "Usar Homebrew…";
+"Las descargas gestionadas no están configuradas en esta versión." = "Las descargas gestionadas no están configuradas en esta versión.";
+"Comprobando el catálogo firmado…" = "Comprobando el catálogo firmado…";
+"Descargando %@… %lld %%" = "Descargando %@… %lld %%";
+"Verificando firma, tamaño y SHA-256…" = "Verificando firma, tamaño y SHA-256…";
+"Instalando sin sustituir la versión anterior…" = "Instalando sin sustituir la versión anterior…";
+"Se ha recuperado la versión anterior de %@." = "Se ha recuperado la versión anterior de %@.";
+"No se pudo recuperar la versión anterior de %@." = "No se pudo recuperar la versión anterior de %@.";
+"La firma del catálogo de componentes no es válida." = "La firma del catálogo de componentes no es válida.";
+"El catálogo de componentes usa un formato incompatible." = "El catálogo de componentes usa un formato incompatible.";
+"No hay una descarga compatible con este Mac." = "No hay una descarga compatible con este Mac.";
+"La descarga no tiene el tamaño firmado esperado." = "La descarga no tiene el tamaño firmado esperado.";
+"La descarga no coincide con su huella SHA-256 firmada." = "La descarga no coincide con su huella SHA-256 firmada.";
+"La descarga contiene rutas que salen de su carpeta segura." = "La descarga contiene rutas que salen de su carpeta segura.";
+"La descarga no contiene el ejecutable indicado por el catálogo." = "La descarga no contiene el ejecutable indicado por el catálogo.";
+"No hay una versión anterior disponible." = "No hay una versión anterior disponible.";
+"El servidor no devolvió una descarga válida." = "El servidor no devolvió una descarga válida.";
+"No se pudo abrir el componente descargado." = "No se pudo abrir el componente descargado.";
+"No se pudo abrir el componente descargado: %@" = "No se pudo abrir el componente descargado: %@";
+"El componente descargado no supera la comprobación de ejecución y versión." = "El componente descargado no supera la comprobación de ejecución y versión.";
+
+/* Diagnóstico */
+"Diagnóstico" = "Diagnóstico";
+"Informe local" = "Informe local";
+"Crea un archivo de texto sin nombres de películas, rutas personales, nombres o direcciones de receptores ni credenciales. No se envía automáticamente." = "Crea un archivo de texto sin nombres de películas, rutas personales, nombres o direcciones de receptores ni credenciales. No se envía automáticamente.";
+"Exportar diagnóstico…" = "Exportar diagnóstico…";
+"Receptor" = "Receptor";
+"No seleccionado" = "No seleccionado";
+"Restablecer autorización…" = "Restablecer autorización…";
+"Solo elimina del Llavero la autorización del Apple TV seleccionado. La próxima reproducción pedirá un código nuevo una única vez." = "Solo elimina del Llavero la autorización del Apple TV seleccionado. La próxima reproducción pedirá un código nuevo una única vez.";
+"¿Restablecer la autorización de este Apple TV?" = "¿Restablecer la autorización de este Apple TV?";
+"Restablecer autorización" = "Restablecer autorización";
+"AirCiller volverá a pedir el código de cuatro cifras al intentar reproducir." = "AirCiller volverá a pedir el código de cuatro cifras al intentar reproducir.";
+"La autorización se ha eliminado correctamente." = "La autorización se ha eliminado correctamente.";
+"No se pudo restablecer la autorización: %@" = "No se pudo restablecer la autorización: %@";
+"Exportar diagnóstico" = "Exportar diagnóstico";
+"Guardar" = "Guardar";
+"Diagnóstico guardado." = "Diagnóstico guardado.";
+"No se pudo guardar el diagnóstico: %@" = "No se pudo guardar el diagnóstico: %@";
+"Detén la reproducción antes de restablecer la autorización." = "Detén la reproducción antes de restablecer la autorización.";
+"Autorización restablecida" = "Autorización restablecida";
 
 /* Actualizaciones */
 "Actualizaciones" = "Actualizaciones";

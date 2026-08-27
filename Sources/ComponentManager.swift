@@ -1,56 +1,6 @@
 import Foundation
 import Observation
 
-enum ManagedComponent: String, CaseIterable, Identifiable, Sendable {
-    case ffmpeg
-    case airPlay
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .ffmpeg: "FFmpeg"
-        case .airPlay: "AirPlay"
-        }
-    }
-
-    var formula: String {
-        switch self {
-        case .ffmpeg: "ffmpeg"
-        case .airPlay: "python@3.13"
-        }
-    }
-
-    var purpose: String {
-        switch self {
-        case .ffmpeg:
-            "Analiza y prepara las películas, el audio y los subtítulos."
-        case .airPlay:
-            "Python 3.13 ejecuta el motor AirPlay 2 incluido con AirCiller."
-        }
-    }
-}
-
-struct ManagedComponentStatus: Equatable, Sendable {
-    let component: ManagedComponent
-    let version: String?
-    let path: String?
-    let source: String?
-    let isCompatible: Bool
-
-    var isInstalled: Bool { path != nil }
-
-    static func missing(_ component: ManagedComponent) -> Self {
-        Self(
-            component: component,
-            version: nil,
-            path: nil,
-            source: nil,
-            isCompatible: false
-        )
-    }
-}
-
 @Observable
 @MainActor
 final class ComponentManager {
@@ -60,8 +10,12 @@ final class ComponentManager {
     private(set) var activeComponent: ManagedComponent?
     private(set) var operationMessage: String?
     private(set) var operationOutput: String?
+    private(set) var operationProgress: Double?
+
+    let managedConfiguration = ManagedComponentConfiguration.load(from: Bundle.main.infoDictionary)
 
     @ObservationIgnored private var operationTask: Task<Void, Never>?
+    @ObservationIgnored private var managedOperationID: UUID?
 
     func status(for component: ManagedComponent) -> ManagedComponentStatus {
         statuses[component] ?? .missing(component)
@@ -89,6 +43,8 @@ final class ComponentManager {
         }
 
         activeComponent = component
+        managedOperationID = nil
+        operationProgress = nil
         operationOutput = nil
         operationMessage = L10n.format("Preparando %@…", component.title)
         let formula = component.formula
@@ -115,17 +71,20 @@ final class ComponentManager {
                 }
                 self.operationOutput = Self.lastMeaningfulLine(in: result.output)
                 self.operationMessage = L10n.format("%@ está listo.", component.title)
+                self.operationProgress = nil
                 self.activeComponent = nil
                 self.operationTask = nil
                 await self.refresh()
             } catch is CancellationError {
                 self.operationMessage = L10n.text("Operación cancelada.")
+                self.operationProgress = nil
                 self.activeComponent = nil
                 self.operationTask = nil
                 await self.refresh()
             } catch {
                 self.operationOutput = error.localizedDescription
                 self.operationMessage = L10n.format("No se pudo preparar %@.", component.title)
+                self.operationProgress = nil
                 self.activeComponent = nil
                 self.operationTask = nil
                 await self.refresh()
@@ -133,8 +92,96 @@ final class ComponentManager {
         }
     }
 
+    func installManaged(_ component: ManagedComponent) {
+        guard activeComponent == nil else { return }
+        guard managedConfiguration.isReady else {
+            operationMessage = L10n.text("Las descargas gestionadas no están configuradas en esta versión.")
+            return
+        }
+
+        activeComponent = component
+        let operationID = UUID()
+        managedOperationID = operationID
+        operationOutput = nil
+        operationProgress = nil
+        operationMessage = L10n.text("Comprobando el catálogo firmado…")
+        let configuration = managedConfiguration
+
+        operationTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await ManagedComponentDownloader.install(
+                    component,
+                    configuration: configuration,
+                    progress: { [weak self] stage in
+                        Task { @MainActor [weak self] in
+                            guard self?.managedOperationID == operationID else { return }
+                            self?.apply(stage, component: component)
+                        }
+                    }
+                )
+                try Task.checkCancellation()
+                self.operationMessage = L10n.format("%@ está listo.", component.title)
+                self.operationProgress = nil
+                self.managedOperationID = nil
+                self.activeComponent = nil
+                self.operationTask = nil
+                await self.refresh()
+            } catch is CancellationError {
+                self.operationMessage = L10n.text("Operación cancelada.")
+                self.operationProgress = nil
+                self.managedOperationID = nil
+                self.activeComponent = nil
+                self.operationTask = nil
+                await self.refresh()
+            } catch {
+                self.operationOutput = DiagnosticsReport.sanitize(error.localizedDescription)
+                self.operationMessage = L10n.format("No se pudo preparar %@.", component.title)
+                self.operationProgress = nil
+                self.managedOperationID = nil
+                self.activeComponent = nil
+                self.operationTask = nil
+                await self.refresh()
+            }
+        }
+    }
+
+    func rollback(_ component: ManagedComponent) {
+        guard activeComponent == nil else { return }
+        do {
+            try ManagedComponentStore.rollback(component)
+            operationMessage = L10n.format("Se ha recuperado la versión anterior de %@.", component.title)
+            operationOutput = nil
+            Task { await refresh() }
+        } catch {
+            operationMessage = L10n.format("No se pudo recuperar la versión anterior de %@.", component.title)
+            operationOutput = error.localizedDescription
+        }
+    }
+
+    func canRollback(_ component: ManagedComponent) -> Bool {
+        ManagedComponentStore.hasRollback(for: component)
+    }
+
     func cancelOperation() {
         operationTask?.cancel()
+    }
+
+    private func apply(_ stage: ManagedComponentDownloadStage, component: ManagedComponent) {
+        switch stage {
+        case .catalogue:
+            operationMessage = L10n.text("Comprobando el catálogo firmado…")
+            operationProgress = nil
+        case .downloading(let progress):
+            operationMessage = L10n.format("Descargando %@… %lld %%", component.title, Int64(progress * 100))
+            operationProgress = progress
+        case .verifying:
+            operationMessage = L10n.text("Verificando firma, tamaño y SHA-256…")
+            operationProgress = nil
+        case .installing:
+            operationMessage = L10n.text("Instalando sin sustituir la versión anterior…")
+            operationProgress = nil
+        }
     }
 
     nonisolated static func ffmpegVersion(from output: String) -> String? {
@@ -157,11 +204,14 @@ final class ComponentManager {
             "/usr/local/bin/brew",
         ])
 
-        let ffmpegPath = executablePath(in: [
-            "/opt/homebrew/bin/ffmpeg",
-            "/usr/local/bin/ffmpeg",
-            "/opt/local/bin/ffmpeg",
-        ])
+        let managedFFmpegPath = ManagedComponentStore.executableURL(for: .ffmpeg)?.path
+        let ffmpegPath =
+            managedFFmpegPath
+            ?? executablePath(in: [
+                "/opt/homebrew/bin/ffmpeg",
+                "/usr/local/bin/ffmpeg",
+                "/opt/local/bin/ffmpeg",
+            ])
         let ffmpegOutput: String?
         if let ffmpegPath {
             ffmpegOutput = await commandOutput(executablePath: ffmpegPath, arguments: ["-version"])
@@ -173,11 +223,13 @@ final class ComponentManager {
             component: .ffmpeg,
             version: ffmpegVersion,
             path: ffmpegPath,
-            source: ffmpegPath.map(componentSource(for:)),
+            source: ffmpegPath.map { managedFFmpegPath == $0 ? "AirCiller" : componentSource(for: $0) },
             isCompatible: ffmpegPath != nil && ffmpegVersion != nil
         )
 
+        let managedPythonPath = ManagedComponentStore.executableURL(for: .airPlay)?.path
         var pythonCandidates = [
+            managedPythonPath,
             recordedPythonPath,
             "/opt/homebrew/opt/python@3.13/bin/python3.13",
             "/opt/homebrew/bin/python3",
@@ -199,7 +251,7 @@ final class ComponentManager {
             component: .airPlay,
             version: pythonVersion,
             path: pythonPath,
-            source: pythonPath.map(componentSource(for:)),
+            source: pythonPath.map { managedPythonPath == $0 ? "AirCiller" : componentSource(for: $0) },
             isCompatible: isCompatiblePythonVersion(pythonVersion)
         )
 

@@ -41,6 +41,21 @@ The dependency lives under `.build/dependencies` and is not committed. CI perfor
 - The EdDSA private key stays in the maintainer's login Keychain and must never enter Git.
 - The public key belongs in `Info.plist` and is safe to publish.
 
+## Managed components
+
+Development builds after 0.10.3 can fetch a fixed FFmpeg build and CPython runtime from GitHub Releases. The app first verifies the Ed25519 signature of `Distribution/components-v1.json`. It then checks the selected archive's HTTPS URL, architecture, minimum macOS version, exact size, SHA-256 digest, version name, and executable path.
+
+Downloads show determinate progress when the server provides a size and can be cancelled. Extraction takes place in a temporary folder. AirCiller rejects unsafe paths and activates a version only after validation; the previous version remains available for rollback. Existing Homebrew tools remain a manual fallback.
+
+Build and sign the component assets with:
+
+```sh
+./Scripts/build_managed_components.sh
+./Scripts/package_managed_components.sh
+```
+
+Upload both ZIP archives to the release tag named in the signed manifest before publishing the manifest on `main`. Never edit the JSON after signing it. The private key remains in Keychain; only the public key and detached signature belong in Git.
+
 The stable appcast URL is `https://github.com/carlosciller/AirCiller/releases/latest/download/appcast.xml`. It resolves to the signed feed attached to the latest GitHub Release. AirCiller validates that this URL uses HTTPS and that its public key decodes to the expected EdDSA length before starting Sparkle.
 
 ## One-time key setup

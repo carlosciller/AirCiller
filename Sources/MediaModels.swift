@@ -165,6 +165,33 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
     }
 }
 
+enum SubtitleTrackPreference: String, CaseIterable, Identifiable, Sendable {
+    case standard
+    case sdh
+    case forced
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .standard: return L10n.text("Normales")
+        case .sdh: return "SDH"
+        case .forced: return L10n.text("Solo forzados")
+        }
+    }
+
+    var explanation: String {
+        switch self {
+        case .standard:
+            return L10n.text("Prefiere subtítulos normales y usa SDH si no hay otra pista del idioma elegido.")
+        case .sdh:
+            return L10n.text("Prefiere SDH y usa una pista normal si no hay SDH en el idioma elegido.")
+        case .forced:
+            return L10n.text("Activa únicamente una pista forzada. Si no existe, deja los subtítulos desactivados.")
+        }
+    }
+}
+
 struct MediaChapter: Identifiable, Hashable, Sendable {
     let id: Int
     let start: Double
@@ -234,6 +261,35 @@ struct MediaProbe: Sendable {
         }
         parts.append(TimeFormatting.duration(duration))
         return parts.joined(separator: " · ")
+    }
+}
+
+struct VideoStreamCandidate: Equatable, Sendable {
+    let index: Int
+    let width: Int?
+    let height: Int?
+    let isDefault: Bool
+    let isAttachedPicture: Bool
+}
+
+enum VideoStreamSelection {
+    static func primaryStreamIndex(in candidates: [VideoStreamCandidate]) -> Int? {
+        candidates
+            .filter { !$0.isAttachedPicture }
+            .sorted(by: isPreferred)
+            .first?.index
+    }
+
+    private static func isPreferred(_ left: VideoStreamCandidate, _ right: VideoStreamCandidate) -> Bool {
+        if left.isDefault != right.isDefault {
+            return left.isDefault
+        }
+        let leftPixels = (left.width ?? 0) * (left.height ?? 0)
+        let rightPixels = (right.width ?? 0) * (right.height ?? 0)
+        if leftPixels != rightPixels {
+            return leftPixels > rightPixels
+        }
+        return left.index < right.index
     }
 }
 
@@ -398,8 +454,13 @@ struct LanguageOption: Identifiable, Hashable, Sendable {
 }
 
 enum SubtitleTrackSelection {
-    static func preferredTrack(in tracks: [SubtitleTrack], language: String) -> SubtitleTrack? {
-        tracks
+    static func preferredTrack(
+        in tracks: [SubtitleTrack],
+        language: String,
+        preference: SubtitleTrackPreference = .standard
+    ) -> SubtitleTrack? {
+        let matching =
+            tracks
             .filter {
                 $0.isSelectable
                     && LanguageNames.matches(
@@ -408,19 +469,28 @@ enum SubtitleTrackSelection {
                         title: $0.title
                     )
             }
-            .sorted(by: isPreferred)
+        let eligible =
+            preference == .forced
+            ? matching.filter(\.isDescribedAsForced)
+            : matching
+        return
+            eligible
+            .sorted { isPreferred($0, $1, preference: preference) }
             .first
     }
 
-    private static func isPreferred(_ left: SubtitleTrack, _ right: SubtitleTrack) -> Bool {
+    private static func isPreferred(
+        _ left: SubtitleTrack,
+        _ right: SubtitleTrack,
+        preference: SubtitleTrackPreference
+    ) -> Bool {
         if left.isTextBased != right.isTextBased {
             return left.isTextBased
         }
-        if left.isDescribedAsForced != right.isDescribedAsForced {
-            return !left.isDescribedAsForced
-        }
-        if left.isDescribedAsSDH != right.isDescribedAsSDH {
-            return !left.isDescribedAsSDH
+        let leftRank = preferenceRank(for: left, preference: preference)
+        let rightRank = preferenceRank(for: right, preference: preference)
+        if leftRank != rightRank {
+            return leftRank < rightRank
         }
         if left.isDefault != right.isDefault {
             return left.isDefault
@@ -429,6 +499,19 @@ enum SubtitleTrackSelection {
             return left.externalPath == nil
         }
         return (left.streamIndex ?? Int.max) < (right.streamIndex ?? Int.max)
+    }
+
+    private static func preferenceRank(
+        for track: SubtitleTrack,
+        preference: SubtitleTrackPreference
+    ) -> Int {
+        if track.isDescribedAsForced { return preference == .forced ? 0 : 2 }
+        switch preference {
+        case .standard, .forced:
+            return track.isDescribedAsSDH ? 1 : 0
+        case .sdh:
+            return track.isDescribedAsSDH ? 0 : 1
+        }
     }
 }
 

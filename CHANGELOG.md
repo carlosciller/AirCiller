@@ -4,9 +4,19 @@ This page covers public AirCiller releases. Engineering notes and the physical p
 
 ## Unreleased
 
+### New
+
+- Adds a subtitle preference for standard, SDH, or forced tracks in the selected language.
+- Adds private local diagnostic exports and a focused action to reset authorization for the selected Apple TV.
+- Adds AirCiller-managed FFmpeg and AirPlay runtime downloads with visible progress, cancellation, verification, and rollback. Homebrew remains available.
+
 ### Improvements
 
 - Keeps Playlist and Recents rows aligned to a consistent two-line layout while retaining the complete filename in the hover text.
+
+### Fixes
+
+- Ignores embedded cover art when choosing the movie's video stream and maps the selected stream exactly during preparation.
 
 ## 0.10.3 (26 August 2026)
 

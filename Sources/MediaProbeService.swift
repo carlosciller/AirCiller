@@ -12,7 +12,7 @@ enum MediaProbeService {
             process.arguments = [
                 "-v", "error",
                 "-show_entries",
-                "format=duration,size,bit_rate:stream=index,codec_type,codec_name,profile,level,extradata,width,height,r_frame_rate,color_transfer,channels,channel_layout:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
+                "format=duration,size,bit_rate:stream=index,codec_type,codec_name,profile,level,extradata,width,height,r_frame_rate,color_transfer,channels,channel_layout:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired,attached_pic:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
                 "-show_data",
                 "-of", "json",
                 url.path,
@@ -47,7 +47,19 @@ enum MediaProbeService {
 
             let data = outputBuffer.snapshot
             let response = try JSONDecoder().decode(ProbeResponse.self, from: data)
-            guard let video = response.streams.first(where: { $0.codecType == "video" }) else {
+            let videoStreams = response.streams.filter { $0.codecType == "video" }
+            let candidates = videoStreams.map {
+                VideoStreamCandidate(
+                    index: $0.index,
+                    width: $0.width,
+                    height: $0.height,
+                    isDefault: $0.disposition?.defaultValue == 1,
+                    isAttachedPicture: $0.disposition?.attachedPic == 1
+                )
+            }
+            guard let videoIndex = VideoStreamSelection.primaryStreamIndex(in: candidates),
+                let video = videoStreams.first(where: { $0.index == videoIndex })
+            else {
                 throw AirCillerError.noVideo
             }
 
@@ -281,11 +293,13 @@ private struct ProbeDisposition: Decodable {
     let defaultValue: Int?
     let forced: Int?
     let hearingImpaired: Int?
+    let attachedPic: Int?
 
     enum CodingKeys: String, CodingKey {
         case defaultValue = "default"
         case forced
         case hearingImpaired = "hearing_impaired"
+        case attachedPic = "attached_pic"
     }
 }
 
@@ -318,6 +332,12 @@ private struct ProbeChapter: Decodable {
 
 enum Executables {
     static func find(_ name: String) -> URL? {
+        if let managed = ManagedComponentStore.executableURL(
+            for: .ffmpeg,
+            named: name
+        ) {
+            return managed
+        }
         let candidates = [
             "/opt/homebrew/bin/\(name)",
             "/usr/local/bin/\(name)",

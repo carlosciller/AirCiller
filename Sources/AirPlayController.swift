@@ -242,6 +242,29 @@ final class AirPlayController {
         }
     }
 
+    func resetSelectedDeviceAuthorization() async throws {
+        guard let device = selectedDevice else { throw DirectAirPlayError.noDevice }
+        guard playbackProcess == nil else {
+            throw DirectAirPlayError.helperFailed(
+                L10n.text("Detén la reproducción antes de restablecer la autorización.")
+            )
+        }
+
+        cancelPairing()
+        let deviceID = device.id
+        let deletionStatus = await Task.detached(priority: .userInitiated) {
+            Self.removeCredential(for: deviceID)
+        }.value
+        guard deletionStatus == errSecSuccess || deletionStatus == errSecItemNotFound else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(deletionStatus))
+        }
+
+        credentialCache.removeValue(forKey: deviceID)
+        validatedAuthorizationDeviceID = nil
+        authorizationState = device.pairing == "Mandatory" ? .required : .authorized
+        status = L10n.text("Autorización restablecida")
+    }
+
     func validateAuthorization() async throws {
         guard let selectedDevice else { throw DirectAirPlayError.noDevice }
         guard selectedDevice.pairing == "Mandatory" else {
@@ -970,6 +993,7 @@ final class AirPlayController {
         let pythonPath = try? String(contentsOf: runtimeMarker, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let pythonCandidates = [
+            ManagedComponentStore.executableURL(for: .airPlay)?.path,
             pythonPath,
             "/opt/homebrew/opt/python@3.13/bin/python3.13",
             "/usr/local/opt/python@3.13/bin/python3.13",
@@ -1123,12 +1147,13 @@ final class AirPlayController {
         }
     }
 
-    private nonisolated static func removeCredential(for deviceID: String) {
+    @discardableResult
+    private nonisolated static func removeCredential(for deviceID: String) -> OSStatus {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService,
             kSecAttrAccount as String: deviceID,
         ]
-        _ = SecItemDelete(query as CFDictionary)
+        return SecItemDelete(query as CFDictionary)
     }
 }

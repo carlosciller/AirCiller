@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "artifacts": [
+    {
+      "component": "ffmpeg",
+      "version": "9.0.1+airciller.1",
+      "architecture": "arm64",
+      "minimumSystemVersion": "14.0",
+      "archiveURL": "https://github.com/carlosciller/AirCiller/releases/download/v0.10.3/ffmpeg-9.0.1-macos-arm64.zip",
+      "archiveSize": 20953254,
+      "sha256": "059a683433d3b05f7fe1f2231942cebeb51bbbded3cbed46da1d702f3a451c83",
+      "executablePath": "ffmpeg/bin/ffmpeg"
+    },
+    {
+      "component": "airPlay",
+      "version": "3.13.15+pyatv.0.18.0.1",
+      "architecture": "arm64",
+      "minimumSystemVersion": "14.0",
+      "archiveURL": "https://github.com/carlosciller/AirCiller/releases/download/v0.10.3/airplay-python-3.13.15-macos-arm64.zip",
+      "archiveSize": 25825110,
+      "sha256": "4481b749d5a147f1762026940387ed4476d71d98edf781532a8d0949ea883221",
+      "executablePath": "airplay/python/bin/python3"
+    }
+  ]
+}

@@ -452,6 +452,12 @@
 "Si el idioma no está disponible, AirCiller usa la pista marcada como predeterminada en el archivo." = "If the language is unavailable, AirCiller uses the track marked as default in the file.";
 "Idioma de subtítulos" = "Subtitle Language";
 "AirCiller prefiere una pista normal y usa SDH si es la única opción del idioma elegido." = "AirCiller prefers a standard track and uses SDH when it is the only option in the selected language.";
+"Tipo de subtítulo" = "Subtitle Type";
+"Normales" = "Standard";
+"Solo forzados" = "Forced Only";
+"Prefiere subtítulos normales y usa SDH si no hay otra pista del idioma elegido." = "Prefers standard subtitles and uses SDH if no other track exists in the selected language.";
+"Prefiere SDH y usa una pista normal si no hay SDH en el idioma elegido." = "Prefers SDH and uses a standard track if no SDH track exists in the selected language.";
+"Activa únicamente una pista forzada. Si no existe, deja los subtítulos desactivados." = "Enables only a forced track. If none exists, subtitles remain off.";
 "Conversión" = "Conversion";
 "Estas preferencias solo eligen pistas. Si un audio necesita conversión, AirCiller seguirá explicando el motivo y pidiendo permiso para esa película." = "These preferences only choose tracks. If audio needs conversion, AirCiller will still explain why and ask for permission for that movie.";
 "Gestor" = "Manager";
@@ -477,6 +483,53 @@
 "Operación cancelada." = "Operation Cancelled.";
 "No se pudo preparar %@." = "%@ Could Not Be Prepared.";
 "Sistema" = "System";
+
+/* Managed components */
+"AirCiller comprueba un catálogo firmado, verifica tamaño y SHA-256, instala en una carpeta propia y conserva una versión para volver atrás. Homebrew sigue disponible como alternativa manual." = "AirCiller checks a signed catalogue, verifies the size and SHA-256 digest, installs into its own folder, and keeps one version for rollback. Homebrew remains available as a manual alternative.";
+"Buscar actualización" = "Check for Update";
+"Descargar con AirCiller" = "Download with AirCiller";
+"Volver a la versión anterior" = "Restore Previous Version";
+"Usar Homebrew…" = "Use Homebrew…";
+"Las descargas gestionadas no están configuradas en esta versión." = "Managed downloads are not configured in this version.";
+"Comprobando el catálogo firmado…" = "Checking Signed Catalogue…";
+"Descargando %@… %lld %%" = "Downloading %@… %lld%%";
+"Verificando firma, tamaño y SHA-256…" = "Verifying Signature, Size, and SHA-256…";
+"Instalando sin sustituir la versión anterior…" = "Installing Without Replacing the Previous Version…";
+"Se ha recuperado la versión anterior de %@." = "The previous version of %@ has been restored.";
+"No se pudo recuperar la versión anterior de %@." = "The previous version of %@ could not be restored.";
+"La firma del catálogo de componentes no es válida." = "The component catalogue signature is invalid.";
+"El catálogo de componentes usa un formato incompatible." = "The component catalogue uses an incompatible format.";
+"No hay una descarga compatible con este Mac." = "No compatible download is available for this Mac.";
+"La descarga no tiene el tamaño firmado esperado." = "The download does not have the expected signed size.";
+"La descarga no coincide con su huella SHA-256 firmada." = "The download does not match its signed SHA-256 digest.";
+"La descarga contiene rutas que salen de su carpeta segura." = "The download contains paths outside its secure folder.";
+"La descarga no contiene el ejecutable indicado por el catálogo." = "The download does not contain the executable specified by the catalogue.";
+"No hay una versión anterior disponible." = "No previous version is available.";
+"El servidor no devolvió una descarga válida." = "The server did not return a valid download.";
+"No se pudo abrir el componente descargado." = "The downloaded component could not be opened.";
+"No se pudo abrir el componente descargado: %@" = "The downloaded component could not be opened: %@";
+"El componente descargado no supera la comprobación de ejecución y versión." = "The downloaded component failed its execution and version check.";
+
+/* Diagnostics */
+"Diagnóstico" = "Diagnostics";
+"Informe local" = "Local Report";
+"Crea un archivo de texto sin nombres de películas, rutas personales, nombres o direcciones de receptores ni credenciales. No se envía automáticamente." = "Creates a text file without movie names, personal paths, receiver names or addresses, or credentials. It is never sent automatically.";
+"Exportar diagnóstico…" = "Export Diagnostics…";
+"Receptor" = "Receiver";
+"No seleccionado" = "Not Selected";
+"Restablecer autorización…" = "Reset Authorization…";
+"Solo elimina del Llavero la autorización del Apple TV seleccionado. La próxima reproducción pedirá un código nuevo una única vez." = "Only removes the selected Apple TV authorization from Keychain. The next playback will ask for a new code once.";
+"¿Restablecer la autorización de este Apple TV?" = "Reset Authorization for This Apple TV?";
+"Restablecer autorización" = "Reset Authorization";
+"AirCiller volverá a pedir el código de cuatro cifras al intentar reproducir." = "AirCiller will ask for the four-digit code again when playback starts.";
+"La autorización se ha eliminado correctamente." = "The authorization was removed successfully.";
+"No se pudo restablecer la autorización: %@" = "Authorization could not be reset: %@";
+"Exportar diagnóstico" = "Export Diagnostics";
+"Guardar" = "Save";
+"Diagnóstico guardado." = "Diagnostics Saved.";
+"No se pudo guardar el diagnóstico: %@" = "Diagnostics could not be saved: %@";
+"Detén la reproducción antes de restablecer la autorización." = "Stop playback before resetting authorization.";
+"Autorización restablecida" = "Authorization Reset";
 
 /* Updates */
 "Actualizaciones" = "Updates";

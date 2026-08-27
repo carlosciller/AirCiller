@@ -72,8 +72,17 @@ compile_and_run component-manager \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/ProcessDataBuffer.swift" \
   "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/DiagnosticsReport.swift" \
+  "$project_dir/Sources/ManagedComponentModels.swift" \
+  "$project_dir/Sources/ManagedComponentDistribution.swift" \
+  "$project_dir/Sources/ManagedComponentDownloader.swift" \
   "$project_dir/Sources/ComponentManager.swift" \
   "$project_dir/Tests/ComponentManagerSmokeTest.swift"
+compile_and_run component-distribution \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/ManagedComponentModels.swift" \
+  "$project_dir/Sources/ManagedComponentDistribution.swift" \
+  "$project_dir/Tests/ManagedComponentDistributionSmokeTest.swift"
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"
@@ -94,6 +103,24 @@ compile_and_run track-metadata \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Tests/TrackMetadataSmokeTest.swift"
+compile_and_run vod-command-builder \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/VODCommandBuilder.swift" \
+  "$project_dir/Tests/VODCommandBuilderSmokeTest.swift"
+compile_and_run attached-artwork-probe \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/ManagedComponentModels.swift" \
+  "$project_dir/Sources/ManagedComponentDistribution.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Tests/AttachedArtworkProbeSmokeTest.swift"
+compile_and_run diagnostics-report \
+  "$project_dir/Sources/DiagnosticsReport.swift" \
+  "$project_dir/Tests/DiagnosticsReportSmokeTest.swift"
 compile_and_run http-server \
   -framework Network \
   "$project_dir/Sources/Localization.swift" \

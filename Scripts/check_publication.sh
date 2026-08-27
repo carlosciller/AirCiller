@@ -85,6 +85,25 @@ if find Sources Tests Scripts -type f \( -name '*.pyc' -o -name '*.pyo' \) -prin
   failed=1
 fi
 
+if ! jq -e '
+  .schemaVersion == 1 and
+  (.artifacts | length > 0) and
+  all(.artifacts[];
+    (.archiveURL | startswith("https://")) and
+    (.archiveSize > 0) and
+    (.sha256 | test("^[0-9a-fA-F]{64}$")) and
+    (.executablePath | test("^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"))
+  )
+' Distribution/components-v1.json >/dev/null; then
+  echo "The managed component manifest is malformed or unsafe." >&2
+  failed=1
+fi
+
+if [[ ! -s Distribution/components-v1.json.sig ]]; then
+  echo "The managed component manifest signature is missing." >&2
+  failed=1
+fi
+
 if [[ -d .git ]]; then
   for generated in .build VendorPython; do
     if ! git check-ignore -q "$generated"; then
@@ -93,7 +112,7 @@ if [[ -d .git ]]; then
     fi
   done
 
-  if git ls-files | grep -E '(^|/)(\.build|VendorPython|__pycache__)(/|$)|\.app/|\.(mkv|mp4|m4v|mov|m2ts)$'; then
+  if git ls-files | grep -E '(^|/)(\.build|VendorPython|__pycache__)(/|$)|\.app/|\.(zip|mkv|mp4|m4v|mov|m2ts)$'; then
     echo "Git contains generated artifacts or media files." >&2
     failed=1
   fi

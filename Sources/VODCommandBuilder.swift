@@ -23,7 +23,7 @@ enum VODCommandBuilder {
             audioInputIndex = 1
         }
 
-        arguments += ["-map", "0:v:0", "-an", "-sn", "-dn", "-c:v", "copy"]
+        arguments += ["-map", "0:\(probe.videoStreamIndex)", "-an", "-sn", "-dn", "-c:v", "copy"]
 
         if probe.videoCodec.lowercased() == "hevc" {
             let compatibilityID = probe.dolbyVisionCompatibilityID
@@ -94,7 +94,7 @@ enum VODCommandBuilder {
             audioInputIndex = 1
         }
 
-        arguments += ["-map", "0:v:0"]
+        arguments += ["-map", "0:\(probe.videoStreamIndex)"]
         if let audio {
             arguments += ["-map", "\(audioInputIndex):\(audio.streamIndex)"]
         }
@@ -197,7 +197,7 @@ enum DirectFileCommandBuilder {
             }
         }
 
-        arguments += ["-map", "0:v:0"]
+        arguments += ["-map", "0:\(probe.videoStreamIndex)"]
         if let audio {
             arguments += ["-map", "\(audioInputIndex):\(audio.streamIndex)"]
         }

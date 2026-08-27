@@ -78,6 +78,40 @@ struct TrackMetadataSmokeTest {
         else {
             throw NSError(domain: "TrackMetadataSmokeTest.PreferRegular", code: 3)
         }
+        guard
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishRegular, englishSDH],
+                language: "eng",
+                preference: .sdh
+            )?.id == englishSDH.id
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.PreferSDH", code: 12)
+        }
+
+        let englishForced = SubtitleTrack(
+            streamIndex: 501,
+            codec: "subrip",
+            language: "eng",
+            title: "English Forced",
+            isDefault: false,
+            isForced: true,
+            isHearingImpaired: false,
+            externalPath: nil
+        )
+        guard
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishRegular, englishSDH, englishForced],
+                language: "eng",
+                preference: .forced
+            )?.id == englishForced.id,
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishRegular, englishSDH],
+                language: "eng",
+                preference: .forced
+            ) == nil
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.ForcedOnly", code: 13)
+        }
 
         let spanishByTitle = SubtitleTrack(
             streamIndex: 6,
@@ -136,6 +170,26 @@ struct TrackMetadataSmokeTest {
             MediaPresentation.dolbyVisionProfile(8, compatibilityID: 1) == "Perfil 8.1"
         else {
             throw NSError(domain: "TrackMetadataSmokeTest.MediaPresentation", code: 5)
+        }
+
+        let coverArt = VideoStreamCandidate(
+            index: 0,
+            width: 1_000,
+            height: 1_000,
+            isDefault: true,
+            isAttachedPicture: true
+        )
+        let feature = VideoStreamCandidate(
+            index: 3,
+            width: 3_840,
+            height: 2_160,
+            isDefault: false,
+            isAttachedPicture: false
+        )
+        guard VideoStreamSelection.primaryStreamIndex(in: [coverArt, feature]) == feature.index,
+            VideoStreamSelection.primaryStreamIndex(in: [coverArt]) == nil
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.VideoSelection", code: 11)
         }
 
         let queue = [

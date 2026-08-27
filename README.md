@@ -32,7 +32,7 @@ AirCiller does not download or include media. Use it with files you have the rig
 
 ## Download
 
-The current stable release is **AirCiller 0.10.1**. It requires an Apple silicon Mac running macOS 14 or later.
+The current stable release is **AirCiller 0.10.3**. It requires an Apple silicon Mac running macOS 14 or later.
 
 ### [Download the latest release](https://github.com/carlosciller/AirCiller/releases/latest)
 
@@ -42,7 +42,7 @@ You will also need:
 
 - An AirPlay 2 compatible Apple TV on the same local network.
 - [FFmpeg](https://ffmpeg.org/) and `ffprobe` from Homebrew or MacPorts.
-- Python 3.13 from Homebrew. Version 0.10.1 uses the interpreter installed on the Mac and its bundled AirPlay modules were built for CPython 3.13.
+- Python 3.13 from Homebrew. Version 0.10.3 uses the interpreter installed on the Mac and its bundled AirPlay modules were built for CPython 3.13.
 
 ## Privacy
 
