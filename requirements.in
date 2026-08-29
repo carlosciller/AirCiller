@@ -9,6 +9,6 @@ urllib3==2.7.0
 zeroconf==0.150.0
 
 # Keep the serialization/model stack used by the physically validated release.
-protobuf==6.33.6
+protobuf==7.36.0
 pydantic==2.13.4
 pydantic-core==2.46.4
