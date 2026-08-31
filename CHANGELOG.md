@@ -2,7 +2,7 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
-## Unreleased
+## 0.10.5 (31 August 2026)
 
 ### Reliability
 
