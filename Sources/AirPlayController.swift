@@ -814,8 +814,10 @@ final class AirPlayController {
         case "warning":
             if let message = event.message { logger.warning("\(message, privacy: .private)") }
         case "error":
+            let wasStopping = stopping
             receivedTerminalEvent = true
             isConnected = false
+            guard !wasStopping else { return }
             let message = L10n.helperText(
                 event.message ?? "El Apple TV rechazó la reproducción sin indicar el motivo.")
             logger.error("AirPlay: \(message, privacy: .private) \(event.technical ?? "", privacy: .private)")

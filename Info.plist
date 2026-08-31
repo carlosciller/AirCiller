@@ -40,13 +40,13 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.10.3</string>
+    <string>0.10.4</string>
     <key>CFBundleSupportedPlatforms</key>
     <array>
         <string>MacOSX</string>
     </array>
     <key>CFBundleVersion</key>
-    <string>43</string>
+    <string>44</string>
     <key>ACComponentManifestURL</key>
     <string>https://raw.githubusercontent.com/carlosciller/AirCiller/main/Distribution/components-v1.json</string>
     <key>ACComponentManifestSignatureURL</key>

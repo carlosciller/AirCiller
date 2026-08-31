@@ -68,6 +68,9 @@ compile_and_run power-assertion \
 compile_and_run cancellable-process \
   "$project_dir/Sources/CancellableProcess.swift" \
   "$project_dir/Tests/CancellableProcessSmokeTest.swift"
+compile_and_run media-analysis-tasks \
+  "$project_dir/Sources/MediaAnalysisTasks.swift" \
+  "$project_dir/Tests/MediaAnalysisTasksSmokeTest.swift"
 compile_and_run component-manager \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/ProcessDataBuffer.swift" \

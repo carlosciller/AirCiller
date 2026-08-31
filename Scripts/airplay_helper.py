@@ -146,6 +146,12 @@ class AirCillerEventChannel(EventChannel):
 
     listener = None
 
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        """Treat the receiver event channel as the lifetime of video playback."""
+        if self.listener is not None:
+            self.listener.handle_event_channel_lost(exc)
+        super().connection_lost(exc)
+
     def handle_received(self) -> None:
         while self.buffer:
             try:
@@ -593,6 +599,12 @@ class AirCillerAirPlayV2(AirPlayV2):
                 position=position,
                 playing=self._receiver_is_playing,
             )
+
+    def handle_event_channel_lost(self, exc: Optional[Exception]) -> None:
+        if self._did_emit_playing and not self._media_ended.is_set():
+            self._receiver_is_playing = False
+            self._terminal_reason = "stopped" if exc is None else "disconnected"
+            self._media_ended.set()
 
     async def wait_for_media_end(self) -> str:
         await self._media_ended.wait()

@@ -310,6 +310,34 @@ async def test_receiver_disconnect_event():
     assert protocol.did_teardown
 
 
+def test_event_channel_disconnect_ends_confirmed_playback():
+    protocol = QueueProtocol()
+    protocol._did_emit_playing = True
+    protocol._receiver_is_playing = True
+    channel = HELPER.AirCillerEventChannel.__new__(HELPER.AirCillerEventChannel)
+    channel.listener = protocol
+
+    channel.connection_lost(ConnectionError("receiver closed event channel"))
+
+    assert protocol._media_ended.is_set()
+    assert protocol._terminal_reason == "disconnected"
+    assert not protocol._receiver_is_playing
+
+
+def test_orderly_event_channel_close_is_remote_stop():
+    protocol = QueueProtocol()
+    protocol._did_emit_playing = True
+    protocol._receiver_is_playing = True
+    channel = HELPER.AirCillerEventChannel.__new__(HELPER.AirCillerEventChannel)
+    channel.listener = protocol
+
+    channel.connection_lost(None)
+
+    assert protocol._media_ended.is_set()
+    assert protocol._terminal_reason == "stopped"
+    assert not protocol._receiver_is_playing
+
+
 async def test_feedback_failure_does_not_end_healthy_media():
     protocol = QueueProtocol()
     protocol.rtsp = FeedbackRTSP(
@@ -753,6 +781,8 @@ async def main():
     await test_playback_loop_uses_events_not_playback_info()
     await test_receiver_end_event()
     await test_receiver_disconnect_event()
+    test_event_channel_disconnect_ends_confirmed_playback()
+    test_orderly_event_channel_close_is_remote_stop()
     await test_feedback_failure_does_not_end_healthy_media()
     await test_successful_feedback_resets_failure_count()
     await test_pairing_pin_has_timeout()

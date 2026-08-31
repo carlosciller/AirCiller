@@ -2,7 +2,7 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
-## Unreleased
+## 0.10.4 (31 August 2026)
 
 ### New
 
@@ -17,6 +17,8 @@ This page covers public AirCiller releases. Engineering notes and the physical p
 ### Fixes
 
 - Ignores embedded cover art when choosing the movie's video stream and maps the selected stream exactly during preparation.
+- Stops both media analyses immediately when playback is stopped or another movie is selected.
+- Ends the Mac playback session when Apple TV closes it, without leaving a running timer or showing a false connection error.
 
 ## 0.10.3 (26 August 2026)
 

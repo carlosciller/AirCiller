@@ -28,3 +28,14 @@ After playback, also test stop, replay, and closing the app. Only then should th
 The first complete Sparkle update was validated on 26 August 2026. The installed app moved from AirCiller 0.10.2 (build 42) to 0.10.3 (build 43) through the public signed appcast, installed the update, and relaunched successfully. The resulting app bundle and every embedded Sparkle helper passed strict code-signature verification.
 
 Version 0.10.3 did not change playback or media preparation, so this result validates the update path only. Apple TV playback remains subject to the separate physical matrix above.
+
+## 5. AirCiller 0.10.4 physical validation
+
+The 0.10.4 candidate completed the physical Apple TV matrix on 30 and 31 August 2026:
+
+- Direct Dolby Vision/HDR MP4 with E-AC-3 audio and selectable subtitles.
+- HLS/fMP4 VOD with WebVTT subtitles.
+- Picture, sound, subtitle selection, remote commands, long pause, resume, and seeking.
+- Remote exit returned AirCiller to a stopped state without a ghost timer or false connection error.
+
+The original media files were not modified.

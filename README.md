@@ -32,17 +32,15 @@ AirCiller does not download or include media. Use it with files you have the rig
 
 ## Download
 
-The current stable release is **AirCiller 0.10.3**. It requires an Apple silicon Mac running macOS 14 or later.
+The current stable release is **AirCiller 0.10.4**. It requires an Apple silicon Mac running macOS 14 or later.
 
 ### [Download the latest release](https://github.com/carlosciller/AirCiller/releases/latest)
 
 Unzip AirCiller and move it to your Applications folder. The current build is locally signed and has not yet been notarized with an Apple Developer ID. macOS may ask you to confirm the first launch.
 
-You will also need:
+You will also need an AirPlay 2 compatible Apple TV on the same local network.
 
-- An AirPlay 2 compatible Apple TV on the same local network.
-- [FFmpeg](https://ffmpeg.org/) and `ffprobe` from Homebrew or MacPorts.
-- Python 3.13 from Homebrew. Version 0.10.3 uses the interpreter installed on the Mac and its bundled AirPlay modules were built for CPython 3.13.
+AirCiller can download verified FFmpeg and AirPlay components from its Components settings. Existing Homebrew or MacPorts installations remain supported as a manual alternative.
 
 ## Privacy
 
@@ -65,7 +63,7 @@ The app shows which route is being used. It also explains when Apple TV cannot a
 
 Most of AirCiller is written in Swift 6 with SwiftUI and AppKit. The repository also contains a small Python component: a bundled `pyatv` bridge used for AirPlay 2 discovery, authorization, queue control and receiver events.
 
-FFmpeg inspects and packages media when required. Apple Vision handles subtitle OCR on the Mac. A temporary HTTP server supplies the selected file or prepared VOD to Apple TV during playback. Internet access is not required.
+FFmpeg inspects and packages media when required. Apple Vision handles subtitle OCR on the Mac. A temporary HTTP server supplies the selected file or prepared VOD to Apple TV during playback. Once the required components are installed, playback stays on the local network and does not require internet access.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md), [TESTING.md](TESTING.md) and [DISTRIBUTION.md](DISTRIBUTION.md) for more detail.
 

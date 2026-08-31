@@ -64,8 +64,7 @@ final class StreamCoordinator {
     @ObservationIgnored private var authorizationTask: Task<Void, Never>?
     @ObservationIgnored private var authorizationRequestID: UUID?
     @ObservationIgnored private var authorizationRetryPolicy = AirPlayAuthorizationRetryPolicy()
-    @ObservationIgnored private var analysisTask: Task<Void, Never>?
-    @ObservationIgnored private var demandAnalysisTask: Task<Void, Never>?
+    @ObservationIgnored private let mediaAnalysisTasks = MediaAnalysisTasks()
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
     @ObservationIgnored private var itemEndObserver: NSObjectProtocol?
     @ObservationIgnored private var itemErrorObserver: NSObjectProtocol?
@@ -487,8 +486,7 @@ final class StreamCoordinator {
 
     func loadVideo(_ url: URL, autoStart: Bool, startingAt requestedStart: Double? = nil) {
         let commandLineSubtitleIndex = autoStart ? launchOptions.subtitleStreamIndex : nil
-        demandAnalysisTask?.cancel()
-        analysisTask?.cancel()
+        mediaAnalysisTasks.cancelAll()
         stop(resetStatus: false)
         selectedURL = url
         probeInfo = nil
@@ -513,60 +511,61 @@ final class StreamCoordinator {
         detail = "Comprobando duración, Dolby Vision, HDR, audio, subtítulos y capítulos."
         touchRecent(url: url, duration: 0, position: currentTime)
 
-        analysisTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let info = try await MediaProbeService.probe(url: url)
-                try Task.checkCancellation()
-                self.probeInfo = info
-                self.audioTracks = info.audioTracks
-                self.subtitleTracks = info.subtitleTracks
-                self.chapters = info.chapters
-                if !self.preferredAudioLanguage.isEmpty,
-                    let preferredAudio = AudioTrackSelection.preferredTrack(
-                        in: info.audioTracks,
-                        language: self.preferredAudioLanguage
-                    )
-                {
-                    self.selectedAudioID = preferredAudio.id
-                } else {
-                    self.selectedAudioID =
-                        (info.audioTracks.first(where: \.isDefault) ?? info.audioTracks.first)?.id
+        mediaAnalysisTasks.replacePrimary(
+            with: Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let info = try await MediaProbeService.probe(url: url)
+                    try Task.checkCancellation()
+                    self.probeInfo = info
+                    self.audioTracks = info.audioTracks
+                    self.subtitleTracks = info.subtitleTracks
+                    self.chapters = info.chapters
+                    if !self.preferredAudioLanguage.isEmpty,
+                        let preferredAudio = AudioTrackSelection.preferredTrack(
+                            in: info.audioTracks,
+                            language: self.preferredAudioLanguage
+                        )
+                    {
+                        self.selectedAudioID = preferredAudio.id
+                    } else {
+                        self.selectedAudioID =
+                            (info.audioTracks.first(where: \.isDefault) ?? info.audioTracks.first)?.id
+                    }
+                    if let commandLineSubtitleIndex {
+                        self.selectedSubtitleID =
+                            info.subtitleTracks.first(where: {
+                                $0.streamIndex == commandLineSubtitleIndex
+                            })?.id
+                    } else if !self.preferredSubtitleLanguage.isEmpty {
+                        self.selectedSubtitleID =
+                            SubtitleTrackSelection.preferredTrack(
+                                in: info.subtitleTracks,
+                                language: self.preferredSubtitleLanguage,
+                                preference: self.preferredSubtitleKind
+                            )?.id
+                    }
+                    self.duration = info.duration
+                    if self.currentTime >= max(0, info.duration - 30) {
+                        self.currentTime = 0
+                    }
+                    self.mediaDescription = info.displayDescription
+                    self.startDemandAnalysis(url: url, probe: info)
+                    self.status = "Lista para reproducir"
+                    self.detail =
+                        info.isDolbyVision
+                        ? "Dolby Vision se mantendrá intacto. Elige las pistas y pulsa Reproducir."
+                        : "El vídeo se enviará sin recodificar. Elige las pistas y pulsa Reproducir."
+                    self.touchRecent(url: url, duration: info.duration, position: self.currentTime)
+                    if autoStart { await self.startAfterNetworkSettles() }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    self.hasError = true
+                    self.status = "No se pudo analizar la película"
+                    self.detail = error.localizedDescription
                 }
-                if let commandLineSubtitleIndex {
-                    self.selectedSubtitleID =
-                        info.subtitleTracks.first(where: {
-                            $0.streamIndex == commandLineSubtitleIndex
-                        })?.id
-                } else if !self.preferredSubtitleLanguage.isEmpty {
-                    self.selectedSubtitleID =
-                        SubtitleTrackSelection.preferredTrack(
-                            in: info.subtitleTracks,
-                            language: self.preferredSubtitleLanguage,
-                            preference: self.preferredSubtitleKind
-                        )?.id
-                }
-                self.duration = info.duration
-                if self.currentTime >= max(0, info.duration - 30) {
-                    self.currentTime = 0
-                }
-                self.mediaDescription = info.displayDescription
-                self.startDemandAnalysis(url: url, probe: info)
-                self.status = "Lista para reproducir"
-                self.detail =
-                    info.isDolbyVision
-                    ? "Dolby Vision se mantendrá intacto. Elige las pistas y pulsa Reproducir."
-                    : "El vídeo se enviará sin recodificar. Elige las pistas y pulsa Reproducir."
-                self.touchRecent(url: url, duration: info.duration, position: self.currentTime)
-                if autoStart { await self.startAfterNetworkSettles() }
-            } catch is CancellationError {
-                return
-            } catch {
-                self.hasError = true
-                self.status = "No se pudo analizar la película"
-                self.detail = error.localizedDescription
-            }
-        }
+            })
     }
 
     func start() {
@@ -589,25 +588,25 @@ final class StreamCoordinator {
     }
 
     private func startDemandAnalysis(url: URL, probe: MediaProbe) {
-        demandAnalysisTask?.cancel()
-        demandAnalysisTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let analysis = try await StreamDemandAnalyzer.analyze(
-                    url: url,
-                    duration: probe.duration
-                )
-                try Task.checkCancellation()
-                guard self.selectedURL == url else { return }
-                self.demandAnalysis = analysis
-            } catch is CancellationError {
-                return
-            } catch {
-                self.playbackLogger.warning(
-                    "No se pudieron calcular los picos del archivo: \(error.localizedDescription, privacy: .private)"
-                )
-            }
-        }
+        mediaAnalysisTasks.replaceDemand(
+            with: Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let analysis = try await StreamDemandAnalyzer.analyze(
+                        url: url,
+                        duration: probe.duration
+                    )
+                    try Task.checkCancellation()
+                    guard self.selectedURL == url else { return }
+                    self.demandAnalysis = analysis
+                } catch is CancellationError {
+                    return
+                } catch {
+                    self.playbackLogger.warning(
+                        "No se pudieron calcular los picos del archivo: \(error.localizedDescription, privacy: .private)"
+                    )
+                }
+            })
     }
 
     private func continueStart(at requestedTime: Double) {
@@ -799,7 +798,7 @@ final class StreamCoordinator {
 
     func stop(resetStatus: Bool = true) {
         saveCurrentPosition(force: true)
-        analysisTask?.cancel()
+        mediaAnalysisTasks.cancelAll()
         streamTask?.cancel()
         streamTask = nil
         cancelAuthorizationPreflight()

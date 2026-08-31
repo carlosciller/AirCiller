@@ -22,7 +22,7 @@ The paths share discovery, control, and the HTTP server, but keep their packager
 ## Boundaries
 
 - Swift/AppKit/SwiftUI: interface, state, preparation, and local server.
-- External FFmpeg/ffprobe: analysis and remuxing; they are never bundled with AirCiller.
+- FFmpeg/ffprobe: analysis and remuxing, supplied either by a verified AirCiller-managed download or an existing local installation.
 - Python vendored from a lock file: AirPlay 2 bridge. It is not committed because it contains binaries specific to each Python version and architecture.
 - Apple Vision: local, on-demand OCR for PGS subtitles. No remote service is involved.
 
