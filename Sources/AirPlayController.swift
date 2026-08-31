@@ -1,7 +1,6 @@
 import Foundation
 import OSLog
 import Observation
-import Security
 
 struct AirPlayDevice: Identifiable, Codable, Hashable {
     let id: String
@@ -82,12 +81,6 @@ private struct AirPlayHelperEvent: Decodable {
     }
 }
 
-private struct HelperResult: Sendable {
-    let output: Data
-    let errorOutput: Data
-    let status: Int32
-}
-
 @Observable
 @MainActor
 final class AirPlayController {
@@ -159,6 +152,7 @@ final class AirPlayController {
     @ObservationIgnored private var pairingOutputBuffer = Data()
     @ObservationIgnored private var pairingWasCancelled = false
     @ObservationIgnored private var successfulPairingSessionID: UUID?
+    @ObservationIgnored private let credentialStore = AirPlayCredentialStore()
     @ObservationIgnored private var credentialCache: [String: String] = [:]
     @ObservationIgnored private var validatedAuthorizationDeviceID: String?
 
@@ -170,14 +164,12 @@ final class AirPlayController {
 
         do {
             let locations = try Self.helperLocations()
-            let result = try await Task.detached(priority: .userInitiated) {
-                try Self.runHelper(
-                    script: locations.script,
-                    vendor: locations.vendor,
-                    python: locations.python,
-                    arguments: ["scan", "--timeout", "5"]
-                )
-            }.value
+            let result = try await Self.runHelper(
+                script: locations.script,
+                vendor: locations.vendor,
+                python: locations.python,
+                arguments: ["scan", "--timeout", "5"]
+            )
             guard result.status == 0 else {
                 throw DirectAirPlayError.helperFailed(Self.readableFailure(from: result))
             }
@@ -230,9 +222,7 @@ final class AirPlayController {
 
         authorizationState = .checking
         let deviceID = device.id
-        let credential = await Task.detached(priority: .userInitiated) {
-            Self.credential(for: deviceID)
-        }.value
+        let credential = await credentialStore.credential(for: deviceID)
         guard selectedDeviceID == deviceID else { return }
         if let credential, !credential.isEmpty {
             credentialCache[deviceID] = credential
@@ -252,12 +242,7 @@ final class AirPlayController {
 
         cancelPairing()
         let deviceID = device.id
-        let deletionStatus = await Task.detached(priority: .userInitiated) {
-            Self.removeCredential(for: deviceID)
-        }.value
-        guard deletionStatus == errSecSuccess || deletionStatus == errSecItemNotFound else {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(deletionStatus))
-        }
+        try await credentialStore.removeCredential(for: deviceID)
 
         credentialCache.removeValue(forKey: deviceID)
         validatedAuthorizationDeviceID = nil
@@ -283,9 +268,7 @@ final class AirPlayController {
         if let cached = credentialCache[deviceID], !cached.isEmpty {
             credential = cached
         } else {
-            let stored = await Task.detached(priority: .userInitiated) {
-                Self.credential(for: deviceID)
-            }.value
+            let stored = await credentialStore.credential(for: deviceID)
             guard let stored, !stored.isEmpty else {
                 markAuthorizationRequired(for: deviceID)
                 throw DirectAirPlayError.authorizationRequired(
@@ -301,15 +284,13 @@ final class AirPlayController {
         input.append(0x0A)
         let address = selectedDevice.address
         let locations = try Self.helperLocations()
-        let result = try await Task.detached(priority: .userInitiated) {
-            try Self.runHelper(
-                script: locations.script,
-                vendor: locations.vendor,
-                python: locations.python,
-                arguments: ["authorize", "--address", address, "--timeout", "5"],
-                standardInput: input
-            )
-        }.value
+        let result = try await Self.runHelper(
+            script: locations.script,
+            vendor: locations.vendor,
+            python: locations.python,
+            arguments: ["authorize", "--address", address, "--timeout", "5"],
+            standardInput: input
+        )
         guard selectedDeviceID == deviceID else { throw DirectAirPlayError.noDevice }
 
         if result.status == 0,
@@ -345,9 +326,7 @@ final class AirPlayController {
                 credential = cached
             } else {
                 let deviceID = selectedDevice.id
-                credential = await Task.detached(priority: .userInitiated) {
-                    Self.credential(for: deviceID)
-                }.value
+                credential = await credentialStore.credential(for: deviceID)
                 guard let credential, !credential.isEmpty else {
                     authorizationState = .required
                     throw DirectAirPlayError.authorizationRequired(
@@ -692,31 +671,39 @@ final class AirPlayController {
                 }
                 let deviceName = pairingDeviceName ?? event.deviceName ?? "Apple TV"
                 let shouldResumePlayback = pairingIntent.consumeSuccess()
-                do {
-                    try Self.storeCredential(credentials, for: deviceID)
-                    credentialCache[deviceID] = credentials
-                    authorizationState = .authorized
-                    // The helper emits `paired` only after verifying this exact
-                    // credential on a fresh AirPlay connection.
-                    validatedAuthorizationDeviceID = deviceID
-                    pairingState = .success
-                    successfulPairingSessionID = sessionID
-                    status = L10n.format("%@ emparejado", deviceName)
-                    Task { [weak self] in
+                // Mark the verified result before the helper exits. Keychain
+                // storage is serialized asynchronously and may finish just
+                // after the process closes its output channel.
+                successfulPairingSessionID = sessionID
+                Task { [weak self] in
+                    guard let self else { return }
+                    do {
+                        try await self.credentialStore.storeCredential(credentials, for: deviceID)
+                        guard self.successfulPairingSessionID == sessionID,
+                            !self.pairingWasCancelled
+                        else { return }
+                        self.credentialCache[deviceID] = credentials
+                        self.authorizationState = .authorized
+                        // The helper emits `paired` only after verifying this exact
+                        // credential on a fresh AirPlay connection.
+                        self.validatedAuthorizationDeviceID = deviceID
+                        self.pairingState = .success
+                        self.successfulPairingSessionID = sessionID
+                        self.status = L10n.format("%@ emparejado", deviceName)
                         try? await Task.sleep(for: .milliseconds(650))
-                        guard let self,
-                            self.successfulPairingSessionID == sessionID,
+                        guard self.successfulPairingSessionID == sessionID,
                             self.pairingState == .success
                         else { return }
                         self.successfulPairingSessionID = nil
                         self.isPairingPresented = false
                         self.onPairingSucceeded?(shouldResumePlayback)
+                    } catch {
+                        self.successfulPairingSessionID = nil
+                        self.pairingState = .failed(
+                            L10n.format(
+                                "El emparejamiento funcionó, pero no se pudo guardar en el Llavero: %@",
+                                error.localizedDescription))
                     }
-                } catch {
-                    pairingState = .failed(
-                        L10n.format(
-                            "El emparejamiento funcionó, pero no se pudo guardar en el Llavero: %@",
-                            error.localizedDescription))
                 }
             case "error":
                 pairingState = .failed(
@@ -866,9 +853,10 @@ final class AirPlayController {
     private func pairingTerminated(sessionID: UUID, status terminationStatus: Int32, stderr: Data) {
         guard pairingSessionID == sessionID else { return }
         let wasCancelled = pairingWasCancelled
+        let isFinishingVerifiedPairing = successfulPairingSessionID == sessionID
         let currentState = pairingState
         clearPairingProcess(sessionID: sessionID)
-        guard !wasCancelled else { return }
+        guard !wasCancelled, !isFinishingVerifiedPairing else { return }
         switch currentState {
         case .success, .failed:
             return
@@ -1034,51 +1022,12 @@ final class AirPlayController {
         python: URL,
         arguments: [String],
         standardInput: Data? = nil
-    ) throws -> HelperResult {
-        let process = Process()
-        let input = standardInput == nil ? nil : Pipe()
-        let output = Pipe()
-        let errors = Pipe()
-        process.executableURL = python
-        process.arguments = [script.path] + arguments
-        process.environment = helperEnvironment(vendor: vendor)
-        process.standardInput = input
-        process.standardOutput = output
-        process.standardError = errors
-        let outputCollector = ProcessDataBuffer(maximumBytes: 1_048_576)
-        let errorCollector = ProcessDataBuffer(maximumBytes: 1_048_576)
-        let readers = DispatchGroup()
-        readers.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            outputCollector.append(output.fileHandleForReading.readDataToEndOfFile())
-            readers.leave()
-        }
-        readers.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            errorCollector.append(errors.fileHandleForReading.readDataToEndOfFile())
-            readers.leave()
-        }
-        do {
-            try process.run()
-            if let standardInput, let input {
-                try input.fileHandleForWriting.write(contentsOf: standardInput)
-                try input.fileHandleForWriting.close()
-            }
-        } catch {
-            try? input?.fileHandleForWriting.close()
-            try? output.fileHandleForWriting.close()
-            try? errors.fileHandleForWriting.close()
-            readers.wait()
-            throw error
-        }
-        try? output.fileHandleForWriting.close()
-        try? errors.fileHandleForWriting.close()
-        process.waitUntilExit()
-        readers.wait()
-        return HelperResult(
-            output: outputCollector.snapshot,
-            errorOutput: errorCollector.snapshot,
-            status: process.terminationStatus
+    ) async throws -> CapturedProcessResult {
+        try await CapturedProcess.run(
+            executable: python,
+            arguments: [script.path] + arguments,
+            environment: helperEnvironment(vendor: vendor),
+            standardInput: standardInput
         )
     }
 
@@ -1089,7 +1038,7 @@ final class AirPlayController {
         }.first
     }
 
-    private nonisolated static func readableFailure(from result: HelperResult) -> String {
+    private nonisolated static func readableFailure(from result: CapturedProcessResult) -> String {
         if let event = decodeLastEvent(result.output), let message = event.message {
             return L10n.helperText(message)
         }
@@ -1100,62 +1049,14 @@ final class AirPlayController {
             : L10n.format("El motor AirPlay terminó con el código %lld.", Int64(result.status))
     }
 
-    private nonisolated static let keychainService = "local.carlosciller.AirCiller.AirPlay"
-
     private func markAuthorizationRequired(for deviceID: String) {
         credentialCache.removeValue(forKey: deviceID)
         if validatedAuthorizationDeviceID == deviceID {
             validatedAuthorizationDeviceID = nil
         }
         authorizationState = .required
-        Task.detached(priority: .utility) {
-            Self.removeCredential(for: deviceID)
+        Task { [credentialStore] in
+            try? await credentialStore.removeCredential(for: deviceID)
         }
-    }
-
-    private nonisolated static func credential(for deviceID: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: deviceID,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-            let data = result as? Data
-        else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    private nonisolated static func storeCredential(_ credential: String, for deviceID: String) throws {
-        let data = Data(credential.utf8)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: deviceID,
-        ]
-        let attributes: [String: Any] = [kSecValueData as String: data]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            var item = query
-            item[kSecValueData as String] = data
-            let addStatus = SecItemAdd(item as CFDictionary, nil)
-            guard addStatus == errSecSuccess else {
-                throw NSError(domain: NSOSStatusErrorDomain, code: Int(addStatus))
-            }
-        } else if status != errSecSuccess {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
-        }
-    }
-
-    @discardableResult
-    private nonisolated static func removeCredential(for deviceID: String) -> OSStatus {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: keychainService,
-            kSecAttrAccount as String: deviceID,
-        ]
-        return SecItemDelete(query as CFDictionary)
     }
 }

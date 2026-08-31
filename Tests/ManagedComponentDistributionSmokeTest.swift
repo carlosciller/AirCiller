@@ -89,8 +89,9 @@ struct ManagedComponentDistributionSmokeTest {
         }
 
         try verifyTamperedActivationRecordIsIgnored(root: root)
+        try verifySameVersionRepair(root: root.appendingPathComponent("repair", isDirectory: true))
 
-        print("Published signature, safe paths, atomic activation, tamper rejection, and rollback: OK")
+        print("Published signature, safe paths, repair, atomic activation, tamper rejection, and rollback: OK")
     }
 
     private static func verifyRepositoryManifest() throws {
@@ -140,14 +141,39 @@ struct ManagedComponentDistributionSmokeTest {
         }
     }
 
-    private static func installFixture(version: String, root: URL) throws {
+    private static func verifySameVersionRepair(root: URL) throws {
+        try installFixture(version: "9.0.1", root: root, contents: "rollback")
+        try installFixture(version: "9.0.2", root: root, contents: "original")
+        let executable = root.appendingPathComponent("ffmpeg/versions/9.0.2/bin/ffmpeg")
+        try Data("altered".utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+
+        try installFixture(version: "9.0.2", root: root, contents: "repaired")
+        let installation = ManagedComponentStore.activeInstallation(for: .ffmpeg, root: root)
+        guard try String(contentsOf: executable, encoding: .utf8) == "repaired",
+            installation?.version == "9.0.2",
+            installation?.previousVersion == "9.0.1"
+        else {
+            throw NSError(domain: "ManagedComponentDistributionSmokeTest.Repair", code: 8)
+        }
+        try ManagedComponentStore.rollback(.ffmpeg, root: root)
+        guard ManagedComponentStore.activeInstallation(for: .ffmpeg, root: root)?.version == "9.0.1" else {
+            throw NSError(domain: "ManagedComponentDistributionSmokeTest.RepairRollback", code: 9)
+        }
+    }
+
+    private static func installFixture(
+        version: String,
+        root: URL,
+        contents: String = "fixture"
+    ) throws {
         let extracted = root.appendingPathComponent("fixture-\(version)", isDirectory: true)
         let executable = extracted.appendingPathComponent("bin/ffmpeg")
         try FileManager.default.createDirectory(
             at: executable.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        _ = FileManager.default.createFile(atPath: executable.path, contents: Data("fixture".utf8))
+        _ = FileManager.default.createFile(atPath: executable.path, contents: Data(contents.utf8))
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
         let artifact = ManagedComponentArtifact(
             component: .ffmpeg,

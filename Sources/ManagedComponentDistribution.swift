@@ -247,23 +247,36 @@ enum ManagedComponentStore {
 
         let destination = versionsRoot.appendingPathComponent(artifact.version, isDirectory: true)
         let staging = versionsRoot.appendingPathComponent(".install-\(UUID().uuidString)", isDirectory: true)
+        let displaced = versionsRoot.appendingPathComponent(".replace-\(UUID().uuidString)", isDirectory: true)
         try manager.copyItem(at: extractedDirectory, to: staging)
         do {
             try validateInstalledTree(staging, executablePath: artifact.executablePath)
+            let current = activeInstallation(for: artifact.component, root: root)
+            let hadDestination = manager.fileExists(atPath: destination.path)
             if manager.fileExists(atPath: destination.path) {
-                try validateInstalledTree(destination, executablePath: artifact.executablePath)
-                try manager.removeItem(at: staging)
-            } else {
+                try manager.moveItem(at: destination, to: displaced)
+            }
+            do {
                 try manager.moveItem(at: staging, to: destination)
+            } catch {
+                if hadDestination { try? manager.moveItem(at: displaced, to: destination) }
+                throw error
             }
 
-            let previous = activeInstallation(for: artifact.component, root: root)?.version
+            let previous = current?.version == artifact.version ? current?.previousVersion : current?.version
             let installation = ManagedComponentInstallation(
                 version: artifact.version,
                 executablePath: artifact.executablePath,
-                previousVersion: previous == artifact.version ? nil : previous
+                previousVersion: previous
             )
-            try writeInstallation(installation, component: artifact.component, root: root)
+            do {
+                try writeInstallation(installation, component: artifact.component, root: root)
+            } catch {
+                try? manager.removeItem(at: destination)
+                if hadDestination { try? manager.moveItem(at: displaced, to: destination) }
+                throw error
+            }
+            if hadDestination { try? manager.removeItem(at: displaced) }
             pruneVersions(
                 for: artifact.component,
                 keeping: Set([installation.version, installation.previousVersion].compactMap { $0 }),
@@ -271,6 +284,11 @@ enum ManagedComponentStore {
             )
         } catch {
             try? manager.removeItem(at: staging)
+            if manager.fileExists(atPath: displaced.path),
+                !manager.fileExists(atPath: destination.path)
+            {
+                try? manager.moveItem(at: displaced, to: destination)
+            }
             throw error
         }
     }

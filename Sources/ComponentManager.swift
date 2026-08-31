@@ -247,12 +247,27 @@ final class ComponentManager {
             pythonOutput = nil
         }
         let pythonVersion = pythonOutput.flatMap(pythonVersion(from:))
+        let airPlayReady: Bool
+        if isCompatiblePythonVersion(pythonVersion),
+            let pythonPath,
+            let vendor = bundledVendorDirectory(),
+            let result = try? await runProcess(
+                executablePath: pythonPath,
+                arguments: AirPlayRuntimeProbe.arguments,
+                environment: AirPlayRuntimeProbe.environment(vendorDirectory: vendor),
+                maximumOutputBytes: 262_144
+            )
+        {
+            airPlayReady = AirPlayRuntimeProbe.isReady(status: result.status, output: result.output)
+        } else {
+            airPlayReady = false
+        }
         let pythonStatus = ManagedComponentStatus(
             component: .airPlay,
             version: pythonVersion,
             path: pythonPath,
             source: pythonPath.map { managedPythonPath == $0 ? "AirCiller" : componentSource(for: $0) },
-            isCompatible: isCompatiblePythonVersion(pythonVersion)
+            isCompatible: airPlayReady
         )
 
         return ComponentSnapshot(
@@ -272,6 +287,12 @@ final class ComponentManager {
             .appendingPathComponent(".airciller-python-executable")
         return try? String(contentsOf: marker, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private nonisolated static func bundledVendorDirectory() -> URL? {
+        guard let resources = Bundle.main.resourceURL else { return nil }
+        let vendor = resources.appendingPathComponent("VendorPython", isDirectory: true)
+        return FileManager.default.fileExists(atPath: vendor.path) ? vendor : nil
     }
 
     private nonisolated static func executablePath(in candidates: [String]) -> String? {

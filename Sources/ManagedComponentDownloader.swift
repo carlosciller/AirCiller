@@ -41,6 +41,7 @@ enum ManagedComponentDownloader {
         try await download(
             from: artifact.archiveURL,
             to: archive,
+            maximumBytes: artifact.archiveSize,
             progress: { progress(.downloading($0)) }
         )
         try Task.checkCancellation()
@@ -70,12 +71,22 @@ enum ManagedComponentDownloader {
     private static func download(
         from url: URL,
         to destination: URL,
+        maximumBytes: Int64,
         progress: @escaping @Sendable (Double) -> Void
     ) async throws {
-        let delegate = ComponentDownloadProgressDelegate(progress: progress)
+        let limit = ManagedDownloadLimit(maximumBytes: maximumBytes)
+        let delegate = ComponentDownloadProgressDelegate(limit: limit, progress: progress)
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 120)
-        let (temporaryURL, response) = try await URLSession.shared.download(for: request, delegate: delegate)
+        let temporaryURL: URL
+        let response: URLResponse
+        do {
+            (temporaryURL, response) = try await URLSession.shared.download(for: request, delegate: delegate)
+        } catch {
+            if limit.wasExceeded { throw ManagedComponentDownloaderError.invalidResponse }
+            throw error
+        }
         try validate(response: response)
+        guard !limit.wasExceeded else { throw ManagedComponentDownloaderError.invalidResponse }
         try Task.checkCancellation()
         try FileManager.default.moveItem(at: temporaryURL, to: destination)
     }
@@ -153,13 +164,62 @@ enum ManagedComponentDownloader {
                 throw ManagedComponentDownloaderError.invalidExecutable
             }
         }
+
+        if artifact.component == .airPlay {
+            guard let resources = Bundle.main.resourceURL else {
+                throw ManagedComponentDownloaderError.invalidExecutable
+            }
+            let vendor = resources.appendingPathComponent("VendorPython", isDirectory: true)
+            guard FileManager.default.fileExists(atPath: vendor.path) else {
+                throw ManagedComponentDownloaderError.invalidExecutable
+            }
+            let result = try await CapturedProcess.run(
+                executable: primaryExecutable,
+                arguments: AirPlayRuntimeProbe.arguments,
+                environment: AirPlayRuntimeProbe.environment(vendorDirectory: vendor),
+                maximumOutputBytes: 64_000
+            )
+            let text = String(decoding: result.output + result.errorOutput, as: UTF8.self)
+            guard AirPlayRuntimeProbe.isReady(status: result.status, output: text) else {
+                throw ManagedComponentDownloaderError.invalidExecutable
+            }
+        }
+    }
+}
+
+final class ManagedDownloadLimit: @unchecked Sendable {
+    private let maximumBytes: Int64
+    private let lock = NSLock()
+    private var exceeded = false
+
+    init(maximumBytes: Int64) {
+        self.maximumBytes = max(0, maximumBytes)
+    }
+
+    var wasExceeded: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return exceeded
+    }
+
+    func shouldCancel(totalBytesWritten: Int64, totalBytesExpected: Int64) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        if totalBytesWritten > maximumBytes
+            || (totalBytesExpected > 0 && totalBytesExpected > maximumBytes)
+        {
+            exceeded = true
+        }
+        return exceeded
     }
 }
 
 private final class ComponentDownloadProgressDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+    private let limit: ManagedDownloadLimit
     private let progress: @Sendable (Double) -> Void
 
-    init(progress: @escaping @Sendable (Double) -> Void) {
+    init(limit: ManagedDownloadLimit, progress: @escaping @Sendable (Double) -> Void) {
+        self.limit = limit
         self.progress = progress
     }
 
@@ -170,6 +230,13 @@ private final class ComponentDownloadProgressDelegate: NSObject, URLSessionDownl
         totalBytesWritten: Int64,
         totalBytesExpectedToWrite: Int64
     ) {
+        if limit.shouldCancel(
+            totalBytesWritten: totalBytesWritten,
+            totalBytesExpected: totalBytesExpectedToWrite
+        ) {
+            downloadTask.cancel()
+            return
+        }
         guard totalBytesExpectedToWrite > 0 else { return }
         progress(min(max(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite), 0), 1))
     }

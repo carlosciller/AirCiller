@@ -15,6 +15,14 @@ struct ComponentManagerSmokeTest {
             throw NSError(domain: "ComponentManagerSmokeTest.VersionParsing", code: 1)
         }
 
-        print("Component version parsing and Python compatibility: OK")
+        let limit = ManagedDownloadLimit(maximumBytes: 100)
+        guard !limit.shouldCancel(totalBytesWritten: 100, totalBytesExpected: 100),
+            limit.shouldCancel(totalBytesWritten: 101, totalBytesExpected: 100),
+            limit.wasExceeded
+        else {
+            throw NSError(domain: "ComponentManagerSmokeTest.DownloadLimit", code: 2)
+        }
+
+        print("Component version parsing, AirPlay readiness, and download limits: OK")
     }
 }

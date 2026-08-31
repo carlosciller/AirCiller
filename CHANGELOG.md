@@ -2,6 +2,15 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
+## Unreleased
+
+### Reliability
+
+- Cancels short-lived AirPlay helper commands with the task that started them and serializes Apple TV credential changes.
+- Requires the selected Python runtime to load the complete AirPlay engine before reporting it as ready.
+- Stops managed downloads that exceed their signed size and lets a reinstall repair the same component version while preserving rollback.
+- Resets damaged Playlist or Recents data safely instead of retrying the same invalid data on every launch.
+
 ## 0.10.4 (31 August 2026)
 
 ### New

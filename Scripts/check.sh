@@ -68,6 +68,18 @@ compile_and_run power-assertion \
 compile_and_run cancellable-process \
   "$project_dir/Sources/CancellableProcess.swift" \
   "$project_dir/Tests/CancellableProcessSmokeTest.swift"
+compile_and_run captured-process \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/CapturedProcess.swift" \
+  "$project_dir/Tests/CapturedProcessSmokeTest.swift"
+compile_and_run credential-store \
+  -framework Security \
+  "$project_dir/Sources/AirPlayCredentialStore.swift" \
+  "$project_dir/Tests/AirPlayCredentialStoreSmokeTest.swift"
+compile_and_run airplay-runtime-probe \
+  "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
+  "$project_dir/Tests/AirPlayRuntimeProbeSmokeTest.swift"
 compile_and_run media-analysis-tasks \
   "$project_dir/Sources/MediaAnalysisTasks.swift" \
   "$project_dir/Tests/MediaAnalysisTasksSmokeTest.swift"
@@ -75,6 +87,8 @@ compile_and_run component-manager \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/ProcessDataBuffer.swift" \
   "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/CapturedProcess.swift" \
+  "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
   "$project_dir/Sources/DiagnosticsReport.swift" \
   "$project_dir/Sources/ManagedComponentModels.swift" \
   "$project_dir/Sources/ManagedComponentDistribution.swift" \
@@ -86,6 +100,11 @@ compile_and_run component-distribution \
   "$project_dir/Sources/ManagedComponentModels.swift" \
   "$project_dir/Sources/ManagedComponentDistribution.swift" \
   "$project_dir/Tests/ManagedComponentDistributionSmokeTest.swift"
+compile_and_run history-store \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/HistoryStore.swift" \
+  "$project_dir/Tests/HistoryStoreSmokeTest.swift"
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"
