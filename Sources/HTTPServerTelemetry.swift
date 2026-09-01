@@ -9,6 +9,7 @@ struct HTTPServerTelemetry: Sendable, Equatable {
     let activeBitsPerSecond: Double?
     let observedCapacityBitsPerSecond: Double?
     let lastActivity: Date?
+    let hasConfirmedMediaRequest: Bool
 
     static let empty = HTTPServerTelemetry(
         totalBytesSent: 0,
@@ -18,6 +19,7 @@ struct HTTPServerTelemetry: Sendable, Equatable {
         unexpectedErrors: 0,
         activeBitsPerSecond: nil,
         observedCapacityBitsPerSecond: nil,
-        lastActivity: nil
+        lastActivity: nil,
+        hasConfirmedMediaRequest: false
     )
 }

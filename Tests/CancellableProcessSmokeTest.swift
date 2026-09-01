@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 @main
@@ -46,6 +47,22 @@ struct CancellableProcessSmokeTest {
         }
         guard !progressProcess.isRunning else {
             throw NSError(domain: "CancellableProcessSmokeTest.ProgressStillRunning", code: 4)
+        }
+
+        let stubbornProcess = Process()
+        stubbornProcess.executableURL = URL(fileURLWithPath: "/bin/sh")
+        stubbornProcess.arguments = ["-c", "trap '' TERM; while :; do :; done"]
+        stubbornProcess.standardOutput = FileHandle.nullDevice
+        stubbornProcess.standardError = FileHandle.nullDevice
+        try stubbornProcess.run()
+        CancellableProcess(stubbornProcess).terminate()
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while stubbornProcess.isRunning, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(25))
+        }
+        guard !stubbornProcess.isRunning else {
+            Darwin.kill(stubbornProcess.processIdentifier, SIGKILL)
+            throw NSError(domain: "CancellableProcessSmokeTest.Escalation", code: 5)
         }
         print("Child process and progress observer terminate with their owning tasks: OK")
     }

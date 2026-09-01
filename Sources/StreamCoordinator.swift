@@ -1637,7 +1637,7 @@ final class StreamCoordinator {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(20))
         while activeSessionID == sessionID {
-            if streamTelemetry.lastActivity != nil || streamTelemetry.totalBytesSent > 0 {
+            if streamTelemetry.hasConfirmedMediaRequest {
                 return
             }
             if clock.now >= deadline {

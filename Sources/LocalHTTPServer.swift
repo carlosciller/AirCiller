@@ -21,6 +21,7 @@ final class LocalHTTPServer: @unchecked Sendable {
     private var expectedDisconnects = 0
     private var unexpectedErrors = 0
     private var lastActivity: Date?
+    private var hasConfirmedMediaRequest = false
     private var lastTelemetryEmission = Date.distantPast
 
     private struct TransferState {
@@ -508,6 +509,8 @@ final class LocalHTTPServer: @unchecked Sendable {
     ) {
         let identifier = ObjectIdentifier(connection)
         let isTelemetryClient = shouldMeasure(connection)
+        let isFirstConfirmedRequest = !hasConfirmedMediaRequest
+        hasConfirmedMediaRequest = true
         transfers[identifier] = TransferState(
             startedAt: Date(),
             expectedBytes: expectedBytes,
@@ -519,6 +522,8 @@ final class LocalHTTPServer: @unchecked Sendable {
         )
         if isTelemetryClient {
             lastActivity = Date()
+            emitTelemetry(force: true)
+        } else if isFirstConfirmedRequest {
             emitTelemetry(force: true)
         }
     }
@@ -606,7 +611,8 @@ final class LocalHTTPServer: @unchecked Sendable {
                 unexpectedErrors: unexpectedErrors,
                 activeBitsPerSecond: activeRate,
                 observedCapacityBitsPerSecond: observedCapacity,
-                lastActivity: lastActivity
+                lastActivity: lastActivity,
+                hasConfirmedMediaRequest: hasConfirmedMediaRequest
             ))
     }
 
@@ -624,7 +630,7 @@ final class LocalHTTPServer: @unchecked Sendable {
         @unknown default:
             return false
         }
-        return address == telemetryClientAddress
+        return NetworkAddressIdentity.matches(address, telemetryClientAddress)
     }
 
     private func send(

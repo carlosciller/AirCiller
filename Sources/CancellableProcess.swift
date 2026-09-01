@@ -61,10 +61,11 @@ final class CancellableProcess: @unchecked Sendable {
 
     func terminate() {
         guard process.isRunning else { return }
+        let process = process
         process.terminate()
-        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.75) { [weak self] in
-            guard let self, self.process.isRunning else { return }
-            Darwin.kill(self.process.processIdentifier, SIGKILL)
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.75) {
+            guard process.isRunning else { return }
+            Darwin.kill(process.processIdentifier, SIGKILL)
         }
     }
 }

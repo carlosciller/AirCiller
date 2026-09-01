@@ -152,6 +152,7 @@ final class AirPlayController {
     @ObservationIgnored private var pairingOutputBuffer = Data()
     @ObservationIgnored private var pairingWasCancelled = false
     @ObservationIgnored private var successfulPairingSessionID: UUID?
+    @ObservationIgnored private var pairingLifecycle = AirPlayPairingLifecycle()
     @ObservationIgnored private let credentialStore = AirPlayCredentialStore()
     @ObservationIgnored private var credentialCache: [String: String] = [:]
     @ObservationIgnored private var validatedAuthorizationDeviceID: String?
@@ -454,12 +455,20 @@ final class AirPlayController {
             isPairingPresented = true
             return
         }
-        cancelPairing(closeSheet: false)
+        isPairingPresented = true
+        pairingState = .starting
+        guard
+            pairingLifecycle.requestStart(
+                resumePlayback: resumePlayback,
+                processIsActive: pairingProcess != nil
+            )
+        else {
+            cancelRunningPairingForRestart()
+            return
+        }
         pairingDeviceID = selectedDevice.id
         pairingDeviceName = selectedDevice.name
         pairingIntent.begin(resumePlayback: resumePlayback)
-        isPairingPresented = true
-        pairingState = .starting
         pairingWasCancelled = false
         successfulPairingSessionID = nil
         pairingOutputBuffer.removeAll(keepingCapacity: true)
@@ -554,14 +563,26 @@ final class AirPlayController {
     }
 
     func cancelPairing(closeSheet: Bool = true) {
+        pairingLifecycle.cancel()
         pairingWasCancelled = true
         successfulPairingSessionID = nil
         pairingIntent.cancel()
-        let sessionID = pairingSessionID
-        if let process = pairingProcess, process.isRunning { process.terminate() }
-        if let sessionID { clearPairingProcess(sessionID: sessionID) }
+        try? pairingInputPipe?.fileHandleForWriting.close()
+        if let process = pairingProcess {
+            CancellableProcess(process).terminate()
+        }
         pairingState = .idle
         if closeSheet { isPairingPresented = false }
+    }
+
+    private func cancelRunningPairingForRestart() {
+        pairingWasCancelled = true
+        successfulPairingSessionID = nil
+        pairingIntent.cancel()
+        try? pairingInputPipe?.fileHandleForWriting.close()
+        if let process = pairingProcess {
+            CancellableProcess(process).terminate()
+        }
     }
 
     @discardableResult
@@ -643,7 +664,7 @@ final class AirPlayController {
     }
 
     private func consumePairingOutput(_ data: Data, sessionID: UUID) {
-        guard pairingSessionID == sessionID else { return }
+        guard pairingSessionID == sessionID, !pairingWasCancelled else { return }
         pairingOutputBuffer.append(data)
         while let newline = pairingOutputBuffer.firstIndex(of: 0x0A) {
             let line = pairingOutputBuffer[..<newline]
@@ -856,6 +877,10 @@ final class AirPlayController {
         let isFinishingVerifiedPairing = successfulPairingSessionID == sessionID
         let currentState = pairingState
         clearPairingProcess(sessionID: sessionID)
+        if let resumePlayback = pairingLifecycle.processDidTerminate() {
+            beginPairing(resumePlayback: resumePlayback)
+            return
+        }
         guard !wasCancelled, !isFinishingVerifiedPairing else { return }
         switch currentState {
         case .success, .failed:

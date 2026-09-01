@@ -174,6 +174,7 @@ struct HTTPServerSmokeTest {
         )
         filteredServer.stop()
         guard filteredData == segment,
+            excludedRecorder.snapshot.hasConfirmedMediaRequest,
             excludedRecorder.snapshot.totalBytesSent == 0,
             excludedRecorder.snapshot.completedTransfers == 0
         else {
@@ -197,6 +198,7 @@ struct HTTPServerSmokeTest {
         )
         measuredServer.stop()
         guard measuredData == segment,
+            includedRecorder.snapshot.hasConfirmedMediaRequest,
             includedRecorder.snapshot.totalBytesSent == Int64(segment.count),
             includedRecorder.snapshot.completedTransfers == 1
         else {
