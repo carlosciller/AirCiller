@@ -2,12 +2,13 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
-## Unreleased
+## 0.11.1 (1 September 2026)
 
 ### Reliability
 
-- Prevents a new Apple TV authorization attempt from overlapping a helper that is still closing.
+- Prevents a new Apple TV authorization attempt from overlapping a helper that is still closing, avoiding repeated code prompts.
 - Recognizes receiver requests consistently across IPv4, IPv6 and VPN interfaces without mixing unrelated traffic into stream measurements.
+- Confirms clean end-of-file, Playlist advance and rapid remote commands through physical Apple TV testing.
 
 ## 0.11.0 (1 September 2026)
 
