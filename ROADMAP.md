@@ -1,66 +1,50 @@
 # Technical roadmap
 
-Current work focuses on reliability and measurable playback behavior.
+AirCiller advances through small, isolated changes. Playback work must preserve the direct MP4 HDR/Dolby Vision route and the HLS/fMP4 route independently, then be checked on a physical Apple TV before release.
 
-## Next isolated fixes
+## Next candidates
 
-1. [x] Unify FFmpeg/ffprobe execution behind a cancellable process so Stop or switching files immediately ends abandoned analysis, preparation, and OCR work.
-2. [x] Add a synthetic attached-artwork fixture and always select/map the exact index of the real video stream.
-3. [x] Select the local address from the effective route to the Apple TV on Macs with multiple interfaces or a VPN, while keeping the current behavior as a fallback.
-4. [x] Add characterization tests for cancellable AirPlay helper commands, serialized Keychain access, and corrupt library persistence before further splitting the large coordinator files.
-5. [ ] Normalize receiver identity across IPv4, IPv6, and VPN interfaces, and distinguish confirmed media requests from filtered performance metrics.
-
-Each playback change must be validated locally first, then independently through direct MP4 and HLS/fMP4, and finally on a physical Apple TV before installation.
-
-## Maintenance and publication
-
-- [x] Use English as the development language with a complete native Spanish localization that follows the macOS language setting.
-- [x] Publish the main documentation and GitHub templates in English and state that the app includes English and Spanish localization.
-- [ ] Add a reproducible process for regenerating and verifying `requirements.lock`; major upgrades such as protobuf 7 require an updated lock, full local checks, and physical validation when they can affect the AirPlay engine.
-- [x] Enable GitHub private vulnerability reporting.
-- [x] Create the first version tag and public release after the localized build passes the physical Apple TV matrix.
-- [ ] Sign releases with Developer ID, enable Hardened Runtime and notarize them with Apple. This remains blocked until an Apple Developer Program membership is available.
-- [x] Package a fixed Python runtime so the AirPlay engine does not depend on a path from the build Mac.
-- [x] Show the active Python/AirPlay and FFmpeg versions, paths, sources, and explicit Homebrew maintenance actions.
-- [x] Replace the Homebrew-dependent setup with managed component downloads, signed manifests, progress, cancellation and rollback.
-- [x] Require a functional AirPlay import probe, bound downloads to their signed size, and let reinstalling a version repair its existing files without losing rollback.
-- [x] Include the validated FFmpeg and AirPlay engines in the app and remove routine component maintenance from the user interface.
-- [x] Move Settings and VOD process support into focused source files without changing either playback route.
-- [x] Integrate Sparkle 2 with a verified framework download, signed appcast support, manual checks, optional automatic checks and explicit installation.
-- [x] Publish the first signed appcast through GitHub Releases after generating the EdDSA key and configuring the final HTTPS feed location.
-
-## Settings
-
-1. [x] Add native panes for Playback, Updates and Storage, with compact engine details under Diagnostics.
-2. [x] Extend the existing preferred subtitle language with separate choices for standard, forced and SDH tracks.
-3. [x] Add a preferred audio language with the file's default track as fallback. Audio conversion continues to require confirmation for each movie.
-4. [x] Keep engine versions available for diagnosis without exposing independent updates to the user.
-5. [x] Add actions to export a sanitized diagnosis and reset Apple TV authorization.
-6. Consider an OpenSubtitles.com search for the selected movie. It must be initiated by the user, use the current REST API and store credentials in Keychain.
-
-## Library
-
-1. [x] Keep Playlist and Recents rows on a consistent two-line rhythm while exposing the complete filename on hover.
-2. [ ] Add keyboard reordering and clearer VoiceOver position feedback to complement drag and drop.
-
-## Now Playing and remote control
-
-1. [x] Publish duration, elapsed time, playback state and non-live status to macOS Now Playing.
-2. [x] Accept basic play, pause, seek and skip commands from macOS and the iPhone Apple TV Remote while synchronizing the main timeline.
-3. [x] Trigger automatic Now Playing presentation on the iPhone Lock Screen without an AirCiller iOS or tvOS app.
+1. [x] Normalize receiver identity across IPv4, IPv6 and VPN interfaces, and distinguish confirmed media requests from filtered performance metrics.
+2. [ ] Validate end-of-file and rapid play, pause, seek and stop sequences across the Mac, physical Apple TV remote and iPhone Remote.
+3. [ ] Add keyboard reordering and clearer VoiceOver position feedback to Playlist.
 4. [ ] Determine whether public macOS APIs can reliably add the original movie title and AirCiller artwork to the Apple TV-owned Lock Screen card.
-5. [x] Validate long pause, resume, seeking, stop and receiver exit across the Mac and physical Apple TV remote.
-6. [ ] Validate end-of-file and rapid command edge cases across the Mac, physical Apple TV remote and iPhone.
+5. [ ] Consider a user-initiated OpenSubtitles.com search for the selected movie. It must use the current REST API and keep credentials in Keychain.
 
-## Functional candidates
+## Reliability baseline
 
-1. [x] Reuse the Apple Vision pipeline for local, on-demand DVD VobSub OCR.
-2. [x] Add a visible limit and controls for prepared-media and subtitle caches.
+- [x] Cancel FFmpeg, analysis, preparation and OCR work immediately when playback stops or the selected file changes.
+- [x] Prevent authorization loops with one bounded automatic renewal.
+- [x] Prevent pairing retries from overlapping an older helper and force termination if it ignores a normal cancellation.
+- [x] Serialize AirPlay credential access and recover safely from corrupt library persistence.
+- [x] Require the bundled Python engine to import and execute `pyatv` and its runtime dependencies, not merely start Python.
+- [x] Select the local address from the effective route to the Apple TV on Macs with multiple interfaces or a VPN.
+- [x] Select the real video stream when a file contains attached artwork.
+- [x] Validate long pause, resume, seeking, stop and receiver exit on a physical Apple TV.
+- [x] Convert Blu-ray PGS and DVD VobSub subtitles locally and on demand with Apple Vision.
+- [x] Bound prepared-media and subtitle caches and expose their controls in Settings.
+
+## Build and distribution
+
+- [x] Use English for development and public documentation, with complete native English and Spanish localization in the app.
+- [x] Generate and verify `requirements.lock` with fixed Python, pip and pip-tools versions. Major changes such as protobuf 7 still require a reviewed lock, full local checks and physical Apple TV validation.
+- [x] Include the validated FFmpeg and AirPlay engines in each app release, with compact version details under Diagnostics and no separate maintenance controls.
+- [x] Integrate Sparkle 2 with signed update metadata and explicit installation.
+- [x] Publish the source, signed appcast and release archives through GitHub.
+- [ ] Sign releases with Developer ID, enable Hardened Runtime and notarize them with Apple. This remains blocked until an Apple Developer Program membership is available.
+
+## Product foundations
+
+- [x] Native Playback, Updates and Storage settings.
+- [x] Separate preferred languages for standard, forced and SDH subtitles, plus preferred audio language.
+- [x] Sanitized diagnostics export and an explicit Apple TV authorization reset.
+- [x] Consistent Playlist and Recents rows with full filenames on hover.
+- [x] macOS Now Playing integration with play, pause, seek and skip commands from the Mac and iPhone Remote.
+- [x] Automatic Now Playing presentation on the iPhone Lock Screen.
 
 ## Out of scope
 
 - Telemetry or analytics.
-- Cloud storage or uploading movies/subtitles.
+- Cloud storage or uploading movies or subtitles.
 - A permanent server or background indexing.
 - Silent transcoding.
 - Heavy dependencies without a demonstrated benefit.

@@ -18,3 +18,13 @@ AirCiller is a personal project, but focused reviews and small proposals are wel
 4. For playback changes, validate the two paths in [TESTING.md](TESTING.md) separately.
 
 Changes produced with AI tools are acceptable, but they must be reviewed, understandable, and held to the same validation standard as any other change.
+
+## Python dependency changes
+
+Edit `requirements.in`, then regenerate the lock with:
+
+```sh
+./Scripts/requirements_lock.sh update
+```
+
+The script uses fixed Python, pip and pip-tools versions and writes the lock atomically. Use `upgrade` instead of `update` only for an intentional review of every transitive dependency. Do not edit `requirements.lock` by hand. `./Scripts/check.sh` verifies that the committed lock can be reproduced before building the app.

@@ -28,6 +28,8 @@ fi
 
 mkdir -p "$test_dir" "$module_cache" "$build_dir/python-cache"
 
+"$project_dir/Scripts/requirements_lock.sh" check
+
 common_swift_arguments=(
   -sdk "$sdk_path"
   -target arm64-apple-macosx14.0
@@ -63,6 +65,9 @@ compile_and_run authorization \
 compile_and_run pairing-intent \
   "$project_dir/Sources/AirPlayPairingIntent.swift" \
   "$project_dir/Tests/AirPlayPairingIntentSmokeTest.swift"
+compile_and_run pairing-lifecycle \
+  "$project_dir/Sources/AirPlayPairingLifecycle.swift" \
+  "$project_dir/Tests/AirPlayPairingLifecycleSmokeTest.swift"
 compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
@@ -120,6 +125,9 @@ compile_and_run history-store \
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"
+compile_and_run network-address-identity \
+  "$project_dir/Sources/NetworkAddressIdentity.swift" \
+  "$project_dir/Tests/NetworkAddressIdentitySmokeTest.swift"
 compile_and_run storage \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
@@ -161,6 +169,7 @@ compile_and_run http-server \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/HTTPServerTelemetry.swift" \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
+  "$project_dir/Sources/NetworkAddressIdentity.swift" \
   "$project_dir/Sources/LocalHTTPServer.swift" \
   "$project_dir/Tests/HTTPServerSmokeTest.swift"
 
