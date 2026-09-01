@@ -20,6 +20,8 @@ A version is not considered ready to install until these cases have been complet
 | HLS/fMP4 | Without subtitles | Complete VOD, no live indicator or preparation pauses |
 | HLS/fMP4 | With WebVTT | Selectable, synchronized subtitles that are not burned into the picture |
 | Control | Long pause and resume from the remote | AirPlay remains linked and the Mac does not sleep automatically |
+| Control | Natural end of the current item | The Apple TV confirms completion and the next Playlist item starts once |
+| Control | Rapid pause, resume and seek commands from Mac, Apple TV Remote and iPhone Remote | Commands remain ordered, the timeline stays synchronized and AirPlay remains linked |
 
 After playback, also test stop, replay, and closing the app. Only then should the patch version be increased and the installed app replaced, while keeping a rollback copy.
 
@@ -39,3 +41,14 @@ The 0.10.4 candidate completed the physical Apple TV matrix on 30 and 31 August 
 - Remote exit returned AirCiller to a stopped state without a ghost timer or false connection error.
 
 The original media files were not modified.
+
+## 6. Post-0.11.0 reliability candidate
+
+Build 46 completed the remaining physical control checks on 1 September 2026:
+
+- The Apple TV reported the natural end of a movie and AirCiller advanced once to the next Playlist item.
+- Rapid pause, resume, forward seek and backward seek commands from the physical Apple TV remote, iPhone Remote and AirCiller remained synchronized.
+- Stopping from AirCiller ended playback cleanly without reconnecting, requesting a new authorization code or leaving a ghost session.
+- AirPlay remained linked throughout the command sequence.
+
+The validation used the candidate app directly. It did not replace the installed app or modify the original media files.
