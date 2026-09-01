@@ -5,26 +5,14 @@ import Observation
 @MainActor
 final class ComponentManager {
     private(set) var statuses: [ManagedComponent: ManagedComponentStatus] = [:]
-    private(set) var homebrewPath: String?
-    private(set) var isRefreshing = false
-    private(set) var activeComponent: ManagedComponent?
-    private(set) var operationMessage: String?
-    private(set) var operationOutput: String?
-    private(set) var operationProgress: Double?
-
-    let managedConfiguration = ManagedComponentConfiguration.load(from: Bundle.main.infoDictionary)
-
-    @ObservationIgnored private var operationTask: Task<Void, Never>?
-    @ObservationIgnored private var managedOperationID: UUID?
+    private(set) var hasRefreshed = false
 
     func status(for component: ManagedComponent) -> ManagedComponentStatus {
         statuses[component] ?? .missing(component)
     }
 
     func refresh() async {
-        guard activeComponent == nil else { return }
-        isRefreshing = true
-        defer { isRefreshing = false }
+        defer { hasRefreshed = true }
 
         let recordedPythonPath = Self.recordedPythonPath()
         let snapshot = await Task.detached(priority: .utility) {
@@ -32,156 +20,6 @@ final class ComponentManager {
         }.value
         guard !Task.isCancelled else { return }
         statuses = snapshot.statuses
-        homebrewPath = snapshot.homebrewPath
-    }
-
-    func installOrUpdate(_ component: ManagedComponent) {
-        guard activeComponent == nil else { return }
-        guard let homebrewPath else {
-            operationMessage = L10n.text("Homebrew no está instalado.")
-            return
-        }
-
-        activeComponent = component
-        managedOperationID = nil
-        operationProgress = nil
-        operationOutput = nil
-        operationMessage = L10n.format("Preparando %@…", component.title)
-        let formula = component.formula
-
-        operationTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let installed = await Self.isFormulaInstalled(
-                    brewPath: homebrewPath,
-                    formula: formula
-                )
-                try Task.checkCancellation()
-                self.operationMessage = L10n.format(
-                    installed ? "Actualizando %@ con Homebrew…" : "Instalando %@ con Homebrew…",
-                    component.title
-                )
-                let result = try await Self.runHomebrew(
-                    brewPath: homebrewPath,
-                    arguments: [installed ? "upgrade" : "install", formula]
-                )
-                try Task.checkCancellation()
-                guard result.status == 0 else {
-                    throw ComponentManagerError.commandFailed(result.output)
-                }
-                self.operationOutput = Self.lastMeaningfulLine(in: result.output)
-                self.operationMessage = L10n.format("%@ está listo.", component.title)
-                self.operationProgress = nil
-                self.activeComponent = nil
-                self.operationTask = nil
-                await self.refresh()
-            } catch is CancellationError {
-                self.operationMessage = L10n.text("Operación cancelada.")
-                self.operationProgress = nil
-                self.activeComponent = nil
-                self.operationTask = nil
-                await self.refresh()
-            } catch {
-                self.operationOutput = error.localizedDescription
-                self.operationMessage = L10n.format("No se pudo preparar %@.", component.title)
-                self.operationProgress = nil
-                self.activeComponent = nil
-                self.operationTask = nil
-                await self.refresh()
-            }
-        }
-    }
-
-    func installManaged(_ component: ManagedComponent) {
-        guard activeComponent == nil else { return }
-        guard managedConfiguration.isReady else {
-            operationMessage = L10n.text("Las descargas gestionadas no están configuradas en esta versión.")
-            return
-        }
-
-        activeComponent = component
-        let operationID = UUID()
-        managedOperationID = operationID
-        operationOutput = nil
-        operationProgress = nil
-        operationMessage = L10n.text("Comprobando el catálogo firmado…")
-        let configuration = managedConfiguration
-
-        operationTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                try await ManagedComponentDownloader.install(
-                    component,
-                    configuration: configuration,
-                    progress: { [weak self] stage in
-                        Task { @MainActor [weak self] in
-                            guard self?.managedOperationID == operationID else { return }
-                            self?.apply(stage, component: component)
-                        }
-                    }
-                )
-                try Task.checkCancellation()
-                self.operationMessage = L10n.format("%@ está listo.", component.title)
-                self.operationProgress = nil
-                self.managedOperationID = nil
-                self.activeComponent = nil
-                self.operationTask = nil
-                await self.refresh()
-            } catch is CancellationError {
-                self.operationMessage = L10n.text("Operación cancelada.")
-                self.operationProgress = nil
-                self.managedOperationID = nil
-                self.activeComponent = nil
-                self.operationTask = nil
-                await self.refresh()
-            } catch {
-                self.operationOutput = DiagnosticsReport.sanitize(error.localizedDescription)
-                self.operationMessage = L10n.format("No se pudo preparar %@.", component.title)
-                self.operationProgress = nil
-                self.managedOperationID = nil
-                self.activeComponent = nil
-                self.operationTask = nil
-                await self.refresh()
-            }
-        }
-    }
-
-    func rollback(_ component: ManagedComponent) {
-        guard activeComponent == nil else { return }
-        do {
-            try ManagedComponentStore.rollback(component)
-            operationMessage = L10n.format("Se ha recuperado la versión anterior de %@.", component.title)
-            operationOutput = nil
-            Task { await refresh() }
-        } catch {
-            operationMessage = L10n.format("No se pudo recuperar la versión anterior de %@.", component.title)
-            operationOutput = error.localizedDescription
-        }
-    }
-
-    func canRollback(_ component: ManagedComponent) -> Bool {
-        ManagedComponentStore.hasRollback(for: component)
-    }
-
-    func cancelOperation() {
-        operationTask?.cancel()
-    }
-
-    private func apply(_ stage: ManagedComponentDownloadStage, component: ManagedComponent) {
-        switch stage {
-        case .catalogue:
-            operationMessage = L10n.text("Comprobando el catálogo firmado…")
-            operationProgress = nil
-        case .downloading(let progress):
-            operationMessage = L10n.format("Descargando %@… %lld %%", component.title, Int64(progress * 100))
-            operationProgress = progress
-        case .verifying:
-            operationMessage = L10n.text("Verificando firma, tamaño y SHA-256…")
-            operationProgress = nil
-        case .installing:
-            operationMessage = L10n.text("Instalando sin sustituir la versión anterior…")
-            operationProgress = nil
-        }
     }
 
     nonisolated static func ffmpegVersion(from output: String) -> String? {
@@ -199,19 +37,18 @@ final class ComponentManager {
     }
 
     private nonisolated static func scan(recordedPythonPath: String?) async -> ComponentSnapshot {
-        let brewPath = executablePath(in: [
-            "/opt/homebrew/bin/brew",
-            "/usr/local/bin/brew",
-        ])
-
+        let bundledFFmpegPath = BundledEngine.ffmpegExecutable(named: "ffmpeg")?.path
         let managedFFmpegPath = ManagedComponentStore.executableURL(for: .ffmpeg)?.path
         let ffmpegPath =
-            managedFFmpegPath
-            ?? executablePath(in: [
-                "/opt/homebrew/bin/ffmpeg",
-                "/usr/local/bin/ffmpeg",
-                "/opt/local/bin/ffmpeg",
-            ])
+            BundledEngine.isRequired
+            ? bundledFFmpegPath
+            : bundledFFmpegPath
+                ?? managedFFmpegPath
+                ?? executablePath(in: [
+                    "/opt/homebrew/bin/ffmpeg",
+                    "/usr/local/bin/ffmpeg",
+                    "/opt/local/bin/ffmpeg",
+                ])
         let ffmpegOutput: String?
         if let ffmpegPath {
             ffmpegOutput = await commandOutput(executablePath: ffmpegPath, arguments: ["-version"])
@@ -223,20 +60,29 @@ final class ComponentManager {
             component: .ffmpeg,
             version: ffmpegVersion,
             path: ffmpegPath,
-            source: ffmpegPath.map { managedFFmpegPath == $0 ? "AirCiller" : componentSource(for: $0) },
+            source: ffmpegPath.map {
+                bundledFFmpegPath == $0 || managedFFmpegPath == $0
+                    ? "AirCiller"
+                    : componentSource(for: $0)
+            },
             isCompatible: ffmpegPath != nil && ffmpegVersion != nil
         )
 
+        let bundledPythonPath = BundledEngine.airPlayPython()?.path
         let managedPythonPath = ManagedComponentStore.executableURL(for: .airPlay)?.path
-        var pythonCandidates = [
-            managedPythonPath,
-            recordedPythonPath,
-            "/opt/homebrew/opt/python@3.13/bin/python3.13",
-            "/opt/homebrew/bin/python3",
-            "/usr/local/opt/python@3.13/bin/python3.13",
-            "/usr/local/bin/python3.13",
-            "/usr/local/bin/python3",
-        ].compactMap { $0 }
+        var pythonCandidates =
+            BundledEngine.isRequired
+            ? [bundledPythonPath].compactMap { $0 }
+            : [
+                bundledPythonPath,
+                managedPythonPath,
+                recordedPythonPath,
+                "/opt/homebrew/opt/python@3.13/bin/python3.13",
+                "/opt/homebrew/bin/python3",
+                "/usr/local/opt/python@3.13/bin/python3.13",
+                "/usr/local/bin/python3.13",
+                "/usr/local/bin/python3",
+            ].compactMap { $0 }
         var seenPythonPaths = Set<String>()
         pythonCandidates = pythonCandidates.filter { seenPythonPaths.insert($0).inserted }
         let pythonPath = executablePath(in: pythonCandidates)
@@ -266,17 +112,15 @@ final class ComponentManager {
             component: .airPlay,
             version: pythonVersion,
             path: pythonPath,
-            source: pythonPath.map { managedPythonPath == $0 ? "AirCiller" : componentSource(for: $0) },
+            source: pythonPath.map {
+                bundledPythonPath == $0 || managedPythonPath == $0
+                    ? "AirCiller"
+                    : componentSource(for: $0)
+            },
             isCompatible: airPlayReady
         )
 
-        return ComponentSnapshot(
-            statuses: [
-                .ffmpeg: ffmpegStatus,
-                .airPlay: pythonStatus,
-            ],
-            homebrewPath: brewPath
-        )
+        return ComponentSnapshot(statuses: [.ffmpeg: ffmpegStatus, .airPlay: pythonStatus])
     }
 
     private nonisolated static func recordedPythonPath() -> String? {
@@ -285,8 +129,11 @@ final class ComponentManager {
             resources
             .appendingPathComponent("VendorPython", isDirectory: true)
             .appendingPathComponent(".airciller-python-executable")
-        return try? String(contentsOf: marker, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            let value = try? String(contentsOf: marker, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        else { return nil }
+        return BundledEngine.resolveRuntimeMarker(value, resources: resources)?.path
     }
 
     private nonisolated static func bundledVendorDirectory() -> URL? {
@@ -320,41 +167,6 @@ final class ComponentManager {
             maximumOutputBytes: 262_144
         )
         return result?.output
-    }
-
-    private nonisolated static func isFormulaInstalled(
-        brewPath: String,
-        formula: String
-    ) async -> Bool {
-        guard
-            let result = try? await runProcess(
-                executablePath: brewPath,
-                arguments: ["list", "--versions", formula],
-                environment: homebrewEnvironment,
-                maximumOutputBytes: 262_144
-            )
-        else { return false }
-        return result.status == 0 && !result.output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private nonisolated static func runHomebrew(
-        brewPath: String,
-        arguments: [String]
-    ) async throws -> ProcessResult {
-        try await runProcess(
-            executablePath: brewPath,
-            arguments: arguments,
-            environment: homebrewEnvironment,
-            maximumOutputBytes: 2_097_152
-        )
-    }
-
-    private nonisolated static var homebrewEnvironment: [String: String] {
-        var environment = ProcessInfo.processInfo.environment
-        environment["HOMEBREW_NO_AUTO_UPDATE"] = "1"
-        environment["HOMEBREW_NO_ENV_HINTS"] = "1"
-        environment["NONINTERACTIVE"] = "1"
-        return environment
     }
 
     private nonisolated static func runProcess(
@@ -396,31 +208,13 @@ final class ComponentManager {
         return String(text[capture])
     }
 
-    private nonisolated static func lastMeaningfulLine(in output: String) -> String? {
-        output.split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .last(where: { !$0.isEmpty })
-    }
 }
 
 private struct ComponentSnapshot: Sendable {
     let statuses: [ManagedComponent: ManagedComponentStatus]
-    let homebrewPath: String?
 }
 
 private struct ProcessResult: Sendable {
     let status: Int32
     let output: String
-}
-
-private enum ComponentManagerError: LocalizedError, Sendable {
-    case commandFailed(String)
-
-    var errorDescription: String? {
-        switch self {
-        case .commandFailed(let output):
-            let message = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            return message.isEmpty ? "Homebrew stopped before completing the operation." : message
-        }
-    }
 }

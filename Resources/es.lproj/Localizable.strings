@@ -512,6 +512,11 @@
 
 /* Diagnóstico */
 "Diagnóstico" = "Diagnóstico";
+"Detalles del motor" = "Detalles del motor";
+"Los motores forman parte de esta versión de AirCiller y se actualizan junto con la app después de ser probados." = "Los motores forman parte de esta versión de AirCiller y se actualizan junto con la app después de ser probados.";
+"Instalación incompleta" = "Instalación incompleta";
+"Comprobando motor…" = "Comprobando motor…";
+"Esta copia de AirCiller está incompleta. Descarga de nuevo la aplicación para repararla." = "Esta copia de AirCiller está incompleta. Descarga de nuevo la aplicación para repararla.";
 "Informe local" = "Informe local";
 "Crea un archivo de texto sin nombres de películas, rutas personales, nombres o direcciones de receptores ni credenciales. No se envía automáticamente." = "Crea un archivo de texto sin nombres de películas, rutas personales, nombres o direcciones de receptores ni credenciales. No se envía automáticamente.";
 "Exportar diagnóstico…" = "Exportar diagnóstico…";

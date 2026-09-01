@@ -512,6 +512,11 @@
 
 /* Diagnostics */
 "Diagnóstico" = "Diagnostics";
+"Detalles del motor" = "Engine Details";
+"Los motores forman parte de esta versión de AirCiller y se actualizan junto con la app después de ser probados." = "The engines are part of this AirCiller version and update with the app after testing.";
+"Instalación incompleta" = "Incomplete Installation";
+"Comprobando motor…" = "Checking Engine…";
+"Esta copia de AirCiller está incompleta. Descarga de nuevo la aplicación para repararla." = "This copy of AirCiller is incomplete. Download the app again to repair it.";
 "Informe local" = "Local Report";
 "Crea un archivo de texto sin nombres de películas, rutas personales, nombres o direcciones de receptores ni credenciales. No se envía automáticamente." = "Creates a text file without movie names, personal paths, receiver names or addresses, or credentials. It is never sent automatically.";
 "Exportar diagnóstico…" = "Export Diagnostics…";

@@ -2,6 +2,14 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
+## 0.11.0 (1 September 2026)
+
+### Distribution
+
+- Includes the tested FFmpeg and AirPlay engines inside the app, so playback works without separate component setup.
+- Moves engine versions into a compact diagnostic disclosure and removes component update controls from Settings.
+- Updates the engines only as part of a tested AirCiller release.
+
 ## 0.10.5 (31 August 2026)
 
 ### Reliability

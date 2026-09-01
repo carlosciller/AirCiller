@@ -14,6 +14,7 @@ vendor_path="$project_dir/VendorPython"
 runtime_marker="$vendor_path/.airciller-python-executable"
 sparkle_distribution="$build_dir/dependencies/Sparkle-2.9.6"
 sparkle_framework="$sparkle_distribution/Sparkle.framework"
+engine_path="$build_dir/dependencies/AirCillerEngine-ffmpeg-9.0.1-python-3.13.15"
 
 if [[ ! -d "$vendor_path" || ! -f "$runtime_marker" ]]; then
   echo "The reproducible Python engine is missing. Run ./Scripts/bootstrap_dependencies.sh." >&2
@@ -22,6 +23,13 @@ fi
 
 if [[ ! -d "$sparkle_framework" ]]; then
   echo "Sparkle is missing. Run ./Scripts/bootstrap_sparkle.sh." >&2
+  exit 2
+fi
+
+if [[ ! -x "$engine_path/ffmpeg/bin/ffmpeg" \
+  || ! -x "$engine_path/ffmpeg/bin/ffprobe" \
+  || ! -x "$engine_path/airplay/python/bin/python3" ]]; then
+  echo "The bundled playback engine is missing. Run ./Scripts/bootstrap_engine.sh." >&2
   exit 2
 fi
 
@@ -91,6 +99,11 @@ cp "$sparkle_distribution/LICENSE" "$contents_path/Resources/Legal/Sparkle-LICEN
 ditto "$vendor_path" "$contents_path/Resources/VendorPython"
 rm -rf "$contents_path/Resources/VendorPython/bin"
 find "$contents_path/Resources/VendorPython" -type d -name __pycache__ -prune -exec rm -rf {} +
+mkdir -p "$contents_path/Resources/Engine"
+ditto "$engine_path/ffmpeg" "$contents_path/Resources/Engine/ffmpeg"
+ditto "$engine_path/airplay" "$contents_path/Resources/Engine/airplay"
+printf '%s\n' "Engine/airplay/python/bin/python3" \
+  > "$contents_path/Resources/VendorPython/.airciller-python-executable"
 
 codesign --force --sign - "$staged_app_path"
 codesign --verify --deep --strict "$staged_app_path"

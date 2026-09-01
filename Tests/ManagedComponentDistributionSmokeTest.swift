@@ -106,7 +106,7 @@ struct ManagedComponentDistributionSmokeTest {
         )
         let infoData = try Data(contentsOf: projectRoot.appendingPathComponent("Info.plist"))
         let info = try PropertyListSerialization.propertyList(from: infoData, format: nil) as? [String: Any]
-        guard let publicKey = info?["ACComponentPublicEDKey"] as? String else {
+        guard let publicKey = info?["SUPublicEDKey"] as? String else {
             throw NSError(domain: "ManagedComponentDistributionSmokeTest.Configuration", code: 6)
         }
         let manifest = try ManagedComponentDistribution.verifiedManifest(

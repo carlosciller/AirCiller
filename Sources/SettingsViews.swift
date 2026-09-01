@@ -16,11 +16,6 @@ struct AirCillerSettingsView: View {
                     Label("Reproducción", systemImage: "play.circle")
                 }
 
-            ComponentSettingsView(coordinator: coordinator, components: components)
-                .tabItem {
-                    Label("Componentes", systemImage: "shippingbox")
-                }
-
             StorageSettingsView(coordinator: coordinator)
                 .tabItem {
                     Label("Almacenamiento", systemImage: "internaldrive")
@@ -65,6 +60,36 @@ struct SupportSettingsView: View {
             }
 
             Section {
+                DisclosureGroup("Detalles del motor") {
+                    if components.hasRefreshed {
+                        engineStatus(.ffmpeg)
+                        engineStatus(.airPlay)
+
+                        if !engineIsReady {
+                            Text(
+                                "Esta copia de AirCiller está incompleta. Descarga de nuevo la aplicación para repararla."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .controlSize(.small)
+                            Text("Comprobando motor…")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    Text(
+                        "Los motores forman parte de esta versión de AirCiller y se actualizan junto con la app después de ser probados."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+
+            Section {
                 if let device = coordinator.airPlay.selectedDevice {
                     LabeledContent("Receptor", value: device.detail)
                 } else {
@@ -102,6 +127,29 @@ struct SupportSettingsView: View {
             Button("Cancelar", role: .cancel) {}
         } message: {
             Text("AirCiller volverá a pedir el código de cuatro cifras al intentar reproducir.")
+        }
+        .task {
+            await components.refresh()
+        }
+    }
+
+    private var engineIsReady: Bool {
+        ManagedComponent.allCases.allSatisfy { components.status(for: $0).isCompatible }
+    }
+
+    @ViewBuilder
+    private func engineStatus(_ component: ManagedComponent) -> some View {
+        let status = components.status(for: component)
+        LabeledContent(component.title) {
+            HStack(spacing: 6) {
+                if let version = status.version {
+                    Text(version)
+                        .foregroundStyle(.secondary)
+                }
+                Image(systemName: status.isCompatible ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(status.isCompatible ? .green : .orange)
+                    .accessibilityLabel(status.isCompatible ? Text("Listo") : Text("Instalación incompleta"))
+            }
         }
     }
 
@@ -331,158 +379,6 @@ struct PlaybackSettingsView: View {
         }
         .formStyle(.grouped)
         .padding(16)
-    }
-}
-
-struct ComponentSettingsView: View {
-    var coordinator: StreamCoordinator
-    @Bindable var components: ComponentManager
-
-    private var playbackIsBusy: Bool {
-        coordinator.isPreparing || coordinator.isStreaming
-    }
-
-    var body: some View {
-        Form {
-            Section {
-                LabeledContent("Gestor") {
-                    if components.managedConfiguration.isReady {
-                        Text("AirCiller")
-                    } else if let path = components.homebrewPath {
-                        Text("Homebrew").help(path)
-                    } else {
-                        Text("No disponible")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if components.isRefreshing {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Comprobando componentes…")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                if let message = components.operationMessage {
-                    VStack(alignment: .leading, spacing: 8) {
-                        if components.activeComponent != nil {
-                            if let progress = components.operationProgress {
-                                ProgressView(value: progress)
-                                    .progressViewStyle(.linear)
-                            } else {
-                                ProgressView()
-                                    .progressViewStyle(.linear)
-                            }
-                        }
-                        Text(L10n.text(message))
-                        if let output = components.operationOutput, !output.isEmpty {
-                            Text(output)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                                .lineLimit(3)
-                                .textSelection(.enabled)
-                        }
-                        if components.activeComponent != nil {
-                            Button("Cancelar") {
-                                components.cancelOperation()
-                            }
-                        }
-                    }
-                }
-            } footer: {
-                Text(
-                    "AirCiller comprueba un catálogo firmado, verifica tamaño y SHA-256, instala en una carpeta propia y conserva una versión para volver atrás. Homebrew sigue disponible como alternativa manual."
-                )
-            }
-
-            ForEach(ManagedComponent.allCases) { component in
-                componentSection(component)
-            }
-        }
-        .formStyle(.grouped)
-        .padding(16)
-        .task {
-            await components.refresh()
-        }
-    }
-
-    @ViewBuilder
-    private func componentSection(_ component: ManagedComponent) -> some View {
-        let status = components.status(for: component)
-        Section {
-            LabeledContent("Estado") {
-                Label(
-                    status.isCompatible ? "Listo" : (status.isInstalled ? "Incompatible" : "No instalado"),
-                    systemImage: status.isCompatible
-                        ? "checkmark.circle.fill"
-                        : "exclamationmark.triangle.fill"
-                )
-                .foregroundStyle(status.isCompatible ? .green : .orange)
-            }
-
-            if let version = status.version {
-                LabeledContent("Versión", value: version)
-            }
-            if let source = status.source {
-                LabeledContent("Origen", value: source)
-            }
-            if let path = status.path {
-                LabeledContent("Ubicación") {
-                    Text(path)
-                        .font(.caption.monospaced())
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
-                        .help(path)
-                }
-            }
-
-            Text(L10n.text(component.purpose))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack {
-                Button(
-                    status.source == "AirCiller"
-                        ? "Buscar actualización"
-                        : "Descargar con AirCiller"
-                ) {
-                    components.installManaged(component)
-                }
-                .disabled(
-                    !components.managedConfiguration.isReady
-                        || components.activeComponent != nil
-                        || playbackIsBusy
-                )
-
-                if components.canRollback(component) {
-                    Button("Volver a la versión anterior") {
-                        components.rollback(component)
-                    }
-                    .disabled(components.activeComponent != nil || playbackIsBusy)
-                }
-            }
-
-            if components.homebrewPath != nil {
-                Button(
-                    status.isInstalled && status.source == "Homebrew"
-                        ? "Actualizar con Homebrew"
-                        : "Usar Homebrew…"
-                ) {
-                    components.installOrUpdate(component)
-                }
-                .buttonStyle(.link)
-                .disabled(components.activeComponent != nil || playbackIsBusy)
-            }
-        } header: {
-            Text(component.title)
-        } footer: {
-            if playbackIsBusy {
-                Text("Detén la reproducción antes de cambiar componentes.")
-            }
-        }
     }
 }
 

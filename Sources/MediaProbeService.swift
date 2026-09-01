@@ -332,6 +332,10 @@ private struct ProbeChapter: Decodable {
 
 enum Executables {
     static func find(_ name: String) -> URL? {
+        if let bundled = BundledEngine.ffmpegExecutable(named: name) {
+            return bundled
+        }
+        if BundledEngine.isRequired { return nil }
         if let managed = ManagedComponentStore.executableURL(
             for: .ffmpeg,
             named: name

@@ -24,16 +24,17 @@ Each playback change must be validated locally first, then independently through
 - [x] Show the active Python/AirPlay and FFmpeg versions, paths, sources, and explicit Homebrew maintenance actions.
 - [x] Replace the Homebrew-dependent setup with managed component downloads, signed manifests, progress, cancellation and rollback.
 - [x] Require a functional AirPlay import probe, bound downloads to their signed size, and let reinstalling a version repair its existing files without losing rollback.
+- [x] Include the validated FFmpeg and AirPlay engines in the app and remove routine component maintenance from the user interface.
 - [x] Move Settings and VOD process support into focused source files without changing either playback route.
 - [x] Integrate Sparkle 2 with a verified framework download, signed appcast support, manual checks, optional automatic checks and explicit installation.
 - [x] Publish the first signed appcast through GitHub Releases after generating the EdDSA key and configuring the final HTTPS feed location.
 
 ## Settings
 
-1. [x] Add native panes for Playback, Updates, Components and Storage.
+1. [x] Add native panes for Playback, Updates and Storage, with compact engine details under Diagnostics.
 2. [x] Extend the existing preferred subtitle language with separate choices for standard, forced and SDH tracks.
 3. [x] Add a preferred audio language with the file's default track as fallback. Audio conversion continues to require confirmation for each movie.
-4. [x] Show component version, source, location and status, with explicit Homebrew actions, activity and cancellation.
+4. [x] Keep engine versions available for diagnosis without exposing independent updates to the user.
 5. [x] Add actions to export a sanitized diagnosis and reset Apple TV authorization.
 6. Consider an OpenSubtitles.com search for the selected movie. It must be initiated by the user, use the current REST API and store credentials in Keychain.
 

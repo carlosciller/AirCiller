@@ -52,8 +52,13 @@ fi
 
 runtime_marker="$app_path/Contents/Resources/VendorPython/.airciller-python-executable"
 if [[ -f "$runtime_marker" ]]; then
-  runtime_path="$(<"$runtime_marker")"
-  if [[ "$runtime_path" == "$app_path"/* ]]; then
+  runtime_value="$(<"$runtime_marker")"
+  if [[ "$runtime_value" == /* ]]; then
+    runtime_path="$runtime_value"
+  else
+    runtime_path="$app_path/Contents/Resources/$runtime_value"
+  fi
+  if [[ "$runtime_path" == "$app_path"/* && -x "$runtime_path" ]]; then
     echo "Python runtime: bundled"
   else
     echo "Python runtime: external path ($runtime_path)"
@@ -61,6 +66,15 @@ if [[ -f "$runtime_marker" ]]; then
   fi
 else
   echo "Python runtime marker: missing"
+  failures=$((failures + 1))
+fi
+
+ffmpeg_path="$app_path/Contents/Resources/Engine/ffmpeg/bin/ffmpeg"
+ffprobe_path="$app_path/Contents/Resources/Engine/ffmpeg/bin/ffprobe"
+if [[ -x "$ffmpeg_path" && -x "$ffprobe_path" ]]; then
+  echo "FFmpeg tools: bundled"
+else
+  echo "FFmpeg tools: missing"
   failures=$((failures + 1))
 fi
 

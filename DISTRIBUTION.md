@@ -41,20 +41,15 @@ The dependency lives under `.build/dependencies` and is not committed. CI perfor
 - The EdDSA private key stays in the maintainer's login Keychain and must never enter Git.
 - The public key belongs in `Info.plist` and is safe to publish.
 
-## Managed components
+## Bundled playback engine
 
-Development builds after 0.10.3 can fetch a fixed FFmpeg build and CPython runtime from GitHub Releases. The app first verifies the Ed25519 signature of `Distribution/components-v1.json`. It then checks the selected archive's HTTPS URL, architecture, minimum macOS version, exact size, SHA-256 digest, version name, and executable path.
+AirCiller releases include fixed FFmpeg and CPython builds. End users update them only by installing a tested AirCiller release. Settings does not offer separate engine updates.
 
-Downloads show determinate progress when the server provides a size and can be cancelled. Extraction takes place in a temporary folder. AirCiller rejects unsafe paths and activates a version only after validation; the previous version remains available for rollback. Existing Homebrew tools remain a manual fallback.
+`Scripts/bootstrap_engine.sh` downloads the pinned archives used for the build, verifies their SHA-256 digests, checks their executable versions, and stages them under `.build/dependencies`. `build.sh` copies the complete engine into the app. The runtime is therefore available on first launch and without internet access.
 
-Build and sign the component assets with:
+The current reference archives were built by AirCiller from the sources and checksums recorded in `Scripts/build_managed_components.sh`. The older signed component catalogue remains in the repository so releases 0.10.3 through 0.10.5 can be reproduced and audited. Current builds do not read it.
 
-```sh
-./Scripts/build_managed_components.sh
-./Scripts/package_managed_components.sh
-```
-
-Upload both ZIP archives to the release tag named in the signed manifest before publishing the manifest on `main`. Never edit the JSON after signing it. The private key remains in Keychain; only the public key and detached signature belong in Git.
+An engine upgrade is treated as an application change. It requires locked versions, local checks, direct MP4 and HLS/fMP4 validation, and a physical Apple TV test before release. A new upstream version alone is not a reason to update.
 
 The stable appcast URL is `https://github.com/carlosciller/AirCiller/releases/latest/download/appcast.xml`. It resolves to the signed feed attached to the latest GitHub Release. AirCiller validates that this URL uses HTTPS and that its public key decodes to the expected EdDSA length before starting Sparkle.
 
@@ -78,7 +73,12 @@ Sparkle's `generate_appcast` tool should create the published XML. It signs the 
 
 1. Increase `CFBundleShortVersionString` and the numeric `CFBundleVersion`.
 2. Update `CHANGELOG.md` and write concise, user-facing notes in `Distribution/ReleaseNotes/<version>.md`. Use `TEMPLATE.md` as the starting point, describe visible outcomes, and omit implementation details.
-3. Build AirCiller and verify its ad hoc signature.
+3. Prepare the pinned engine, build AirCiller, and verify its ad hoc signature:
+
+   ```sh
+   ./Scripts/bootstrap_engine.sh
+   ./build.sh
+   ```
 4. Package the app:
 
    ```sh

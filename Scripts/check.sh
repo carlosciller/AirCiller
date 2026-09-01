@@ -18,6 +18,14 @@ if [[ ! -d "$project_dir/.build/dependencies/Sparkle-2.9.6/Sparkle.framework" ]]
   exit 2
 fi
 
+engine_path="$project_dir/.build/dependencies/AirCillerEngine-ffmpeg-9.0.1-python-3.13.15"
+if [[ ! -x "$engine_path/ffmpeg/bin/ffmpeg" \
+  || ! -x "$engine_path/ffmpeg/bin/ffprobe" \
+  || ! -x "$engine_path/airplay/python/bin/python3" ]]; then
+  echo "The bundled playback engine is missing. Run ./Scripts/bootstrap_engine.sh." >&2
+  exit 2
+fi
+
 mkdir -p "$test_dir" "$module_cache" "$build_dir/python-cache"
 
 common_swift_arguments=(
@@ -80,6 +88,9 @@ compile_and_run credential-store \
 compile_and_run airplay-runtime-probe \
   "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
   "$project_dir/Tests/AirPlayRuntimeProbeSmokeTest.swift"
+compile_and_run bundled-engine \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Tests/BundledEngineSmokeTest.swift"
 compile_and_run media-analysis-tasks \
   "$project_dir/Sources/MediaAnalysisTasks.swift" \
   "$project_dir/Tests/MediaAnalysisTasksSmokeTest.swift"
@@ -89,6 +100,7 @@ compile_and_run component-manager \
   "$project_dir/Sources/CancellableProcess.swift" \
   "$project_dir/Sources/CapturedProcess.swift" \
   "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/DiagnosticsReport.swift" \
   "$project_dir/Sources/ManagedComponentModels.swift" \
   "$project_dir/Sources/ManagedComponentDistribution.swift" \
@@ -137,6 +149,7 @@ compile_and_run attached-artwork-probe \
   "$project_dir/Sources/CancellableProcess.swift" \
   "$project_dir/Sources/ManagedComponentModels.swift" \
   "$project_dir/Sources/ManagedComponentDistribution.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
   "$project_dir/Tests/AttachedArtworkProbeSmokeTest.swift"
@@ -161,6 +174,14 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
 
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/en.lproj/Localizable.strings"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/es.lproj/Localizable.strings"
+test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/ffmpeg"
+test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/ffprobe"
+test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/bin/python3"
+test "$(plutil -extract ACBundledEngineRequired raw "$project_dir/.build/AirCiller.app/Contents/Info.plist")" = "true"
+test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/LICENSES/FFmpeg-LGPL-2.1.txt"
+test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/lib/python3.13/LICENSE.txt"
+test "$(< "$project_dir/.build/AirCiller.app/Contents/Resources/VendorPython/.airciller-python-executable")" \
+  = "Engine/airplay/python/bin/python3"
 test -d "$project_dir/.build/AirCiller.app/Contents/Frameworks/Sparkle.framework"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Legal/Sparkle-LICENSE.txt"
 otool -L "$project_dir/.build/AirCiller.app/Contents/MacOS/AirCiller" | \

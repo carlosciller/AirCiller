@@ -980,14 +980,20 @@ final class AirPlayController {
         let vendor = resources.appendingPathComponent("VendorPython", isDirectory: true)
         let artwork = resources.appendingPathComponent("AirCillerArtwork.png")
         let runtimeMarker = vendor.appendingPathComponent(".airciller-python-executable")
-        let pythonPath = try? String(contentsOf: runtimeMarker, encoding: .utf8)
+        let runtimeValue = try? String(contentsOf: runtimeMarker, encoding: .utf8)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        let pythonCandidates = [
-            ManagedComponentStore.executableURL(for: .airPlay)?.path,
-            pythonPath,
-            "/opt/homebrew/opt/python@3.13/bin/python3.13",
-            "/usr/local/opt/python@3.13/bin/python3.13",
-        ].compactMap { $0 }
+        let recordedPython = runtimeValue.flatMap { BundledEngine.resolveRuntimeMarker($0) }
+        let bundledPython = BundledEngine.airPlayPython()?.path
+        let pythonCandidates =
+            BundledEngine.isRequired
+            ? [bundledPython].compactMap { $0 }
+            : [
+                bundledPython,
+                ManagedComponentStore.executableURL(for: .airPlay)?.path,
+                recordedPython?.path,
+                "/opt/homebrew/opt/python@3.13/bin/python3.13",
+                "/usr/local/opt/python@3.13/bin/python3.13",
+            ].compactMap { $0 }
         let python =
             pythonCandidates
             .first(where: { FileManager.default.isExecutableFile(atPath: $0) })

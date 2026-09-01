@@ -40,19 +40,15 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.10.5</string>
+    <string>0.11.0</string>
     <key>CFBundleSupportedPlatforms</key>
     <array>
         <string>MacOSX</string>
     </array>
     <key>CFBundleVersion</key>
-    <string>45</string>
-    <key>ACComponentManifestURL</key>
-    <string>https://raw.githubusercontent.com/carlosciller/AirCiller/main/Distribution/components-v1.json</string>
-    <key>ACComponentManifestSignatureURL</key>
-    <string>https://raw.githubusercontent.com/carlosciller/AirCiller/main/Distribution/components-v1.json.sig</string>
-    <key>ACComponentPublicEDKey</key>
-    <string>c0FRrYu8+xpbJYIH8NLKhqGohUbazVIsgsqivCBj5/8=</string>
+    <string>46</string>
+    <key>ACBundledEngineRequired</key>
+    <true/>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.video</string>
     <key>LSMinimumSystemVersion</key>

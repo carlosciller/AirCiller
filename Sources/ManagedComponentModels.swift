@@ -13,21 +13,6 @@ enum ManagedComponent: String, CaseIterable, Codable, Identifiable, Sendable {
         }
     }
 
-    var formula: String {
-        switch self {
-        case .ffmpeg: "ffmpeg"
-        case .airPlay: "python@3.13"
-        }
-    }
-
-    var purpose: String {
-        switch self {
-        case .ffmpeg:
-            "Analiza y prepara las películas, el audio y los subtítulos."
-        case .airPlay:
-            "Python 3.13 ejecuta el motor AirPlay 2 incluido con AirCiller."
-        }
-    }
 }
 
 struct ManagedComponentStatus: Equatable, Sendable {
