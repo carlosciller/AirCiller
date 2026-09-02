@@ -362,6 +362,8 @@
 "La rendition no contiene segmentos para calcular su ancho de banda." = "The rendition does not contain segments for calculating bandwidth.";
 
 /* Native playlist menu */
+"Mover arriba" = "Move Up";
+"Mover abajo" = "Move Down";
 "Mover al principio" = "Move to Beginning";
 "Mover al final" = "Move to End";
 "Quitar de la playlist" = "Remove from Playlist";

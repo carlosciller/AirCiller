@@ -94,8 +94,12 @@ Sparkle's `generate_appcast` tool should create the published XML. It signs the 
      --download-url-prefix "__HTTPS_RELEASE_ASSET_PREFIX__/" \
      --link "__PROJECT_URL__" \
      --embed-release-notes \
+     --versions "__BUILD_NUMBER__" \
+     --maximum-versions 1 \
      .build/releases
    ```
+
+   Each GitHub Release has its own asset prefix, so the published feed contains the latest full update and its deltas only. Older full archives remain available under their original release tags.
 
 7. Verify the signed feed:
 

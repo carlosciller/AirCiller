@@ -43,6 +43,7 @@ final class StreamCoordinator {
 
     private(set) var recentItems: [RecentMediaItem] = HistoryStore.loadRecent()
     private(set) var queueItems: [QueueMediaItem] = HistoryStore.loadQueue()
+    private(set) var focusedQueueItemID: String?
     var showConversionAlert = false
     private(set) var conversionReason = ""
 
@@ -821,6 +822,7 @@ final class StreamCoordinator {
     }
 
     func selectQueueItem(_ item: QueueMediaItem) {
+        focusQueueItem(item)
         guard queueFileExists(item) else { return }
         loadVideo(item.url, autoStart: false)
     }
@@ -845,8 +847,48 @@ final class StreamCoordinator {
     }
 
     func removeQueueItem(_ item: QueueMediaItem) {
+        let removedIndex = queueItems.firstIndex(where: { $0.id == item.id })
         queueItems.removeAll(where: { $0.id == item.id })
+        if focusedQueueItemID == item.id {
+            let replacementIndex = min(removedIndex ?? 0, max(queueItems.count - 1, 0))
+            focusedQueueItemID = queueItems.indices.contains(replacementIndex) ? queueItems[replacementIndex].id : nil
+        }
         HistoryStore.saveQueue(queueItems)
+    }
+
+    func focusQueueItem(_ item: QueueMediaItem) {
+        guard queueItems.contains(where: { $0.id == item.id }) else { return }
+        focusedQueueItemID = item.id
+    }
+
+    var canMoveFocusedQueueItemUp: Bool {
+        guard let focusedQueueItemID,
+            let index = queueItems.firstIndex(where: { $0.id == focusedQueueItemID })
+        else {
+            return false
+        }
+        return index > queueItems.startIndex
+    }
+
+    var canMoveFocusedQueueItemDown: Bool {
+        guard let focusedQueueItemID,
+            let index = queueItems.firstIndex(where: { $0.id == focusedQueueItemID })
+        else {
+            return false
+        }
+        return index < queueItems.index(before: queueItems.endIndex)
+    }
+
+    @discardableResult
+    func moveFocusedQueueItem(by offset: Int) -> Bool {
+        guard let focusedQueueItemID,
+            let reordered = QueueOrdering.movingItem(queueItems, id: focusedQueueItemID, by: offset)
+        else {
+            return false
+        }
+        queueItems = reordered
+        HistoryStore.saveQueue(queueItems)
+        return true
     }
 
     func moveQueueItems(fromOffsets: IndexSet, toOffset: Int) {
@@ -866,16 +908,9 @@ final class StreamCoordinator {
         moveQueueItems(fromOffsets: offsets, toOffset: destination)
     }
 
-    func moveQueueItemToBeginning(_ item: QueueMediaItem) {
-        moveQueueItems(ids: [item.id], before: queueItems.first?.id)
-    }
-
-    func moveQueueItemToEnd(_ item: QueueMediaItem) {
-        moveQueueItems(ids: [item.id], before: nil)
-    }
-
     func clearQueue() {
         queueItems.removeAll()
+        focusedQueueItemID = nil
         HistoryStore.saveQueue(queueItems)
     }
 

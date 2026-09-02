@@ -28,6 +28,8 @@ struct NativePlaylistTable: NSViewRepresentable {
         tableView.selectionHighlightStyle = .none
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
+        tableView.allowsTypeSelect = true
+        tableView.focusRingType = .default
         tableView.registerForDraggedTypes([TableCoordinator.rowDragType])
         tableView.setDraggingSourceOperationMask(.move, forLocal: true)
         tableView.setDraggingSourceOperationMask([], forLocal: false)
@@ -37,6 +39,9 @@ struct NativePlaylistTable: NSViewRepresentable {
         tableView.action = #selector(TableCoordinator.selectClickedRow(_:))
         tableView.contextMenuProvider = { [weak tableCoordinator = context.coordinator] row in
             tableCoordinator?.contextMenu(for: row)
+        }
+        tableView.moveFocusedItem = { [weak tableCoordinator = context.coordinator] offset in
+            tableCoordinator?.moveFocusedItem(by: offset) ?? false
         }
 
         let scrollView = NSScrollView()
@@ -64,7 +69,9 @@ struct NativePlaylistTable: NSViewRepresentable {
         private weak var tableView: NSTableView?
         private var renderedItems: [QueueMediaItem] = []
         private var renderedSelectionPath: String?
+        private var renderedFocusedItemID: String?
         private var contextualItemID: String?
+        private var isSynchronizingSelection = false
         let contextMenu: NSMenu
 
         init(streamCoordinator: StreamCoordinator) {
@@ -104,7 +111,8 @@ struct NativePlaylistTable: NSViewRepresentable {
                     PlaylistMediaRow(
                         index: row,
                         item: item,
-                        isSelected: renderedSelectionPath == item.path
+                        isSelected: renderedSelectionPath == item.path,
+                        isKeyboardFocused: renderedFocusedItemID == item.id
                     )
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -119,6 +127,16 @@ struct NativePlaylistTable: NSViewRepresentable {
             streamCoordinator.selectQueueItem(renderedItems[row])
         }
 
+        func tableViewSelectionDidChange(_ notification: Notification) {
+            guard !isSynchronizingSelection,
+                let tableView = notification.object as? NSTableView,
+                renderedItems.indices.contains(tableView.selectedRow)
+            else {
+                return
+            }
+            streamCoordinator.focusQueueItem(renderedItems[tableView.selectedRow])
+        }
+
         func contextMenu(for row: Int) -> NSMenu? {
             contextMenu.removeAllItems()
             guard renderedItems.indices.contains(row) else {
@@ -127,9 +145,17 @@ struct NativePlaylistTable: NSViewRepresentable {
             }
 
             contextualItemID = renderedItems[row].id
+            select(row: row)
             contextMenu.addItem(menuItem(L10n.text("Reproducir"), action: #selector(playContextualItem)))
             contextMenu.addItem(
                 menuItem(L10n.text("Reproducir desde el inicio"), action: #selector(restartContextualItem)))
+            contextMenu.addItem(.separator())
+            let moveUp = menuItem(L10n.text("Mover arriba"), action: #selector(moveContextualItemUp))
+            moveUp.isEnabled = row > 0
+            contextMenu.addItem(moveUp)
+            let moveDown = menuItem(L10n.text("Mover abajo"), action: #selector(moveContextualItemDown))
+            moveDown.isEnabled = row < renderedItems.count - 1
+            contextMenu.addItem(moveDown)
             contextMenu.addItem(.separator())
             let moveToBeginning = menuItem(
                 L10n.text("Mover al principio"), action: #selector(moveContextualItemToBeginning))
@@ -156,14 +182,22 @@ struct NativePlaylistTable: NSViewRepresentable {
 
         @objc private func moveContextualItemToBeginning() {
             guard let item = contextualItem else { return }
-            streamCoordinator.moveQueueItemToBeginning(item)
-            refreshAfterAction()
+            _ = moveItem(id: item.id, by: -renderedItems.count)
+        }
+
+        @objc private func moveContextualItemUp() {
+            guard let contextualItem else { return }
+            _ = moveItem(id: contextualItem.id, by: -1)
+        }
+
+        @objc private func moveContextualItemDown() {
+            guard let contextualItem else { return }
+            _ = moveItem(id: contextualItem.id, by: 1)
         }
 
         @objc private func moveContextualItemToEnd() {
             guard let item = contextualItem else { return }
-            streamCoordinator.moveQueueItemToEnd(item)
-            refreshAfterAction()
+            _ = moveItem(id: item.id, by: renderedItems.count)
         }
 
         @objc private func removeContextualItem() {
@@ -211,9 +245,33 @@ struct NativePlaylistTable: NSViewRepresentable {
 
             let destination = min(max(row, 0), renderedItems.count)
             let destinationID = destination < renderedItems.count ? renderedItems[destination].id : nil
+            if let item = renderedItems.first(where: { $0.id == itemID }) {
+                streamCoordinator.focusQueueItem(item)
+            }
             streamCoordinator.moveQueueItems(ids: [itemID], before: destinationID)
             refresh(tableView, force: true)
             return true
+        }
+
+        func moveFocusedItem(by offset: Int) -> Bool {
+            guard let itemID = streamCoordinator.focusedQueueItemID else { return false }
+            return moveItem(id: itemID, by: offset)
+        }
+
+        private func moveItem(id: String, by offset: Int) -> Bool {
+            guard let item = streamCoordinator.queueItems.first(where: { $0.id == id }) else { return false }
+            streamCoordinator.focusQueueItem(item)
+            guard streamCoordinator.moveFocusedQueueItem(by: offset) else { return false }
+            refreshAfterAction()
+            return true
+        }
+
+        private func select(row: Int) {
+            guard let tableView, renderedItems.indices.contains(row) else { return }
+            isSynchronizingSelection = true
+            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+            isSynchronizingSelection = false
+            streamCoordinator.focusQueueItem(renderedItems[row])
         }
 
         private func refreshAfterAction() {
@@ -235,12 +293,27 @@ struct NativePlaylistTable: NSViewRepresentable {
         private func refresh(_ tableView: NSTableView, force: Bool = false) {
             let currentItems = streamCoordinator.queueItems
             let currentSelectionPath = streamCoordinator.selectedURL?.path
-            guard force || currentItems != renderedItems || currentSelectionPath != renderedSelectionPath else {
+            let currentFocusedItemID = streamCoordinator.focusedQueueItemID
+            guard
+                force || currentItems != renderedItems || currentSelectionPath != renderedSelectionPath
+                    || currentFocusedItemID != renderedFocusedItemID
+            else {
                 return
             }
             renderedItems = currentItems
             renderedSelectionPath = currentSelectionPath
+            renderedFocusedItemID = currentFocusedItemID
             tableView.reloadData()
+            isSynchronizingSelection = true
+            if let currentFocusedItemID,
+                let row = renderedItems.firstIndex(where: { $0.id == currentFocusedItemID })
+            {
+                tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+                tableView.scrollRowToVisible(row)
+            } else {
+                tableView.deselectAll(nil)
+            }
+            isSynchronizingSelection = false
         }
     }
 }
@@ -275,6 +348,7 @@ private final class PlaylistHostingCell: NSTableCellView {
 @MainActor
 private final class PlaylistNSTableView: NSTableView {
     var contextMenuProvider: ((Int) -> NSMenu?)?
+    var moveFocusedItem: ((Int) -> Bool)?
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         // Keep all primary mouse handling in NSTableView. SwiftUI still draws
@@ -285,5 +359,30 @@ private final class PlaylistNSTableView: NSTableView {
     override func menu(for event: NSEvent) -> NSMenu? {
         let point = convert(event.locationInWindow, from: nil)
         return contextMenuProvider?(row(at: point))
+    }
+
+    override func keyDown(with event: NSEvent) {
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        guard modifiers == [.command, .option] else {
+            super.keyDown(with: event)
+            return
+        }
+
+        let offset: Int?
+        switch event.specialKey {
+        case .upArrow:
+            offset = -1
+        case .downArrow:
+            offset = 1
+        default:
+            offset = nil
+        }
+        guard let offset else {
+            super.keyDown(with: event)
+            return
+        }
+        if moveFocusedItem?(offset) != true {
+            NSSound.beep()
+        }
     }
 }

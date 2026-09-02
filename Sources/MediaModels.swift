@@ -358,6 +358,26 @@ enum QueueOrdering {
         reordered.insert(contentsOf: moving, at: destination)
         return reordered
     }
+
+    static func movingItem(
+        _ items: [QueueMediaItem],
+        id: String,
+        by offset: Int
+    ) -> [QueueMediaItem]? {
+        guard offset != 0,
+            let previousIndex = items.firstIndex(where: { $0.id == id })
+        else {
+            return nil
+        }
+
+        let currentIndex = min(max(previousIndex + offset, items.startIndex), items.index(before: items.endIndex))
+        guard currentIndex != previousIndex else { return nil }
+
+        var reordered = items
+        let item = reordered.remove(at: previousIndex)
+        reordered.insert(item, at: currentIndex)
+        return reordered
+    }
 }
 
 enum TimeFormatting {

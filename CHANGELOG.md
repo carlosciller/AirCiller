@@ -2,6 +2,12 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
+## 0.11.2 (2 September 2026)
+
+### Improvements
+
+- Adds native Playlist selection and keyboard reordering.
+
 ## 0.11.1 (1 September 2026)
 
 ### Reliability

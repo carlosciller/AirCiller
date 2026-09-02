@@ -52,3 +52,14 @@ Build 46 completed the remaining physical control checks on 1 September 2026:
 - AirPlay remained linked throughout the command sequence.
 
 The validation used the candidate app directly. It did not replace the installed app or modify the original media files.
+
+## 7. AirCiller 0.11.2 Playlist keyboard validation
+
+The candidate and installed build 48 were checked locally on 1 and 2 September 2026:
+
+- Up and Down select a Playlist row without starting playback.
+- Option-Command-Up and Option-Command-Down move the focused row and preserve focus.
+- Move Up and Move Down are also available in the Playlist and contextual menus.
+- The original Playlist order was restored after testing.
+
+This change does not alter either playback route.

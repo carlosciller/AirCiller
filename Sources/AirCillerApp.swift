@@ -46,6 +46,19 @@ struct AirCillerApp: App {
                 Button("Detener") { coordinator.stop() }
                     .keyboardShortcut(".", modifiers: .command)
             }
+            CommandMenu("Playlist") {
+                Button("Mover arriba") {
+                    coordinator.moveFocusedQueueItem(by: -1)
+                }
+                .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+                .disabled(!coordinator.canMoveFocusedQueueItemUp)
+
+                Button("Mover abajo") {
+                    coordinator.moveFocusedQueueItem(by: 1)
+                }
+                .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+                .disabled(!coordinator.canMoveFocusedQueueItemDown)
+            }
         }
 
         Settings {
@@ -985,6 +998,7 @@ struct PlaylistMediaRow: View {
     let index: Int
     let item: QueueMediaItem
     let isSelected: Bool
+    let isKeyboardFocused: Bool
 
     var body: some View {
         HStack(spacing: 6) {
@@ -1020,13 +1034,16 @@ struct PlaylistMediaRow: View {
         }
         .padding(10)
         .background(
-            Color.primary.opacity(0.045),
+            isKeyboardFocused ? Color.accentColor.opacity(0.11) : Color.primary.opacity(0.045),
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .overlay {
             if isSelected {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(Color.airCillerYellow.opacity(0.72), lineWidth: 1.5)
+            } else if isKeyboardFocused {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.accentColor.opacity(0.72), lineWidth: 1)
             }
         }
         .help(item.title)

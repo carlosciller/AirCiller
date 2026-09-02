@@ -220,6 +220,18 @@ struct TrackMetadataSmokeTest {
             throw NSError(domain: "TrackMetadataSmokeTest.QueueOrderingUpward", code: 9)
         }
 
-        print("Track preferences, scope 4K, Dolby Vision profile, and reordering: OK")
+        guard let movedUp = QueueOrdering.movingItem(longerQueue, id: "/D.mkv", by: -1),
+            movedUp.map(\.title) == ["A", "B", "D", "C", "E"],
+            let movedDown = QueueOrdering.movingItem(longerQueue, id: "/B.mkv", by: 1),
+            movedDown.map(\.title) == ["A", "C", "B", "D", "E"],
+            QueueOrdering.movingItem(longerQueue, id: "/A.mkv", by: -1) == nil,
+            QueueOrdering.movingItem(longerQueue, id: "/E.mkv", by: 1) == nil,
+            QueueOrdering.movingItem(longerQueue, id: "/missing.mkv", by: 1) == nil,
+            QueueOrdering.movingItem(longerQueue, id: "/C.mkv", by: 0) == nil
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.KeyboardQueueOrdering", code: 12)
+        }
+
+        print("Track preferences, scope 4K, Dolby Vision profile, drag ordering, and keyboard ordering: OK")
     }
 }

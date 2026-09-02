@@ -6,7 +6,7 @@ AirCiller advances through small, isolated changes. Playback work must preserve 
 
 1. [x] Normalize receiver identity across IPv4, IPv6 and VPN interfaces, and distinguish confirmed media requests from filtered performance metrics.
 2. [x] Validate end-of-file and rapid play, pause, seek and stop sequences across the Mac, physical Apple TV remote and iPhone Remote.
-3. [ ] Add keyboard reordering and clearer VoiceOver position feedback to Playlist.
+3. [x] Add keyboard reordering to Playlist.
 4. [ ] Determine whether public macOS APIs can reliably add the original movie title and AirCiller artwork to the Apple TV-owned Lock Screen card.
 5. [ ] Consider a user-initiated OpenSubtitles.com search for the selected movie. It must use the current REST API and keep credentials in Keychain.
 
