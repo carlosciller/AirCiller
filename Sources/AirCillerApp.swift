@@ -997,28 +997,38 @@ struct LibrarySidebar: View {
 struct PlaylistMediaRow: View {
     let index: Int
     let item: QueueMediaItem
+    let isCurrentMedia: Bool
     let isSelected: Bool
-    let isKeyboardFocused: Bool
 
     var body: some View {
         HStack(spacing: 6) {
             HStack(alignment: .center, spacing: 9) {
                 Group {
-                    if isSelected {
+                    if isCurrentMedia {
                         Image(systemName: "play.fill")
                             .font(.caption2.weight(.bold))
-                            .foregroundStyle(Color.airCillerYellow)
-                            .accessibilityLabel("Seleccionada")
+                            .foregroundStyle(
+                                isSelected
+                                    ? Color(nsColor: .alternateSelectedControlTextColor)
+                                    : Color.airCillerYellow
+                            )
                     } else {
                         Text("\(index + 1)")
                             .font(.caption.monospacedDigit())
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(
+                                isSelected
+                                    ? Color(nsColor: .alternateSelectedControlTextColor).opacity(0.76)
+                                    : Color.secondary
+                            )
                     }
                 }
                 .frame(width: 20, alignment: .trailing)
 
                 Text(item.title.softWrappedFilename)
                     .font(.callout.weight(.medium))
+                    .foregroundStyle(
+                        isSelected ? Color(nsColor: .alternateSelectedControlTextColor) : Color.primary
+                    )
                     .lineLimit(2)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
@@ -1027,25 +1037,17 @@ struct PlaylistMediaRow: View {
 
             Image(systemName: "line.3.horizontal")
                 .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(
+                    isSelected
+                        ? Color(nsColor: .alternateSelectedControlTextColor).opacity(0.76)
+                        : Color.secondary
+                )
                 .frame(width: 30, height: 38)
                 .contentShape(Rectangle())
                 .accessibilityLabel("Arrastrar para ordenar")
         }
-        .padding(10)
-        .background(
-            isKeyboardFocused ? Color.accentColor.opacity(0.11) : Color.primary.opacity(0.045),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
-        .overlay {
-            if isSelected {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.airCillerYellow.opacity(0.72), lineWidth: 1.5)
-            } else if isKeyboardFocused {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.accentColor.opacity(0.72), lineWidth: 1)
-            }
-        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .help(item.title)
     }
 }

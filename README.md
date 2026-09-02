@@ -32,7 +32,7 @@ AirCiller does not download or include media. Use it with files you have the rig
 
 ## Download
 
-The current stable release is **AirCiller 0.11.2**. It requires an Apple silicon Mac running macOS 14 or later.
+The current stable release is **AirCiller 0.11.3**. It requires an Apple silicon Mac running macOS 14 or later.
 
 ### [Download the latest release](https://github.com/carlosciller/AirCiller/releases/latest)
 

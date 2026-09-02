@@ -25,23 +25,26 @@ struct NativePlaylistTable: NSViewRepresentable {
         tableView.intercellSpacing = .zero
         tableView.rowHeight = 62
         tableView.usesAutomaticRowHeights = false
-        tableView.selectionHighlightStyle = .none
+        tableView.selectionHighlightStyle = .regular
         tableView.allowsMultipleSelection = false
         tableView.allowsEmptySelection = true
         tableView.allowsTypeSelect = true
-        tableView.focusRingType = .default
+        tableView.focusRingType = .none
         tableView.registerForDraggedTypes([TableCoordinator.rowDragType])
         tableView.setDraggingSourceOperationMask(.move, forLocal: true)
         tableView.setDraggingSourceOperationMask([], forLocal: false)
         tableView.dataSource = context.coordinator
         tableView.delegate = context.coordinator
         tableView.target = context.coordinator
-        tableView.action = #selector(TableCoordinator.selectClickedRow(_:))
+        tableView.doubleAction = #selector(TableCoordinator.playDoubleClickedRow(_:))
         tableView.contextMenuProvider = { [weak tableCoordinator = context.coordinator] row in
             tableCoordinator?.contextMenu(for: row)
         }
         tableView.moveFocusedItem = { [weak tableCoordinator = context.coordinator] offset in
             tableCoordinator?.moveFocusedItem(by: offset) ?? false
+        }
+        tableView.activateFocusedItem = { [weak tableCoordinator = context.coordinator] in
+            tableCoordinator?.activateFocusedItem() ?? false
         }
 
         let scrollView = NSScrollView()
@@ -68,7 +71,7 @@ struct NativePlaylistTable: NSViewRepresentable {
         private var streamCoordinator: StreamCoordinator
         private weak var tableView: NSTableView?
         private var renderedItems: [QueueMediaItem] = []
-        private var renderedSelectionPath: String?
+        private var renderedCurrentMediaPath: String?
         private var renderedFocusedItemID: String?
         private var contextualItemID: String?
         private var isSynchronizingSelection = false
@@ -111,8 +114,8 @@ struct NativePlaylistTable: NSViewRepresentable {
                     PlaylistMediaRow(
                         index: row,
                         item: item,
-                        isSelected: renderedSelectionPath == item.path,
-                        isKeyboardFocused: renderedFocusedItemID == item.id
+                        isCurrentMedia: renderedCurrentMediaPath == item.path,
+                        isSelected: renderedFocusedItemID == item.id
                     )
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -121,10 +124,12 @@ struct NativePlaylistTable: NSViewRepresentable {
             return cell
         }
 
-        @objc func selectClickedRow(_ sender: NSTableView) {
+        @objc func playDoubleClickedRow(_ sender: NSTableView) {
             let row = sender.clickedRow
             guard renderedItems.indices.contains(row) else { return }
-            streamCoordinator.selectQueueItem(renderedItems[row])
+            let item = renderedItems[row]
+            streamCoordinator.focusQueueItem(item)
+            streamCoordinator.playQueueItem(item)
         }
 
         func tableViewSelectionDidChange(_ notification: Notification) {
@@ -258,6 +263,16 @@ struct NativePlaylistTable: NSViewRepresentable {
             return moveItem(id: itemID, by: offset)
         }
 
+        func activateFocusedItem() -> Bool {
+            guard let itemID = streamCoordinator.focusedQueueItemID,
+                let item = streamCoordinator.queueItems.first(where: { $0.id == itemID })
+            else {
+                return false
+            }
+            streamCoordinator.playQueueItem(item)
+            return true
+        }
+
         private func moveItem(id: String, by offset: Int) -> Bool {
             guard let item = streamCoordinator.queueItems.first(where: { $0.id == id }) else { return false }
             streamCoordinator.focusQueueItem(item)
@@ -292,16 +307,16 @@ struct NativePlaylistTable: NSViewRepresentable {
 
         private func refresh(_ tableView: NSTableView, force: Bool = false) {
             let currentItems = streamCoordinator.queueItems
-            let currentSelectionPath = streamCoordinator.selectedURL?.path
+            let currentMediaPath = streamCoordinator.selectedURL?.path
             let currentFocusedItemID = streamCoordinator.focusedQueueItemID
             guard
-                force || currentItems != renderedItems || currentSelectionPath != renderedSelectionPath
+                force || currentItems != renderedItems || currentMediaPath != renderedCurrentMediaPath
                     || currentFocusedItemID != renderedFocusedItemID
             else {
                 return
             }
             renderedItems = currentItems
-            renderedSelectionPath = currentSelectionPath
+            renderedCurrentMediaPath = currentMediaPath
             renderedFocusedItemID = currentFocusedItemID
             tableView.reloadData()
             isSynchronizingSelection = true
@@ -318,7 +333,6 @@ struct NativePlaylistTable: NSViewRepresentable {
     }
 }
 
-@MainActor
 private final class PlaylistHostingCell: NSTableCellView {
     private let hostingView = NSHostingView(rootView: AnyView(EmptyView()))
 
@@ -349,6 +363,7 @@ private final class PlaylistHostingCell: NSTableCellView {
 private final class PlaylistNSTableView: NSTableView {
     var contextMenuProvider: ((Int) -> NSMenu?)?
     var moveFocusedItem: ((Int) -> Bool)?
+    var activateFocusedItem: (() -> Bool)?
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         // Keep all primary mouse handling in NSTableView. SwiftUI still draws
@@ -363,6 +378,12 @@ private final class PlaylistNSTableView: NSTableView {
 
     override func keyDown(with event: NSEvent) {
         let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        if modifiers.isEmpty, [36, 76].contains(event.keyCode) {
+            if activateFocusedItem?() != true {
+                NSSound.beep()
+            }
+            return
+        }
         guard modifiers == [.command, .option] else {
             super.keyDown(with: event)
             return

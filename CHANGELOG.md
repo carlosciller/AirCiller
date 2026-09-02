@@ -2,6 +2,14 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
+## 0.11.3 (2 September 2026)
+
+### Improvements
+
+- Uses one native Playlist selection for clicking, keyboard navigation and reordering.
+- Keeps the current movie playing while another Playlist row is selected.
+- Plays the selected movie only after Return, a double-click or an explicit play command.
+
 ## 0.11.2 (2 September 2026)
 
 ### Improvements

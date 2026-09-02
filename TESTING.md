@@ -63,3 +63,15 @@ The candidate and installed build 48 were checked locally on 1 and 2 September 2
 - The original Playlist order was restored after testing.
 
 This change does not alter either playback route.
+
+## 8. AirCiller 0.11.3 Playlist interaction validation
+
+Candidate builds 51 and 52 were checked locally on 2 September 2026:
+
+- The Playlist uses one native AppKit selection with no competing custom highlight.
+- A single click selects a row without loading it or changing the current movie.
+- Up and Down move the selection without affecting playback.
+- Option-Command-Up and Option-Command-Down keep the moved movie selected, and the original order was restored after testing.
+- Return and double-click use the existing explicit Playlist playback action.
+
+The playback pipeline is unchanged. Physical Apple TV playback was not repeated for this interface-only release.
