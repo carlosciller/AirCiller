@@ -2,6 +2,30 @@
 
 This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
 
+## 0.12.0 (3 September 2026)
+
+### New
+
+- Adds manual OpenSubtitles.com search with exact local-file matching and a fallback title search.
+- Shows language, format, trusted-source, forced, SDH, translation and release details before downloading.
+
+### Improved
+
+- Makes the audio track and its output format separate choices. Original audio remains the preferred default, while E-AC-3 5.1 and AAC stereo are clearly marked as optional conversions.
+
+### Fixed
+
+- Prevents repeated Apple TV range changes from exhausting local playback resources during long movies.
+- Closes a failed local stream with a clear message instead of leaving Apple TV on an endless loading spinner.
+- Cancels helper processes promptly even when one of their short-lived child processes keeps an output pipe open.
+- Clears temporary seeking and buffering messages as soon as Apple TV confirms that playback is advancing again.
+- Labels OpenSubtitles results without a subtitle extension as SRT instead of mistaking a release suffix for the format.
+
+### Privacy
+
+- Stores optional OpenSubtitles credentials in the macOS Keychain.
+- Never uploads the movie. Searches send its fingerprint, size and requested language, plus the visible search text only when an exact match is unavailable.
+
 ## 0.11.3 (2 September 2026)
 
 ### Improvements

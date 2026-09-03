@@ -83,12 +83,14 @@ final class StreamCoordinator {
         airPlay.onPlaybackUpdate = { [weak self] position, reportedDuration, playing in
             guard let self else { return }
             let previousState = self.isPlaying
+            let previousPosition = self.currentTime
             if reportedDuration.isFinite, reportedDuration > 0 {
                 self.duration = reportedDuration
             }
             if position.isFinite {
                 self.currentTime = min(self.duration, max(0, position))
             }
+            let playbackAdvanced = position.isFinite && position > previousPosition + 0.05
             self.isPlaying = playing
             let queueIndex = self.selectedURL.flatMap { selectedURL in
                 self.queueItems.firstIndex(where: { $0.path == selectedURL.path })
@@ -101,16 +103,20 @@ final class StreamCoordinator {
                 queueIndex: queueIndex,
                 queueCount: queueIndex == nil ? nil : self.queueItems.count
             )
-            if self.isStreaming, previousState != playing {
+            if self.isStreaming, previousState != playing || (playing && playbackAdvanced) {
                 self.status =
                     playing
                     ? L10n.format(
                         "Reproduciendo en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
                     : L10n.text("En pausa desde el Apple TV")
-                self.detail =
-                    playing
-                    ? L10n.text("El mando del Apple TV ha reanudado la película.")
-                    : L10n.text("La pausa del mando se ha sincronizado con AirCiller.")
+                if previousState != playing {
+                    self.detail =
+                        playing
+                        ? L10n.text("El mando del Apple TV ha reanudado la película.")
+                        : L10n.text("La pausa del mando se ha sincronizado con AirCiller.")
+                } else if playbackAdvanced {
+                    self.detail = L10n.text("La reproducción está sincronizada con el Apple TV.")
+                }
             }
             self.saveCurrentPosition(force: false)
         }
@@ -465,6 +471,11 @@ final class StreamCoordinator {
             UTType(filenameExtension: extensionName)
         }
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        attachExternalSubtitle(url)
+    }
+
+    func attachExternalSubtitle(_ url: URL) {
+        guard selectedURL != nil else { return }
         let track = MediaProbeService.externalTrack(url: url)
         if !subtitleTracks.contains(where: { $0.id == track.id }) {
             subtitleTracks.append(track)
@@ -1659,13 +1670,30 @@ final class StreamCoordinator {
     private func makeLocalServer(rootDirectory: URL, sessionID: UUID) -> LocalHTTPServer {
         LocalHTTPServer(
             rootDirectory: rootDirectory,
-            telemetryClientAddress: airPlay.selectedDevice?.address
-        ) { [weak self] telemetry in
-            Task { @MainActor [weak self] in
-                guard let self, self.activeSessionID == sessionID else { return }
-                self.streamTelemetry = telemetry
+            telemetryClientAddress: airPlay.selectedDevice?.address,
+            deliveryFailureHandler: { [weak self] technicalReason in
+                Task { @MainActor [weak self] in
+                    guard let self, self.activeSessionID == sessionID else { return }
+                    self.playbackLogger.error(
+                        "El servidor local dejó de leer la película: \(technicalReason, privacy: .public)"
+                    )
+                    self.cleanupRuntime()
+                    self.isPreparing = false
+                    self.isStreaming = false
+                    self.isPlaying = false
+                    self.hasError = true
+                    self.status = "La transmisión local se ha detenido"
+                    self.detail =
+                        "AirCiller no pudo seguir leyendo la película preparada. Ha cerrado la sesión para evitar una espera infinita. Pulsa Reproducir para continuar desde este punto."
+                }
+            },
+            telemetryHandler: { [weak self] telemetry in
+                Task { @MainActor [weak self] in
+                    guard let self, self.activeSessionID == sessionID else { return }
+                    self.streamTelemetry = telemetry
+                }
             }
-        }
+        )
     }
 
     private func waitForReceiverMediaRequest(sessionID: UUID) async throws {

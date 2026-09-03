@@ -23,6 +23,7 @@ AirCiller is available in English and Spanish.
 - Lets you choose audio and subtitle tracks and adjust their timing.
 - Supports SRT, WebVTT and ASS/SSA subtitles.
 - Uses local Apple Vision OCR to make Blu-ray PGS and DVD VobSub subtitles selectable.
+- Searches OpenSubtitles.com only when requested, prefers exact file matches and lets you choose before downloading.
 - Keeps playback position, pause, resume and seeking synchronized with the Apple TV remote.
 - Includes an ordered playlist, recent movies, chapters and saved progress.
 - Provides optional network and preparation diagnostics.
@@ -32,7 +33,7 @@ AirCiller does not download or include media. Use it with files you have the rig
 
 ## Download
 
-The current stable release is **AirCiller 0.11.3**. It requires an Apple silicon Mac running macOS 14 or later.
+The current stable release is **AirCiller 0.12.0**. It requires an Apple silicon Mac running macOS 14 or later.
 
 ### [Download the latest release](https://github.com/carlosciller/AirCiller/releases/latest)
 
@@ -44,11 +45,11 @@ AirCiller includes the tested FFmpeg and AirPlay engines used by that release. T
 
 ## Privacy
 
-Movies remain on the Mac and original files are never modified. AirCiller has no accounts, advertising, analytics, cloud library or permanent server.
+Movies remain on the Mac and original files are never modified. AirCiller has no account of its own, advertising, analytics, cloud library or permanent server.
 
 Video conversion never happens silently. If an audio track needs conversion, AirCiller explains why and asks first. Subtitle OCR runs locally and creates a selectable text track. It does not burn subtitles into the image.
 
-The temporary playback server is available only on the local network and closes when the session ends. AirPlay credentials are stored in the macOS Keychain. See [PRIVACY.md](PRIVACY.md) for the full details.
+The temporary playback server is available only on the local network and closes when the session ends. AirPlay and optional OpenSubtitles credentials are stored in the macOS Keychain. OpenSubtitles receives a local file fingerprint and size only after you start a search; it never receives the movie. See [PRIVACY.md](PRIVACY.md) for the full details.
 
 ## Playback
 

@@ -90,6 +90,18 @@ compile_and_run credential-store \
   -framework Security \
   "$project_dir/Sources/AirPlayCredentialStore.swift" \
   "$project_dir/Tests/AirPlayCredentialStoreSmokeTest.swift"
+compile_and_run opensubtitles-credential-store \
+  -framework Security \
+  "$project_dir/Sources/OpenSubtitlesCredentialStore.swift" \
+  "$project_dir/Tests/OpenSubtitlesCredentialStoreSmokeTest.swift"
+compile_and_run opensubtitles-service \
+  -framework Security \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Sources/OpenSubtitlesCredentialStore.swift" \
+  "$project_dir/Sources/OpenSubtitlesService.swift" \
+  "$project_dir/Tests/OpenSubtitlesServiceSmokeTest.swift"
 compile_and_run airplay-runtime-probe \
   "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
   "$project_dir/Tests/AirPlayRuntimeProbeSmokeTest.swift"

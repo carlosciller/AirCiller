@@ -75,3 +75,49 @@ Candidate builds 51 and 52 were checked locally on 2 September 2026:
 - Return and double-click use the existing explicit Playlist playback action.
 
 The playback pipeline is unchanged. Physical Apple TV playback was not repeated for this interface-only release.
+
+## 9. OpenSubtitles candidate
+
+The initial OpenSubtitles candidate was checked locally on 2 September 2026:
+
+- The standard OpenSubtitles file fingerprint is calculated from the file size and the first and last 64 KB.
+- REST search and download requests include the required API key and AirCiller user agent.
+- Search responses tolerate nullable metadata and preserve ASS, SRT and WebVTT format information.
+- Credentials are stored as one serialized Keychain item and removed together.
+- Search, empty-configuration and Settings screens were inspected in the built app.
+- The full strict Swift 6 check suite and public repository audit passed.
+
+The live OpenSubtitles check was completed on 3 September 2026:
+
+- A real API key passed the connection check and was retained in Keychain without appearing in diagnostics or repository files.
+- The service found no fingerprint match for the test Blu-ray and clearly switched to title results.
+- The closest release match downloaded as a valid SRT file, was attached locally, converted to selectable WebVTT and displayed on the physical Apple TV.
+- The downloaded subtitle remained in AirCiller's bounded local subtitle cache; the original movie was not uploaded or modified.
+
+The OpenSubtitles integration itself does not change either Apple TV playback route.
+
+## 10. Abandoned range reliability candidate
+
+The local playback server regression test was extended on 3 September 2026 to reproduce the request pattern seen in the Mandalorian stall:
+
+- It opens and abandons 160 partial requests against a sparse 5 GB movie.
+- The process is restricted to 128 open descriptors during the test so that retained files or sockets fail quickly.
+- Open descriptor usage returns to its baseline after the abandoned requests.
+- A new partial request succeeds afterwards, confirming that the server remains usable.
+- Local read failures now close the active playback session and report a recoverable error instead of leaving Apple TV loading indefinitely.
+
+The strict local check suite passes.
+
+## 11. AirCiller 0.12.0 physical reliability candidate
+
+Build 53 completed the physical Apple TV reliability check on 3 September 2026:
+
+- A 4K Dolby Vision Profile 8.1 movie played with its original E-AC-3 5.1 audio and selectable English subtitles.
+- Picture, sound and subtitles were confirmed on the television.
+- Pause, resume, chapter navigation and a burst of forward seeks remained synchronized without disconnecting AirPlay.
+- The Apple TV requested new byte ranges throughout playback and reached the natural end without an endless loading state or a retained session.
+- Two brief buffer waits after explicit resume and seek operations recovered automatically.
+- The HLS/fMP4 route then played a Full HD H.264 movie with its original E-AC-3 5.1 audio, first with a selectable WebVTT subtitle and then with subtitles disabled.
+- Picture and sound were confirmed in both HLS/fMP4 runs; subtitles appeared only in the selected-subtitle run, and changing the track preserved the playback position.
+
+The original movies were not modified. The local and physical release gates are complete; GitHub CI remains required before tagging.

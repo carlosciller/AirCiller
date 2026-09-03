@@ -208,17 +208,26 @@ enum AudioOutputMode: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .original: return L10n.text("Original")
-        case .compatible: return L10n.text("Compatible 5.1")
-        case .stereo: return L10n.text("Estéreo")
+        case .original: return L10n.text("Conservar original")
+        case .compatible: return L10n.text("Convertir a E-AC-3 (hasta 5.1)")
+        case .stereo: return L10n.text("Convertir a AAC (estéreo)")
         }
     }
 
     var explanation: String {
         switch self {
-        case .original: return L10n.text("Sin recodificar")
-        case .compatible: return L10n.text("Convierte expresamente a E-AC-3")
-        case .stereo: return L10n.text("Convierte expresamente a AAC estéreo")
+        case .original:
+            return L10n.text(
+                "Opción preferida. AirCiller conserva el códec y todos los canales de la pista elegida. Si Apple TV no la admite, pedirá permiso antes de convertir."
+            )
+        case .compatible:
+            return L10n.text(
+                "Convierte solo la pista elegida a E-AC-3, hasta 5.1 canales. El vídeo permanece intacto."
+            )
+        case .stereo:
+            return L10n.text(
+                "Convierte solo la pista elegida a AAC estéreo. El vídeo permanece intacto."
+            )
         }
     }
 }

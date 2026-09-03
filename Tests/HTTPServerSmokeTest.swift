@@ -25,9 +25,13 @@ struct HTTPServerSmokeTest {
         )
 
         let telemetryRecorder = TelemetryRecorder()
-        let server = LocalHTTPServer(rootDirectory: directory, allowsLoopbackAddress: true) { telemetry in
-            telemetryRecorder.record(telemetry)
-        }
+        let server = LocalHTTPServer(
+            rootDirectory: directory,
+            allowsLoopbackAddress: true,
+            telemetryHandler: { telemetry in
+                telemetryRecorder.record(telemetry)
+            }
+        )
         let baseURL = try await server.start()
         defer { server.stop() }
         let session = URLSession(configuration: .ephemeral)
@@ -119,6 +123,9 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.LargeRangeLength", code: 9)
         }
 
+        mark("repeated abandoned large ranges")
+        try await verifyAbandonedLargeRanges(baseURL: baseURL, fileSize: hugeFileSize)
+
         mark("transport stream")
         let (transportStream, transportResponse) = try await session.data(
             from: baseURL.appendingPathComponent("segment.ts")
@@ -164,10 +171,11 @@ struct HTTPServerSmokeTest {
         let filteredServer = LocalHTTPServer(
             rootDirectory: directory,
             telemetryClientAddress: "203.0.113.99",
-            allowsLoopbackAddress: true
-        ) { telemetry in
-            excludedRecorder.record(telemetry)
-        }
+            allowsLoopbackAddress: true,
+            telemetryHandler: { telemetry in
+                excludedRecorder.record(telemetry)
+            }
+        )
         let filteredBaseURL = try await filteredServer.start()
         let (filteredData, _) = try await session.data(
             from: filteredBaseURL.appendingPathComponent("segment.m4s")
@@ -188,10 +196,11 @@ struct HTTPServerSmokeTest {
         let measuredServer = LocalHTTPServer(
             rootDirectory: directory,
             telemetryClientAddress: localAddress,
-            allowsLoopbackAddress: true
-        ) { telemetry in
-            includedRecorder.record(telemetry)
-        }
+            allowsLoopbackAddress: true,
+            telemetryHandler: { telemetry in
+                includedRecorder.record(telemetry)
+            }
+        )
         let measuredBaseURL = try await measuredServer.start()
         let (measuredData, _) = try await session.data(
             from: measuredBaseURL.appendingPathComponent("segment.m4s")
@@ -205,7 +214,9 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.TelemetryInclude", code: 18)
         }
 
-        print("Private HTTP, Range, >4 GB, keep-alive, cache, filtered telemetry, MIME, and HLS: OK")
+        print(
+            "Private HTTP, Range, >4 GB, abandoned ranges, keep-alive, cache, filtered telemetry, MIME, and HLS: OK"
+        )
     }
 
     private static func mark(_ message: String) {
@@ -261,6 +272,156 @@ struct HTTPServerSmokeTest {
             second.body == expected.subdata(in: 100..<200)
         else {
             throw NSError(domain: "HTTPServerSmokeTest.KeepAliveSecond", code: 16)
+        }
+    }
+
+    private static func verifyAbandonedLargeRanges(baseURL: URL, fileSize: Int) async throws {
+        guard let host = baseURL.host,
+            let port = baseURL.port
+        else {
+            throw NSError(domain: "HTTPServerSmokeTest.AbandonedRangeURL", code: 19)
+        }
+
+        var originalLimit = rlimit()
+        guard getrlimit(RLIMIT_NOFILE, &originalLimit) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        var testLimit = originalLimit
+        testLimit.rlim_cur = min(originalLimit.rlim_cur, 128)
+        guard setrlimit(RLIMIT_NOFILE, &testLimit) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+        defer {
+            var restoredLimit = originalLimit
+            _ = setrlimit(RLIMIT_NOFILE, &restoredLimit)
+        }
+
+        try await Task.sleep(for: .milliseconds(250))
+        let baselineDescriptorCount = try openDescriptorCount()
+        let path = baseURL.appendingPathComponent("large.mp4").path
+
+        for index in 0..<160 {
+            let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+            guard descriptor >= 0 else {
+                throw NSError(
+                    domain: "HTTPServerSmokeTest.AbandonedRangeSocket",
+                    code: 20,
+                    userInfo: [NSLocalizedDescriptionKey: "socket failed after \(index) abandoned ranges"]
+                )
+            }
+
+            do {
+                var timeout = timeval(tv_sec: 2, tv_usec: 0)
+                _ = withUnsafePointer(to: &timeout) {
+                    setsockopt(
+                        descriptor,
+                        SOL_SOCKET,
+                        SO_RCVTIMEO,
+                        $0,
+                        socklen_t(MemoryLayout<timeval>.size)
+                    )
+                }
+
+                var address = sockaddr_in()
+                address.sin_family = sa_family_t(AF_INET)
+                address.sin_port = in_port_t(port).bigEndian
+                guard inet_pton(AF_INET, host, &address.sin_addr) == 1 else {
+                    throw NSError(domain: "HTTPServerSmokeTest.AbandonedRangeAddress", code: 21)
+                }
+                let connected = withUnsafePointer(to: &address) { pointer in
+                    pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                        Darwin.connect(
+                            descriptor,
+                            $0,
+                            socklen_t(MemoryLayout<sockaddr_in>.size)
+                        )
+                    }
+                }
+                guard connected == 0 else {
+                    throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .ECONNREFUSED)
+                }
+
+                let start = (index * 8_388_608) % (fileSize - 16_777_216)
+                let request = Data(
+                    "GET \(path) HTTP/1.1\r\nHost: \(host):\(port)\r\nRange: bytes=\(start)-\(fileSize - 1)\r\nConnection: keep-alive\r\n\r\n"
+                        .utf8
+                )
+                try sendAll(request, through: descriptor)
+
+                var prefix = [UInt8](repeating: 0, count: 16_384)
+                let received = Darwin.recv(descriptor, &prefix, prefix.count, 0)
+                guard received > 0,
+                    String(decoding: prefix.prefix(received), as: UTF8.self).contains("HTTP/1.1 206")
+                else {
+                    throw NSError(domain: "HTTPServerSmokeTest.AbandonedRangeResponse", code: 22)
+                }
+
+                var reset = linger(l_onoff: 1, l_linger: 0)
+                _ = withUnsafePointer(to: &reset) {
+                    setsockopt(
+                        descriptor,
+                        SOL_SOCKET,
+                        SO_LINGER,
+                        $0,
+                        socklen_t(MemoryLayout<linger>.size)
+                    )
+                }
+            } catch {
+                Darwin.close(descriptor)
+                throw error
+            }
+            Darwin.close(descriptor)
+
+            if index.isMultiple(of: 20) {
+                try await Task.sleep(for: .milliseconds(25))
+            }
+        }
+
+        try await Task.sleep(for: .seconds(1))
+        let finalDescriptorCount = try openDescriptorCount()
+        guard finalDescriptorCount <= baselineDescriptorCount + 12 else {
+            throw NSError(
+                domain: "HTTPServerSmokeTest.AbandonedRangeLeak",
+                code: 23,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Open descriptors grew from \(baselineDescriptorCount) to \(finalDescriptorCount)"
+                ]
+            )
+        }
+
+        let healthSession = URLSession(configuration: .ephemeral)
+        defer { healthSession.invalidateAndCancel() }
+        var healthRequest = URLRequest(url: baseURL.appendingPathComponent("segment.m4s"))
+        healthRequest.setValue("bytes=0-99", forHTTPHeaderField: "Range")
+        let (healthData, healthResponse) = try await healthSession.data(for: healthRequest)
+        guard (healthResponse as? HTTPURLResponse)?.statusCode == 206,
+            healthData.count == 100
+        else {
+            throw NSError(domain: "HTTPServerSmokeTest.AbandonedRangeHealth", code: 24)
+        }
+    }
+
+    private static func openDescriptorCount() throws -> Int {
+        try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
+    }
+
+    private static func sendAll(_ data: Data, through descriptor: Int32) throws {
+        try data.withUnsafeBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else { return }
+            var sent = 0
+            while sent < bytes.count {
+                let result = Darwin.send(
+                    descriptor,
+                    baseAddress.advanced(by: sent),
+                    bytes.count - sent,
+                    0
+                )
+                guard result > 0 else {
+                    throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EPIPE)
+                }
+                sent += result
+            }
         }
     }
 

@@ -91,6 +91,8 @@
 /* Tracks */
 "Pistas y sincronización" = "Pistas y sincronización";
 "Pista" = "Pista";
+"Pista de audio" = "Pista de audio";
+"Formato de salida" = "Formato de salida";
 "Sin audio" = "Sin audio";
 "Sincronía" = "Sincronía";
 "Sincronía: %@ s" = "Sincronía: %@ s";
@@ -107,6 +109,58 @@
 "El tamaño y la posición los controla Apple TV desde sus preferencias de accesibilidad." = "El tamaño y la posición los controla Apple TV desde sus preferencias de accesibilidad.";
 "SDH incluye diálogo, identificación del hablante y descripciones de sonidos o música." = "SDH incluye diálogo, identificación del hablante y descripciones de sonidos o música.";
 "Aplicar pistas" = "Aplicar pistas";
+"Aplicar cambios" = "Aplicar cambios";
+"Buscar en OpenSubtitles…" = "Buscar en OpenSubtitles…";
+
+/* Online subtitles */
+"Subtítulos online" = "Subtítulos online";
+"Clave de API" = "Clave de API";
+"Usuario (opcional)" = "Usuario (opcional)";
+"Contraseña (opcional)" = "Contraseña (opcional)";
+"La cuenta aumenta el límite de descargas. La clave, el usuario y la contraseña se guardan juntos en el Llavero de este Mac." = "La cuenta aumenta el límite de descargas. La clave, el usuario y la contraseña se guardan juntos en el Llavero de este Mac.";
+"Guardar y comprobar" = "Guardar y comprobar";
+"Desconectar" = "Desconectar";
+"AirCiller busca solo cuando se lo pides. Envía a OpenSubtitles la huella y el tamaño del archivo, el idioma y, si no hay coincidencia exacta, el texto de búsqueda. Nunca envía la película." = "AirCiller busca solo cuando se lo pides. Envía a OpenSubtitles la huella y el tamaño del archivo, el idioma y, si no hay coincidencia exacta, el texto de búsqueda. Nunca envía la película.";
+"Abrir OpenSubtitles.com…" = "Abrir OpenSubtitles.com…";
+"Cómo crear una clave de API…" = "Cómo crear una clave de API…";
+"Conexión correcta. La cuenta permite %lld descargas al día." = "Conexión correcta. La cuenta permite %lld descargas al día.";
+"Conexión correcta. Se aplicará el límite sin cuenta." = "Conexión correcta. Se aplicará el límite sin cuenta.";
+"La configuración se ha eliminado del Llavero." = "La configuración se ha eliminado del Llavero.";
+"Buscar subtítulos" = "Buscar subtítulos";
+"Título de la película o episodio" = "Título de la película o episodio";
+"Idioma" = "Idioma";
+"Cualquier idioma" = "Cualquier idioma";
+"Buscar" = "Buscar";
+"Buscando una coincidencia para este archivo…" = "Buscando una coincidencia para este archivo…";
+"No hay resultados" = "No hay resultados";
+"Prueba con otro título o idioma." = "Prueba con otro título o idioma.";
+"Abrir Ajustes" = "Abrir Ajustes";
+"Coincidencias exactas para este archivo" = "Coincidencias exactas para este archivo";
+"No hubo coincidencia exacta. Resultados por título" = "No hubo coincidencia exacta. Resultados por título";
+"La búsqueda es manual. AirCiller no sube el vídeo ni busca en segundo plano." = "La búsqueda es manual. AirCiller no sube el vídeo ni busca en segundo plano.";
+"Descargar y usar" = "Descargar y usar";
+"Descargando…" = "Descargando…";
+"Fuente verificada" = "Fuente verificada";
+"Solo partes forzadas" = "Solo partes forzadas";
+"Traducción automática" = "Traducción automática";
+"%lld descargas" = "%lld descargas";
+"Configura OpenSubtitles en Ajustes antes de buscar." = "Configura OpenSubtitles en Ajustes antes de buscar.";
+"Escribe tanto el usuario como la contraseña, o deja ambos vacíos." = "Escribe tanto el usuario como la contraseña, o deja ambos vacíos.";
+"El archivo es demasiado pequeño para calcular su huella de OpenSubtitles." = "El archivo es demasiado pequeño para calcular su huella de OpenSubtitles.";
+"AirCiller no pudo leer el archivo para buscar subtítulos." = "AirCiller no pudo leer el archivo para buscar subtítulos.";
+"OpenSubtitles devolvió una respuesta que AirCiller no pudo interpretar." = "OpenSubtitles devolvió una respuesta que AirCiller no pudo interpretar.";
+"OpenSubtitles devolvió un enlace de descarga no seguro." = "OpenSubtitles devolvió un enlace de descarga no seguro.";
+"El subtítulo descargado está vacío o no es válido." = "El subtítulo descargado está vacío o no es válido.";
+"El subtítulo supera el límite de seguridad de 10 MB." = "El subtítulo supera el límite de seguridad de 10 MB.";
+"OpenSubtitles rechazó la clave o la cuenta." = "OpenSubtitles rechazó la clave o la cuenta.";
+"OpenSubtitles no permite usar esta clave de API." = "OpenSubtitles no permite usar esta clave de API.";
+"Se ha alcanzado el límite de descargas o el subtítulo ya no está disponible." = "Se ha alcanzado el límite de descargas o el subtítulo ya no está disponible.";
+"OpenSubtitles está limitando temporalmente las peticiones. Inténtalo más tarde." = "OpenSubtitles está limitando temporalmente las peticiones. Inténtalo más tarde.";
+"OpenSubtitles no está disponible en este momento." = "OpenSubtitles no está disponible en este momento.";
+"OpenSubtitles devolvió HTTP %lld: %@" = "OpenSubtitles devolvió HTTP %lld: %@";
+"OpenSubtitles devolvió HTTP %lld." = "OpenSubtitles devolvió HTTP %lld.";
+"La transmisión local se ha detenido" = "La transmisión local se ha detenido";
+"AirCiller no pudo seguir leyendo la película preparada. Ha cerrado la sesión para evitar una espera infinita. Pulsa Reproducir para continuar desde este punto." = "AirCiller no pudo seguir leyendo la película preparada. Ha cerrado la sesión para evitar una espera infinita. Pulsa Reproducir para continuar desde este punto.";
 
 /* AirPlay */
 "Buscando…" = "Buscando…";
@@ -394,6 +448,7 @@
 "En pausa desde el Apple TV" = "En pausa desde el Apple TV";
 "El mando del Apple TV ha reanudado la película." = "El mando del Apple TV ha reanudado la película.";
 "La pausa del mando se ha sincronizado con AirCiller." = "La pausa del mando se ha sincronizado con AirCiller.";
+"La reproducción está sincronizada con el Apple TV." = "La reproducción está sincronizada con el Apple TV.";
 "Prueba reproduciéndose en %@" = "Prueba reproduciéndose en %@";
 "1 pista" = "1 pista";
 "%lld pistas" = "%lld pistas";
@@ -418,11 +473,11 @@
 "forzados" = "forzados";
 "PGS/VobSub: AirCiller extrae solo esta pista, usa Apple Vision localmente y crea WebVTT seleccionable. Conserva tiempos y posición aproximada; no quema el texto ni modifica la película." = "PGS/VobSub: AirCiller extrae solo esta pista, usa Apple Vision localmente y crea WebVTT seleccionable. Conserva tiempos y posición aproximada; no quema el texto ni modifica la película.";
 "En WebVTT, AirCiller conserva posición, alineación y formato básico. En MP4 HDR y con karaoke, movimiento, rotación o dibujos ASS, el estilo se simplifica." = "En WebVTT, AirCiller conserva posición, alineación y formato básico. En MP4 HDR y con karaoke, movimiento, rotación o dibujos ASS, el estilo se simplifica.";
-"Subtítulos gráficos" = "Subtítulos gráficos";
-"Caché OCR" = "Caché OCR";
+"Subtítulos en caché" = "Subtítulos en caché";
+"Caché local" = "Caché local";
 "%@ de %@" = "%@ de %@";
 "Límite" = "Límite";
-"Solo guarda el WebVTT creado por Apple Vision. Las imágenes temporales se borran y la película original nunca se modifica." = "Solo guarda el WebVTT creado por Apple Vision. Las imágenes temporales se borran y la película original nunca se modifica.";
+"Guarda los WebVTT creados por Apple Vision y los subtítulos que descargas expresamente. Las imágenes temporales se borran y la película original nunca se modifica." = "Guarda los WebVTT creados por Apple Vision y los subtítulos que descargas expresamente. Las imágenes temporales se borran y la película original nunca se modifica.";
 "Vaciar caché de subtítulos" = "Vaciar caché de subtítulos";
 "Preparación de películas" = "Preparación de películas";
 "Restos temporales" = "Restos temporales";
@@ -436,6 +491,12 @@
 "Apple TV no admite esta clase de subtítulo (%@) como pista HLS nativa." = "Apple TV no admite esta clase de subtítulo (%@) como pista HLS nativa.";
 "Original" = "Original";
 "Compatible 5.1" = "Compatible 5.1";
+"Conservar original" = "Conservar original";
+"Convertir a E-AC-3 (hasta 5.1)" = "Convertir a E-AC-3 (hasta 5.1)";
+"Convertir a AAC (estéreo)" = "Convertir a AAC (estéreo)";
+"Opción preferida. AirCiller conserva el códec y todos los canales de la pista elegida. Si Apple TV no la admite, pedirá permiso antes de convertir." = "Opción preferida. AirCiller conserva el códec y todos los canales de la pista elegida. Si Apple TV no la admite, pedirá permiso antes de convertir.";
+"Convierte solo la pista elegida a E-AC-3, hasta 5.1 canales. El vídeo permanece intacto." = "Convierte solo la pista elegida a E-AC-3, hasta 5.1 canales. El vídeo permanece intacto.";
+"Convierte solo la pista elegida a AAC estéreo. El vídeo permanece intacto." = "Convierte solo la pista elegida a AAC estéreo. El vídeo permanece intacto.";
 "Sin recodificar" = "Sin recodificar";
 "Convierte expresamente a E-AC-3" = "Convierte expresamente a E-AC-3";
 "Convierte expresamente a AAC estéreo" = "Convierte expresamente a AAC estéreo";

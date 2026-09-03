@@ -8,6 +8,7 @@ final class LocalHTTPServer: @unchecked Sendable {
     private let pathToken: String
     private let telemetryClientAddress: String?
     private let allowsLoopbackAddress: Bool
+    private let deliveryFailureHandler: (@Sendable (String) -> Void)?
     private let telemetryHandler: (@Sendable (HTTPServerTelemetry) -> Void)?
     private let queue = DispatchQueue(label: "local.airciller.http", qos: .userInitiated)
     private let logger = Logger(subsystem: "local.carlosciller.AirCiller", category: "HTTP")
@@ -31,6 +32,7 @@ final class LocalHTTPServer: @unchecked Sendable {
         let isTelemetryClient: Bool
         let keepAlive: Bool
         let bufferedRequestData: Data
+        let fileHandle: FileHandle
         var bytesSent: Int64 = 0
         var lastChunkAt: Date
     }
@@ -39,12 +41,14 @@ final class LocalHTTPServer: @unchecked Sendable {
         rootDirectory: URL,
         telemetryClientAddress: String? = nil,
         allowsLoopbackAddress: Bool = false,
+        deliveryFailureHandler: (@Sendable (String) -> Void)? = nil,
         telemetryHandler: (@Sendable (HTTPServerTelemetry) -> Void)? = nil
     ) {
         self.rootDirectory = rootDirectory.standardizedFileURL.resolvingSymlinksInPath()
         self.pathToken = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
         self.telemetryClientAddress = telemetryClientAddress
         self.allowsLoopbackAddress = allowsLoopbackAddress
+        self.deliveryFailureHandler = deliveryFailureHandler
         self.telemetryHandler = telemetryHandler
     }
 
@@ -96,6 +100,9 @@ final class LocalHTTPServer: @unchecked Sendable {
             for connection in self.activeConnections.values {
                 connection.cancel()
             }
+            for transfer in self.transfers.values {
+                try? transfer.fileHandle.close()
+            }
             self.activeConnections.removeAll()
             self.requestGenerations.removeAll()
             self.transfers.removeAll()
@@ -111,7 +118,9 @@ final class LocalHTTPServer: @unchecked Sendable {
             case .failed, .cancelled:
                 self?.activeConnections.removeValue(forKey: identifier)
                 self?.requestGenerations.removeValue(forKey: identifier)
-                self?.transfers.removeValue(forKey: identifier)
+                if let transfer = self?.transfers.removeValue(forKey: identifier) {
+                    try? transfer.fileHandle.close()
+                }
             default:
                 break
             }
@@ -134,7 +143,8 @@ final class LocalHTTPServer: @unchecked Sendable {
         }
 
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65_536) {
-            [weak self] data, _, isComplete, error in
+            [weak self, weak connection] data, _, isComplete, error in
+            guard let connection else { return }
             guard let self else {
                 connection.cancel()
                 return
@@ -319,9 +329,14 @@ final class LocalHTTPServer: @unchecked Sendable {
         bufferedRequestData: Data,
         on connection: NWConnection
     ) {
-        guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
+        let handle: FileHandle
+        do {
+            handle = try FileHandle(forReadingFrom: fileURL)
+        } catch {
             logger.error(
-                "HTTP \(status, privacy: .public) no pudo abrir \(fileURL.lastPathComponent, privacy: .private)")
+                "HTTP \(status, privacy: .public) no pudo abrir \(fileURL.lastPathComponent, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
+            deliveryFailureHandler?(error.localizedDescription)
             send(status: 500, reason: "Read Error", body: Data(), type: "text/plain", on: connection)
             return
         }
@@ -329,6 +344,7 @@ final class LocalHTTPServer: @unchecked Sendable {
             try handle.seek(toOffset: UInt64(range.lowerBound))
         } catch {
             try? handle.close()
+            deliveryFailureHandler?(error.localizedDescription)
             send(status: 500, reason: "Read Error", body: Data(), type: "text/plain", on: connection)
             return
         }
@@ -346,13 +362,18 @@ final class LocalHTTPServer: @unchecked Sendable {
             expectedBytes: range.count,
             fileName: fileURL.lastPathComponent,
             keepAlive: keepAlive,
-            bufferedRequestData: bufferedRequestData
+            bufferedRequestData: bufferedRequestData,
+            fileHandle: handle
         )
         connection.send(
             content: header,
             contentContext: .defaultMessage,
             isComplete: false,
-            completion: .contentProcessed { [weak self] error in
+            completion: .contentProcessed { [weak self, weak connection] error in
+                guard let connection else {
+                    try? handle.close()
+                    return
+                }
                 guard let self else {
                     try? handle.close()
                     connection.cancel()
@@ -379,8 +400,15 @@ final class LocalHTTPServer: @unchecked Sendable {
         status: Int,
         on connection: NWConnection
     ) {
-        guard remaining > 0 else {
+        let identifier = ObjectIdentifier(connection)
+        guard let activeHandle = transfers[identifier]?.fileHandle,
+            activeHandle === handle
+        else {
             try? handle.close()
+            connection.cancel()
+            return
+        }
+        guard remaining > 0 else {
             finishTransfer(on: connection)
             return
         }
@@ -393,19 +421,23 @@ final class LocalHTTPServer: @unchecked Sendable {
             chunk = read
         } catch {
             try? handle.close()
+            deliveryFailureHandler?(error.localizedDescription)
             failTransfer(status: status, error: error, on: connection)
             return
         }
 
         let nextRemaining = remaining - chunk.count
         let isFinalChunk = nextRemaining == 0
-        let identifier = ObjectIdentifier(connection)
         let shouldClose = isFinalChunk && transfers[identifier]?.keepAlive != true
         connection.send(
             content: chunk,
             contentContext: .defaultMessage,
             isComplete: shouldClose,
-            completion: .contentProcessed { [weak self] error in
+            completion: .contentProcessed { [weak self, weak connection] error in
+                guard let connection else {
+                    try? handle.close()
+                    return
+                }
                 guard let self else {
                     try? handle.close()
                     connection.cancel()
@@ -416,7 +448,6 @@ final class LocalHTTPServer: @unchecked Sendable {
                     self.failTransfer(status: status, error: error, on: connection)
                 } else if isFinalChunk {
                     self.recordTransferredBytes(chunk.count, on: connection)
-                    try? handle.close()
                     self.finishTransfer(on: connection)
                 } else {
                     self.recordTransferredBytes(chunk.count, on: connection)
@@ -478,7 +509,8 @@ final class LocalHTTPServer: @unchecked Sendable {
 
     private func close(_ connection: NWConnection, after delay: TimeInterval) {
         let identifier = ObjectIdentifier(connection)
-        queue.asyncAfter(deadline: .now() + delay) { [weak self] in
+        queue.asyncAfter(deadline: .now() + delay) { [weak self, weak connection] in
+            guard let connection else { return }
             guard self?.activeConnections.removeValue(forKey: identifier) != nil else { return }
             self?.requestGenerations.removeValue(forKey: identifier)
             connection.cancel()
@@ -489,8 +521,8 @@ final class LocalHTTPServer: @unchecked Sendable {
         let identifier = ObjectIdentifier(connection)
         let completedGeneration = requestGenerations[identifier] ?? 0
         receiveRequest(on: connection, accumulated: bufferedRequestData)
-        queue.asyncAfter(deadline: .now() + 15) { [weak self] in
-            guard let self,
+        queue.asyncAfter(deadline: .now() + 15) { [weak self, weak connection] in
+            guard let self, let connection,
                 self.requestGenerations[identifier] == completedGeneration,
                 self.transfers[identifier] == nil,
                 self.activeConnections.removeValue(forKey: identifier) != nil
@@ -505,7 +537,8 @@ final class LocalHTTPServer: @unchecked Sendable {
         expectedBytes: Int,
         fileName: String,
         keepAlive: Bool,
-        bufferedRequestData: Data
+        bufferedRequestData: Data,
+        fileHandle: FileHandle
     ) {
         let identifier = ObjectIdentifier(connection)
         let isTelemetryClient = shouldMeasure(connection)
@@ -518,6 +551,7 @@ final class LocalHTTPServer: @unchecked Sendable {
             isTelemetryClient: isTelemetryClient,
             keepAlive: keepAlive,
             bufferedRequestData: bufferedRequestData,
+            fileHandle: fileHandle,
             lastChunkAt: Date()
         )
         if isTelemetryClient {
@@ -558,6 +592,7 @@ final class LocalHTTPServer: @unchecked Sendable {
         let identifier = ObjectIdentifier(connection)
         let transfer = transfers.removeValue(forKey: identifier)
         if let transfer {
+            try? transfer.fileHandle.close()
             let elapsed = max(0.001, Date().timeIntervalSince(transfer.startedAt))
             let rate = Double(transfer.bytesSent) * 8 / elapsed / 1_000_000
             logger.info(
@@ -658,7 +693,8 @@ final class LocalHTTPServer: @unchecked Sendable {
             content: response,
             contentContext: keepAlive ? .defaultMessage : .finalMessage,
             isComplete: !keepAlive,
-            completion: .contentProcessed { [weak self, logger] error in
+            completion: .contentProcessed { [weak self, weak connection, logger] error in
+                guard let connection else { return }
                 if let error {
                     logger.error(
                         "HTTP \(status, privacy: .public) falló al enviar \(responseSize, privacy: .public) bytes: \(String(describing: error), privacy: .public)"

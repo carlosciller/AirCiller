@@ -73,6 +73,14 @@ enum CapturedProcess {
             try? errors.fileHandleForWriting.close()
             output.fileHandleForReading.readabilityHandler = nil
             errors.fileHandleForReading.readabilityHandler = nil
+            if error is CancellationError {
+                // A terminated helper can leave a short-lived descendant with
+                // the pipe open. Do not let cancellation wait for that process
+                // to exit before returning to the caller.
+                try? output.fileHandleForReading.close()
+                try? errors.fileHandleForReading.close()
+                throw error
+            }
             outputCollector.append(output.fileHandleForReading.readDataToEndOfFile())
             errorCollector.append(errors.fileHandleForReading.readDataToEndOfFile())
             throw error

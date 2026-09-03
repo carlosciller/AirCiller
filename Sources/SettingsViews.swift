@@ -16,6 +16,11 @@ struct AirCillerSettingsView: View {
                     Label("Reproducción", systemImage: "play.circle")
                 }
 
+            OpenSubtitlesSettingsView()
+                .tabItem {
+                    Label("Subtítulos online", systemImage: "captions.bubble")
+                }
+
             StorageSettingsView(coordinator: coordinator)
                 .tabItem {
                     Label("Almacenamiento", systemImage: "internaldrive")
@@ -389,8 +394,8 @@ struct StorageSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Subtítulos gráficos") {
-                LabeledContent("Caché OCR") {
+            Section("Subtítulos en caché") {
+                LabeledContent("Caché local") {
                     Text(
                         L10n.format(
                             "%@ de %@",
@@ -412,7 +417,7 @@ struct StorageSettingsView: View {
                 }
 
                 Text(
-                    "Solo guarda el WebVTT creado por Apple Vision. Las imágenes temporales se borran y la película original nunca se modifica."
+                    "Guarda los WebVTT creados por Apple Vision y los subtítulos que descargas expresamente. Las imágenes temporales se borran y la película original nunca se modifica."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

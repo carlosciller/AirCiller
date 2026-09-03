@@ -1089,6 +1089,7 @@ struct LibraryNavigationRow: View {
 struct TrackSettingsView: View {
     @Bindable var coordinator: StreamCoordinator
     @Binding var isPresented: Bool
+    @AirCillerState private var showingOpenSubtitles = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1097,19 +1098,28 @@ struct TrackSettingsView: View {
 
             GroupBox("Audio") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Picker("Pista", selection: $coordinator.selectedAudioID) {
+                    Picker("Pista de audio", selection: selectedAudio) {
                         Text("Sin audio").tag(String?.none)
                         ForEach(coordinator.audioTracks) { track in
                             Text("\(L10n.text(track.displayName)) · \(L10n.text(track.technicalDescription))")
                                 .tag(Optional(track.id))
                         }
                     }
-                    Picker("Salida", selection: $coordinator.audioOutputMode) {
+                    Picker("Formato de salida", selection: $coordinator.audioOutputMode) {
                         ForEach(AudioOutputMode.allCases) { mode in
-                            Text(L10n.text(mode.title)).tag(mode)
+                            Text(mode.title).tag(mode)
                         }
                     }
-                    .pickerStyle(.segmented)
+                    .pickerStyle(.menu)
+                    .disabled(coordinator.selectedAudio == nil)
+                    Label(
+                        coordinator.audioOutputMode.explanation,
+                        systemImage: coordinator.audioOutputMode == .original
+                            ? "checkmark.circle"
+                            : "arrow.triangle.2.circlepath"
+                    )
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                     HStack {
                         Stepper(value: $coordinator.audioDelay, in: -5...5, step: 0.05) {
                             Text(L10n.format("Sincronía: %@ s", signed(coordinator.audioDelay)))
@@ -1144,6 +1154,14 @@ struct TrackSettingsView: View {
                         Label("Añadir SRT, ASS o VTT…", systemImage: "plus")
                     }
                     .buttonStyle(.link)
+
+                    Button {
+                        showingOpenSubtitles = true
+                    } label: {
+                        Label("Buscar en OpenSubtitles…", systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.link)
+                    .disabled(coordinator.selectedURL == nil)
 
                     if let reason = coordinator.selectedSubtitle?.unsupportedReason {
                         Label(L10n.text(reason), systemImage: "exclamationmark.triangle.fill")
@@ -1189,7 +1207,7 @@ struct TrackSettingsView: View {
             HStack {
                 Spacer()
                 Button("Cancelar") { isPresented = false }
-                Button("Aplicar pistas") {
+                Button("Aplicar cambios") {
                     isPresented = false
                     coordinator.applyTrackSettings()
                 }
@@ -1198,10 +1216,30 @@ struct TrackSettingsView: View {
         }
         .padding(18)
         .frame(width: 620)
+        .sheet(isPresented: $showingOpenSubtitles) {
+            if let videoURL = coordinator.selectedURL {
+                OpenSubtitlesSearchView(
+                    videoURL: videoURL,
+                    preferredLanguage: coordinator.preferredSubtitleLanguage
+                ) { url in
+                    coordinator.attachExternalSubtitle(url)
+                }
+            }
+        }
     }
 
     private func signed(_ value: Double) -> String {
         String(format: "%+.2f", value)
+    }
+
+    private var selectedAudio: Binding<String?> {
+        Binding(
+            get: { coordinator.selectedAudioID },
+            set: { identifier in
+                coordinator.selectedAudioID = identifier
+                coordinator.audioOutputMode = .original
+            }
+        )
     }
 }
 
@@ -1458,7 +1496,7 @@ extension Color {
 }
 
 extension String {
-    fileprivate var softWrappedFilename: String {
+    var softWrappedFilename: String {
         replacingOccurrences(of: ".", with: ".\u{200B}")
             .replacingOccurrences(of: "-", with: "-\u{200B}")
             .replacingOccurrences(of: "_", with: "_\u{200B}")
