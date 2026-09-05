@@ -71,6 +71,12 @@ compile_and_run pairing-lifecycle \
 compile_and_run authorization-preflight \
   "$project_dir/Sources/PlaybackAuthorizationPreflight.swift" \
   "$project_dir/Tests/PlaybackAuthorizationPreflightSmokeTest.swift"
+compile_and_run seek-reconciliation \
+  "$project_dir/Sources/AirPlaySeekReconciliation.swift" \
+  "$project_dir/Tests/AirPlaySeekReconciliationSmokeTest.swift"
+compile_and_run helper-command-writer \
+  "$project_dir/Sources/HelperCommandWriter.swift" \
+  "$project_dir/Tests/HelperCommandWriterSmokeTest.swift"
 compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"

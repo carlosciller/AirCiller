@@ -6,6 +6,8 @@ Changes you can see or use. The [testing record](TESTING.md) keeps engineering a
 
 ### Fixed
 
+- Rapid forward and backward skips keep the intended destination when replies arrive late.
+- Fixed an unexpected quit at the end of a movie when the AirPlay connection had already closed.
 - Stop cancels pending authorization and prevents delayed replies from starting a movie again.
 - A Keychain access error is no longer treated as a missing Apple TV code.
 - Cancel in the tracks panel leaves the active audio and subtitle choices unchanged.

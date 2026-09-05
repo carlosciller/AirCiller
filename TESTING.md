@@ -142,4 +142,18 @@ The HLS/WebVTT sample passed packaging, duration and subtitle-group checks, but 
 
 The empty window, library picker, non-playing Recents selection and loaded controls were inspected. Changing audio output and cancelling preserved the original selection when the tracks panel reopened. Applying temporary audio (+0.05 s) and subtitle (-0.10 s) delays preserved both values on reopening, without starting playback; Reset and Apply restored both to zero. The final preview corners and control layout were also inspected. GitHub CI passed for `d005f58` on both push and pull-request runs.
 
-The physical matrix remains pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.
+On 5 September, the user confirmed picture, original E-AC-3 5.1 audio, selectable English subtitles and remote pause/resume on the physical Apple TV for the direct Dolby Vision Profile 8.1 candidate. Stop returned the app to idle. A separate Stop during HLS preparation also returned to idle; a process check found no remaining FFmpeg process, and explicit Play started a fresh preparation.
+
+The user then confirmed picture, original E-AC-3 5.1 audio and selectable English WebVTT subtitles on the physical Apple TV for the HLS/fMP4 candidate. The app reported no buffer waits during the observed sample. A peak-demand warning remained visible; the sample does not establish adequate network capacity for the whole movie.
+
+The user also confirmed picture and original audio with HLS subtitles disabled. Applying the change resumed at the existing playback position; subtitles were absent as expected.
+
+The candidate remained connected during a pause of about six minutes with its own automatic-sleep assertion active. The user confirmed picture and sound after resuming without authorization. One additional buffer wait was recorded on resume.
+
+A rapid +10, +10, -10, -10 sequence then exposed stale replies changing the base of a later skip. The follow-up fix correlates each helper reply with its local request and bounds position reconciliation. Deterministic tests cover interleaved old replies and status reports, duplicate acknowledgements, timeouts and session reset. The Python simulation verifies that seek replies retain their request IDs without changing the AirPlay command payload.
+
+The original picture/audio confirmations above apply to `d005f58`. After the follow-up correction, the full local suite passed again. A +10, +10, -10, -10 sequence returned to the intended position on both HLS and direct Dolby Vision, with matching acknowledgements from the physical receiver. Pause/resume remained linked, and the sequence was also repeated while Dolby Vision was playing. These checks used the Mac's controls; rapid commands from the physical remotes remain separate.
+
+Natural completion exposed a SIGPIPE exit immediately after the receiver's `ended` event. Cleanup sent Stop into a closed helper pipe. A subprocess regression now reproduces signal 13 using the unprotected write and verifies that the protected writer reports EPIPE without terminating the app. The writer applies to playback and pairing commands without changing process-wide signal handling. Terminal and repeated Stop calls no longer resend the shutdown command.
+
+The full local suite passed after the seek and closed-pipe corrections. The Mac was locked when the physical completion retest was about to start; natural completion must still be repeated. Authorization cancellation and rapid commands from the physical remotes also remain pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.

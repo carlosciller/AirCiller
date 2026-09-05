@@ -964,7 +964,11 @@ async def playback_loop(
                 if name == "seek":
                     position = float(command.get("position", 0.0))
                     await send_seek(rtsp, stream_protocol, is_v2, position)
-                    emit("seeked", position=position, source="command")
+                    # Correlation is local to the Mac bridge, not an AirPlay field.
+                    emit(
+                        "seeked", position=position, source="command",
+                        requestID=command.get("requestID"),
+                    )
                     continue
     finally:
         pending_line.cancel()

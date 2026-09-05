@@ -7,6 +7,8 @@ The latest published release is [0.12.0](https://github.com/carlosciller/AirCill
 ## In progress: stability review
 
 - Cancel pending authorization when Stop is pressed and ignore replies from old sessions.
+- Keep rapid relative skips consistent when earlier seek replies or receiver positions arrive late.
+- Handle a closed AirPlay control channel without quitting; recheck the automatic transition to the next movie.
 - Distinguish an unavailable Keychain from a missing Apple TV credential.
 - Commit track edits only when Apply is pressed.
 - Make Recents selection consistent with Playlist and simplify playback controls using system materials and colors.

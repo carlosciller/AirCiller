@@ -12,6 +12,8 @@ This is a release-candidate review, not a claim that the application has no rema
 | Authorization | A delayed Keychain or authorization response could continue after Stop | One cancellable preflight owns the request; replacement and late-result tests |
 | Credentials | Keychain errors were indistinguishable from missing credentials | Propagate read failures; test missing, unavailable and serialized access separately |
 | Session lifetime | Old player callbacks and queued helper events could affect a stopped or replacement session | Check session and player-item identity; cancel pending start and pairing on Stop |
+| Rapid seeking | Late seek replies and position reports could become the base of the next relative skip | Correlate each local helper reply with its request; bound position reconciliation; test interleaved replies, expiry and session reset |
+| Helper shutdown | Natural completion could send Stop into a closed pipe and terminate the app with SIGPIPE | Skip redundant terminal commands; protect playback and pairing writes per descriptor; reproduce the unprotected signal and test recovery in subprocesses |
 | Track editing | Changing a picker mutated active choices before Apply | Draft settings are committed on Apply; Cancel leaves playback choices alone |
 | Online subtitles | Size checks happened after downloading the response | Bound JSON and subtitle bytes while reading, including unknown Content-Length; test cancellation and oversize responses |
 | Search results | Duplicate IDs and extreme ratings could break result presentation | Deduplicate IDs and bound ranking input; synthetic API-response tests |
@@ -44,7 +46,16 @@ The README now leads with use and setup, and links to an explicit compatibility 
 - A 60-second HLS/WebVTT sample passed packaging, duration and legible-track checks. Local AVPlayer playback failed with AVFoundation -11848 / CoreMedia -15516. Repeating with the published base produced the same error and byte-for-byte identical prepared files. This does not establish a new candidate regression, but local decoding is not a passed gate.
 - The empty window, native library picker, non-playing Recents keyboard selection and loaded controls were inspected. Changing audio output and cancelling restored the original choice when the panel reopened. Applying +0.05 seconds of audio delay and -0.10 seconds of subtitle delay persisted both values when the panel reopened, without starting playback. Resetting and applying restored both to zero. The final preview corners and control layout were inspected in the built candidate.
 - GitHub CI passed for commit `d005f58` on both push and pull-request runs. See the candidate pull request for subsequent results.
-- Physical Apple TV playback is pending. Previous 0.12.0 results do not validate this candidate.
+- The user confirmed picture, original E-AC-3 5.1 audio, selectable English subtitles and remote pause/resume on the physical Apple TV with the direct Dolby Vision Profile 8.1 candidate. Stop returned the app to its idle state.
+- Stop during HLS preparation returned to idle and a process check found no remaining FFmpeg process. A fresh preparation then started on an explicit Play request.
+- The user confirmed picture, original E-AC-3 5.1 audio and selectable English WebVTT subtitles on the physical Apple TV for the HLS/fMP4 candidate. The app reported no buffer waits during the observed sample, despite a peak-demand warning; this is not a whole-movie network guarantee.
+- The user also confirmed picture and original audio with HLS subtitles disabled. Applying this change resumed from the existing playback position, and the user confirmed subtitles were absent.
+- The same candidate remained connected during a pause of about six minutes, retained its own automatic-sleep assertion and resumed without authorization. The user confirmed picture and sound after resuming. One additional buffer wait was recorded on resume.
+- A rapid +10, +10, -10, -10 sequence exposed a position-reconciliation bug: all four commands were accepted, but stale feedback changed the base of a later skip. After the follow-up correction, the same sequence returned to the intended position on both HLS and direct Dolby Vision, with matching receiver acknowledgements. Pause/resume remained linked; the sequence was also repeated while Dolby Vision was playing. The original picture/audio confirmations above apply to `d005f58`; these seek checks used the corrected build.
+- The full `Scripts/check.sh` suite passed again after the seek correction, including request-correlation and delayed-feedback regressions.
+- The natural-completion check exposed an app exit immediately after the receiver's `ended` event. macOS recorded signal 13 (SIGPIPE). Cleanup tried to write Stop after the helper had closed its input. The regression test reproduces signal 13 with the old write and confirms a recoverable broken-pipe error with the protected writer. Natural completion must be repeated after this correction.
+- The complete `Scripts/check.sh` suite passed after both follow-up corrections. The physical completion retest was then blocked by the locked Mac; the installed app was not replaced.
+- Rapid commands from the physical remotes and authorization cancellation remain pending. Previous 0.12.0 results do not validate these cases for this candidate.
 
 The direct and HLS packaging command builders and pinned engines are unchanged. Shared lifecycle changes still require both playback paths to be checked on the receiver.
 
@@ -56,5 +67,6 @@ The direct and HLS packaging command builders and pinned engines are unchanged. 
 - Title and artwork on the iPhone Lock Screen remain unreliable.
 - Dependency proposals require a regenerated lock and engine validation; none were merged in this review.
 - No Developer ID or notarization is claimed.
+- While a local seek settles, an unrelated remote position can be deferred for up to two seconds after acknowledgement. Play/pause state continues to update; reconciliation expires after ten seconds if no acknowledgement arrives.
 
 This review covers application state, authorization and processes, HTTP delivery, metadata and subtitle boundaries, storage, UI, dependencies and distribution. It does not certify third-party codec internals or every tvOS/device combination.

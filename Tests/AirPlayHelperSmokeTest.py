@@ -247,7 +247,8 @@ async def test_playback_loop_uses_events_not_playback_info():
     reader.feed_data(
         b'{"command":"pause"}\n'
         b'{"command":"resume"}\n'
-        b'{"command":"seek","position":42.5}\n'
+        b'{"command":"seek","position":42.5,"requestID":"seek-one"}\n'
+        b'{"command":"seek","position":32.5,"requestID":"seek-two"}\n'
         b'{"command":"stop"}\n'
     )
 
@@ -256,7 +257,7 @@ async def test_playback_loop_uses_events_not_playback_info():
         await HELPER.playback_loop(rtsp, protocol, True, reader)
 
     assert protocol.rates == [0.0, 1.0]
-    assert protocol.seeks == [42.5]
+    assert protocol.seeks == [42.5, 32.5]
     assert protocol.stop_calls == 1
     assert protocol.did_teardown
     assert ("GET", "/playback-info") not in rtsp.connection.requests
@@ -264,6 +265,11 @@ async def test_playback_loop_uses_events_not_playback_info():
     assert '"event": "paused", "source": "command"' in output.getvalue()
     assert '"event": "resumed", "source": "command"' in output.getvalue()
     assert '"event": "seeked", "position": 42.5, "source": "command"' in output.getvalue()
+    replies = [json.loads(line) for line in output.getvalue().splitlines()]
+    seek_replies = [reply for reply in replies if reply["event"] == "seeked"]
+    assert [(reply["requestID"], reply["position"]) for reply in seek_replies] == [
+        ("seek-one", 42.5), ("seek-two", 32.5)
+    ]
 
 
 async def test_receiver_end_event():
