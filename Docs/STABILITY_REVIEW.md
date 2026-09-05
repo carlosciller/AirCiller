@@ -57,9 +57,9 @@ The README now leads with use and setup, and links to an explicit compatibility 
 - The complete `Scripts/check.sh` suite passed after both follow-up corrections. Physical completion was then repeated on `6a46dbe`: direct Dolby Vision ended and started the next HLS item once; HLS ended as the final Playlist item and returned to idle. The receiver reported both natural ends. The app retained the same process throughout, and closing it afterwards released that process and its sleep assertion. The original Playlist order was restored.
 - These follow-up checks verify receiver events and application lifecycle. The earlier user-confirmed picture, audio and subtitle checks remain separately identified above.
 - On a fresh launch, Stop was pressed while the UI showed the initial authorization check. The candidate remained idle afterwards and no bundled helper remained running. An explicit Play started preparation again without deleting credentials or renewing pairing. This checks the preflight cancellation boundary, not cancellation of a newly displayed PIN-pairing dialog.
-- Rapid commands from the physical remotes remain pending. Previous 0.12.0 results do not validate these cases for this candidate.
+- The user then confirmed picture, sound and selectable subtitles on the corrected direct Dolby Vision candidate, together with repeated pause/resume and forward/backward commands from the physical Apple TV and iPhone remotes. AirCiller remained synchronized and connected. This closes the planned physical checks for this review; it is not a claim about every file or device.
 
-The direct and HLS packaging command builders and pinned engines are unchanged. Shared lifecycle changes still require both playback paths to be checked on the receiver.
+The direct and HLS packaging command builders and pinned engines are unchanged. Both paths were checked separately on the receiver. Versioning, release packaging, signed-update verification and publication remain separate distribution steps; the installed app is unchanged.
 
 ## Remaining risks
 

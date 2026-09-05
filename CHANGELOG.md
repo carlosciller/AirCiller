@@ -22,7 +22,7 @@ Changes you can see or use. The [testing record](TESTING.md) keeps engineering a
 - Faster ASS subtitle conversion and more efficient capture of helper output.
 - Removed the obsolete component downloader. Playback engines remain bundled with the app.
 
-This candidate still needs physical Apple TV validation. It is not available through the stable update feed.
+The planned physical Apple TV checks are complete. This candidate has not been published to the stable update feed.
 
 ## 0.12.0 (3 September 2026)
 

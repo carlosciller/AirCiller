@@ -165,4 +165,6 @@ The full local suite and both GitHub CI runs passed for the follow-up code in `6
 
 On a fresh launch, Stop was pressed while the UI displayed the initial authorization check. The app remained idle afterwards and no bundled helper process remained. An explicit Play started preparation again without deleting credentials or renewing pairing. This validates the preflight cancellation boundary, not cancellation of a new PIN-pairing dialog.
 
-These follow-up checks establish receiver acknowledgements and application lifecycle; the earlier user-confirmed picture, sound and subtitle results are recorded separately. Rapid commands from the physical remotes remain pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.
+These follow-up checks establish receiver acknowledgements and application lifecycle; the earlier user-confirmed picture, sound and subtitle results are recorded separately.
+
+The user subsequently confirmed picture, sound and selectable subtitles on the corrected direct Dolby Vision candidate, and repeated pause/resume plus forward/backward commands from both the physical Apple TV remote and iPhone Remote. AirCiller remained synchronized and connected. The planned physical checks for this review are complete. Versioning, packaging, signed-update verification and publication remain separate steps. See [the review record](Docs/STABILITY_REVIEW.md) for evidence and remaining limitations. The installed app and stable feed are unchanged.
