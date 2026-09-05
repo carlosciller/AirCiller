@@ -2,28 +2,9 @@
 
 AirCiller should remain quick to open, straightforward to control and dependable through a whole movie. This is the order of work, not a release schedule.
 
-The latest published release is [0.12.0](https://github.com/carlosciller/AirCiller/releases/tag/v0.12.0). OpenSubtitles, keyboard Playlist reordering, local PGS/VobSub OCR, language preferences and bundled engines are already available.
+The 0.12.1 stability release covers playback controls, authorization, track editing and malformed data. OpenSubtitles, keyboard Playlist reordering, local PGS/VobSub OCR, language preferences and bundled engines are already available.
 
-## Validated: stability candidate
-
-- Cancel pending authorization when Stop is pressed and ignore replies from old sessions.
-- Keep rapid relative skips consistent when earlier seek replies or receiver positions arrive late.
-- Handle a closed AirPlay control channel without quitting, including the automatic transition to the next movie.
-- Distinguish an unavailable Keychain from a missing Apple TV credential.
-- Commit track edits only when Apply is pressed.
-- Make Recents selection consistent with Playlist and simplify playback controls using system materials and colors.
-- Limit online subtitle responses during download; handle invalid timing and result data safely.
-- Remove the unused runtime installer while retaining reproducible engine build tools.
-- Integrate the measured ASS conversion and process-buffer improvements and their regression tests.
-
-[The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. The candidate is not yet published.
-
-### Before release
-
-1. Assign the patch version and write the final release notes.
-2. Build and package the release; require the final local checks and GitHub CI to pass.
-3. Verify the signed archive, appcast and download URLs before distributing the update.
-4. Publish and install only with authorization. Keep the working installed app and a rollback copy.
+[The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. Release and signing steps are documented in [Distribution](DISTRIBUTION.md); user-facing changes are in the [release notes](CHANGELOG.md).
 
 ## Next: small compatibility additions
 

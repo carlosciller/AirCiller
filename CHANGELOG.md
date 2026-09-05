@@ -2,7 +2,7 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
-## Unreleased
+## 0.12.1 (5 September 2026)
 
 ### Fixed
 
@@ -19,10 +19,7 @@ Changes you can see or use. The [testing record](TESTING.md) keeps engineering a
 
 - Simpler playback controls, system colors and materials, and a clearer empty window.
 - Select an item in Recents without interrupting the current movie; use Return or double-click to play it.
-- Faster ASS subtitle conversion and more efficient capture of helper output.
-- Removed the obsolete component downloader. Playback engines remain bundled with the app.
-
-The planned physical Apple TV checks are complete. This candidate has not been published to the stable update feed.
+- Faster ASS subtitle conversion.
 
 ## 0.12.0 (3 September 2026)
 

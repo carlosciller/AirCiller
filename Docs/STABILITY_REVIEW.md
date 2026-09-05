@@ -2,7 +2,7 @@
 
 Review date: 5 September 2026. Base: published 0.12.0. Working branch: `stability/0.12.1`.
 
-This is a release-candidate review, not a claim that the application has no remaining bugs. The installed release, original media, dependency lock and signed update feed have not been replaced.
+This records the review leading to 0.12.1, not a claim that the application has no remaining bugs. The original media, dependency lock and daily-use installed app were preserved throughout validation.
 
 ## Findings and changes
 
@@ -59,7 +59,7 @@ The README now leads with use and setup, and links to an explicit compatibility 
 - On a fresh launch, Stop was pressed while the UI showed the initial authorization check. The candidate remained idle afterwards and no bundled helper remained running. An explicit Play started preparation again without deleting credentials or renewing pairing. This checks the preflight cancellation boundary, not cancellation of a newly displayed PIN-pairing dialog.
 - The user then confirmed picture, sound and selectable subtitles on the corrected direct Dolby Vision candidate, together with repeated pause/resume and forward/backward commands from the physical Apple TV and iPhone remotes. AirCiller remained synchronized and connected. This closes the planned physical checks for this review; it is not a claim about every file or device.
 
-The direct and HLS packaging command builders and pinned engines are unchanged. Both paths were checked separately on the receiver. Versioning, release packaging, signed-update verification and publication remain separate distribution steps; the installed app is unchanged.
+The direct and HLS packaging command builders and pinned engines are unchanged. Both paths were checked separately on the receiver. After acceptance, version 0.12.1 (build 54) passed the complete local suite again. Playback source and locked dependencies match the physically tested code in `6a46dbe`. Packaging and signed-update verification are separate distribution checks; the daily-use installed app is unchanged.
 
 ## Remaining risks
 
