@@ -156,4 +156,13 @@ The original picture/audio confirmations above apply to `d005f58`. After the fol
 
 Natural completion exposed a SIGPIPE exit immediately after the receiver's `ended` event. Cleanup sent Stop into a closed helper pipe. A subprocess regression now reproduces signal 13 using the unprotected write and verifies that the protected writer reports EPIPE without terminating the app. The writer applies to playback and pairing commands without changing process-wide signal handling. Terminal and repeated Stop calls no longer resend the shutdown command.
 
-The full local suite passed after the seek and closed-pipe corrections. The Mac was locked when the physical completion retest was about to start; natural completion must still be repeated. Authorization cancellation and rapid commands from the physical remotes also remain pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.
+The full local suite and both GitHub CI runs passed for the follow-up code in `6a46dbe`. After unlocking the Mac, the physical completion check was repeated:
+
+- Direct Dolby Vision reached its natural end; the next HLS item started once and the receiver confirmed playback.
+- HLS reached its natural end as the final Playlist item and returned to idle without starting another session.
+- The same app process remained alive across both completions. Closing the candidate afterwards released its process and sleep assertion.
+- Temporary Playlist changes were reverted to the original order.
+
+On a fresh launch, Stop was pressed while the UI displayed the initial authorization check. The app remained idle afterwards and no bundled helper process remained. An explicit Play started preparation again without deleting credentials or renewing pairing. This validates the preflight cancellation boundary, not cancellation of a new PIN-pairing dialog.
+
+These follow-up checks establish receiver acknowledgements and application lifecycle; the earlier user-confirmed picture, sound and subtitle results are recorded separately. Rapid commands from the physical remotes remain pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.
