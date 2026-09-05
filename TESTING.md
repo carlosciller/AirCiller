@@ -140,4 +140,6 @@ The candidate's bundled FFmpeg and Python imports were checked directly. A 60-se
 
 The HLS/WebVTT sample passed packaging, duration and subtitle-group checks, but the local AVPlayer playback test returned AVFoundation -11848 / CoreMedia -15516. The unmodified published base returned the same error in this environment and produced byte-for-byte identical output. Do not describe local HLS decoding as passed or infer physical Apple TV playback from these results.
 
-The empty window, library picker, non-playing Recents selection and loaded controls were inspected. Changing audio output and cancelling preserved the original selection when the tracks panel reopened. The Mac locked before the final Apply/reset check completed. That check, the final preview-corner adjustment and the full physical matrix remain pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.
+The empty window, library picker, non-playing Recents selection and loaded controls were inspected. Changing audio output and cancelling preserved the original selection when the tracks panel reopened. Applying temporary audio (+0.05 s) and subtitle (-0.10 s) delays preserved both values on reopening, without starting playback; Reset and Apply restored both to zero. The final preview corners and control layout were also inspected. GitHub CI passed for `d005f58` on both push and pull-request runs.
+
+The physical matrix remains pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.

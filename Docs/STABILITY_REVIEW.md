@@ -42,8 +42,8 @@ The README now leads with use and setup, and links to an explicit compatibility 
 - FFmpeg 9.0.1 and the Python AirPlay imports were verified from inside the candidate bundle.
 - A 60-second direct Dolby Vision sample retained original E-AC-3 audio and selectable text subtitles, and passed AVFoundation asset checks.
 - A 60-second HLS/WebVTT sample passed packaging, duration and legible-track checks. Local AVPlayer playback failed with AVFoundation -11848 / CoreMedia -15516. Repeating with the published base produced the same error and byte-for-byte identical prepared files. This does not establish a new candidate regression, but local decoding is not a passed gate.
-- The empty window, native library picker, non-playing Recents keyboard selection and loaded controls were inspected. Changing audio output and cancelling restored the original choice when the panel reopened. The final Apply/reset check was interrupted when the Mac locked, so it remains pending. A corner-clipping defect in the loaded preview was corrected; its final visual check is also pending.
-- Current-branch GitHub CI must pass before release; see the candidate pull request for the current result.
+- The empty window, native library picker, non-playing Recents keyboard selection and loaded controls were inspected. Changing audio output and cancelling restored the original choice when the panel reopened. Applying +0.05 seconds of audio delay and -0.10 seconds of subtitle delay persisted both values when the panel reopened, without starting playback. Resetting and applying restored both to zero. The final preview corners and control layout were inspected in the built candidate.
+- GitHub CI passed for commit `d005f58` on both push and pull-request runs. See the candidate pull request for subsequent results.
 - Physical Apple TV playback is pending. Previous 0.12.0 results do not validate this candidate.
 
 The direct and HLS packaging command builders and pinned engines are unchanged. Shared lifecycle changes still require both playback paths to be checked on the receiver.
