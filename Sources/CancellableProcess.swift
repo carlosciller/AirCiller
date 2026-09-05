@@ -40,14 +40,15 @@ final class CancellableProcess: @unchecked Sendable {
     /// Observes a process that was started synchronously so callers can keep
     /// reading progress while retaining structured cancellation.
     func waitForExit() async throws -> Int32 {
-        try Task.checkCancellation()
-        guard process.isRunning else { return process.terminationStatus }
+        // Even a task cancelled before this method starts still owns the
+        // already-running process. Install cancellation before checking it.
         let waiter = ProcessExitWaiter()
 
         return try await withTaskCancellationHandler {
             process.terminationHandler = { process in
                 Task { await waiter.finish(.success(process.terminationStatus)) }
             }
+            if Task.isCancelled { terminate() }
             if !process.isRunning {
                 await waiter.finish(.success(process.terminationStatus))
             }

@@ -31,22 +31,24 @@ struct MediaDemandAnalysis: Sendable {
         var streamIndices = [videoStreamIndex]
         if let audioStreamIndex { streamIndices.append(audioStreamIndex) }
 
-        let totalBytes = streamIndices.reduce(Int64(0)) {
-            $0 + (totalBytesByStream[$1] ?? 0)
+        let totalBytes = streamIndices.reduce(0.0) {
+            $0 + Double(totalBytesByStream[$1] ?? 0)
         }
-        guard duration > 0, totalBytes > 0 else { return nil }
+        guard duration.isFinite, duration > 0, windowDuration.isFinite, windowDuration > 0,
+            totalBytes > 0
+        else { return nil }
 
-        let largestWindow =
-            streamIndices
-            .compactMap { bytesByStreamAndWindow[$0]?.keys.max() }
-            .max() ?? 0
+        // A damaged timestamp must not turn a sparse packet map into billions
+        // of empty iterations on the main actor.
+        let windows = Set(streamIndices.flatMap { Array(bytesByStreamAndWindow[$0]?.keys ?? [:].keys) })
         var peak = 0.0
         var peakTime = 0.0
-        for window in 0...largestWindow {
-            let bytes = streamIndices.reduce(Int64(0)) {
-                $0 + (bytesByStreamAndWindow[$1]?[window] ?? 0)
+        for window in windows.sorted() where window >= 0 {
+            let bytes = streamIndices.reduce(0.0) {
+                $0 + Double(bytesByStreamAndWindow[$1]?[window] ?? 0)
             }
             let start = Double(window) * windowDuration
+            guard start < duration else { continue }
             let measuredDuration = min(windowDuration, max(0.001, duration - start))
             let rate = Double(bytes) * 8 / measuredDuration
             if rate > peak {
@@ -215,7 +217,7 @@ enum StreamDemandAnalyzer {
     }
 }
 
-private final class PacketDemandAccumulator: @unchecked Sendable {
+final class PacketDemandAccumulator: @unchecked Sendable {
     private let lock = NSLock()
     private let duration: Double
     private let windowDuration: Double
@@ -261,10 +263,16 @@ private final class PacketDemandAccumulator: @unchecked Sendable {
             let size = Int64(columns[3])
         else { return }
         let presentationTime = Double(columns[1]) ?? Double(columns[2])
-        guard let presentationTime, presentationTime.isFinite, presentationTime >= 0 else { return }
-        let window = Int(floor(presentationTime / windowDuration))
-        bytesByStreamAndWindow[streamIndex, default: [:]][window, default: 0] += size
-        totalBytesByStream[streamIndex, default: 0] += size
+        guard let presentationTime, presentationTime.isFinite, presentationTime >= 0,
+            size >= 0, streamIndex >= 0,
+            let window = Int(exactly: floor(presentationTime / windowDuration))
+        else { return }
+        let (windowBytes, windowOverflow) = (bytesByStreamAndWindow[streamIndex]?[window] ?? 0)
+            .addingReportingOverflow(size)
+        let (totalBytes, totalOverflow) = (totalBytesByStream[streamIndex] ?? 0).addingReportingOverflow(size)
+        guard !windowOverflow, !totalOverflow else { return }
+        bytesByStreamAndWindow[streamIndex, default: [:]][window] = windowBytes
+        totalBytesByStream[streamIndex] = totalBytes
     }
 }
 

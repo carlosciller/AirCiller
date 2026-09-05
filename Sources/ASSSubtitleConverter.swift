@@ -6,6 +6,35 @@ struct ASSSubtitleConversion: Equatable, Sendable {
 }
 
 enum ASSSubtitleConverter {
+    // Fixed patterns are shared across cues and concurrent conversions.
+    private static let modernAlignmentExpression = try! NSRegularExpression(
+        pattern: #"\\an([1-9])"#, options: [.caseInsensitive]
+    )
+    private static let legacyAlignmentExpression = try! NSRegularExpression(
+        pattern: #"\\a(1|2|3|5|6|7|9|10|11)(?:\\|\})"#, options: [.caseInsensitive]
+    )
+    private static let positionExpression = try! NSRegularExpression(
+        pattern: #"\\pos\(\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\)"#, options: [.caseInsensitive]
+    )
+    private static let simplifiedEffectExpression = try! NSRegularExpression(
+        pattern: #"\\(?:k|kf|ko|t|frx|fry|frz|fax|fay|clip|iclip|org|fad|fade|p)\b"#, options: [.caseInsensitive]
+    )
+    private static let moveExpression = try! NSRegularExpression(
+        pattern: #"\\move\(\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)"#, options: [.caseInsensitive]
+    )
+    private static let tagNameExpression = try! NSRegularExpression(
+        pattern: #"\\([A-Za-z]+)"#
+    )
+    private static let resetExpression = try! NSRegularExpression(
+        pattern: #"\\r(?:[^\\}]*)"#, options: [.caseInsensitive]
+    )
+    private static let inlineStyleExpression = try! NSRegularExpression(
+        pattern: #"\\([ibu])(-?[0-9]+)"#, options: [.caseInsensitive]
+    )
+    private static let drawingExpression = try! NSRegularExpression(
+        pattern: #"\\p([0-9]+)"#, options: [.caseInsensitive]
+    )
+
     static func convert(_ source: String) -> ASSSubtitleConversion {
         let normalized =
             source
@@ -192,20 +221,17 @@ enum ASSSubtitleConverter {
 
     private static func layoutOverride(in text: String) -> LayoutOverride {
         let modernOverride = captures(
-            pattern: #"\\an([1-9])"#,
-            in: text,
-            caseInsensitive: true
+            modernAlignmentExpression,
+            in: text
         ).first?.first.flatMap(Int.init)
         let legacyOverride = captures(
-            pattern: #"\\a(1|2|3|5|6|7|9|10|11)(?:\\|})"#,
-            in: text,
-            caseInsensitive: true
+            legacyAlignmentExpression,
+            in: text
         ).first?.first.flatMap(Int.init).map(modernAlignment(fromLegacy:))
         let alignment = modernOverride ?? legacyOverride
         let positionCaptures = captures(
-            pattern: #"\\pos\(\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)\s*\)"#,
-            in: text,
-            caseInsensitive: true
+            positionExpression,
+            in: text
         ).first
         var position: (x: Double, y: Double)?
         if let positionCaptures,
@@ -217,15 +243,13 @@ enum ASSSubtitleConverter {
         }
 
         var simplified = regex(
-            #"\\(?:k|kf|ko|t|frx|fry|frz|fax|fay|clip|iclip|org|fad|fade|p)\b"#,
-            matches: text,
-            caseInsensitive: true
+            simplifiedEffectExpression,
+            matches: text
         )
         if position == nil,
             let move = captures(
-                pattern: #"\\move\(\s*(-?[0-9.]+)\s*,\s*(-?[0-9.]+)"#,
-                in: text,
-                caseInsensitive: true
+                moveExpression,
+                in: text
             ).first,
             move.count == 2,
             let x = Double(move[0]),
@@ -250,7 +274,7 @@ enum ASSSubtitleConverter {
             let blockStart = source.index(after: open)
             let block = String(source[blockStart..<close])
             updateInlineStyle(&state, from: block, base: style)
-            let tagNames = captures(pattern: #"\\([A-Za-z]+)"#, in: block).flatMap { $0 }
+            let tagNames = captures(tagNameExpression, in: block).flatMap { $0 }
             if tagNames.contains(where: { !["an", "pos", "i", "b", "u", "r"].contains($0.lowercased()) }) {
                 simplified = true
             }
@@ -261,16 +285,15 @@ enum ASSSubtitleConverter {
     }
 
     private static func updateInlineStyle(_ state: inout InlineStyle, from block: String, base: ASSStyle) {
-        if regex(#"\\r(?:[^\\}]*)"#, matches: block, caseInsensitive: true) {
+        if regex(resetExpression, matches: block) {
             state.bold = base.bold
             state.italic = base.italic
             state.underline = base.underline
             state.drawing = false
         }
         for values in captures(
-            pattern: #"\\([ibu])(-?[0-9]+)"#,
-            in: block,
-            caseInsensitive: true
+            inlineStyleExpression,
+            in: block
         ) where values.count == 2 {
             let enabled = (Int(values[1]) ?? 0) != 0
             switch values[0].lowercased() {
@@ -281,9 +304,8 @@ enum ASSSubtitleConverter {
             }
         }
         if let drawing = captures(
-            pattern: #"\\p([0-9]+)"#,
-            in: block,
-            caseInsensitive: true
+            drawingExpression,
+            in: block
         ).last?.first.flatMap(Int.init) {
             state.drawing = drawing > 0
         }
@@ -344,7 +366,11 @@ enum ASSSubtitleConverter {
             let minutes = Double(fields[1]),
             let seconds = Double(fields[2])
         else { return nil }
-        return hours * 3600 + minutes * 60 + seconds
+        let result = hours * 3600 + minutes * 60 + seconds
+        guard hours >= 0, minutes >= 0, minutes < 60, seconds >= 0, seconds < 60,
+            result.isFinite, Int(exactly: (result * 1000).rounded()) != nil
+        else { return nil }
+        return result
     }
 
     private static func vttTimestamp(_ seconds: Double) -> String {
@@ -423,19 +449,14 @@ enum ASSSubtitleConverter {
         return String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
     }
 
-    private static func regex(_ pattern: String, matches text: String, caseInsensitive: Bool = false) -> Bool {
-        let options: NSRegularExpression.Options = caseInsensitive ? [.caseInsensitive] : []
-        guard let expression = try? NSRegularExpression(pattern: pattern, options: options) else { return false }
+    private static func regex(_ expression: NSRegularExpression, matches text: String) -> Bool {
         return expression.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
 
     private static func captures(
-        pattern: String,
-        in text: String,
-        caseInsensitive: Bool = false
+        _ expression: NSRegularExpression,
+        in text: String
     ) -> [[String]] {
-        let options: NSRegularExpression.Options = caseInsensitive ? [.caseInsensitive] : []
-        guard let expression = try? NSRegularExpression(pattern: pattern, options: options) else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return expression.matches(in: text, range: range).map { match in
             (1..<match.numberOfRanges).compactMap { index in

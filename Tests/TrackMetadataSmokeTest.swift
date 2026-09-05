@@ -3,6 +3,14 @@ import Foundation
 @main
 struct TrackMetadataSmokeTest {
     static func main() throws {
+        for time in [Double.nan, Double.infinity, Double.greatestFiniteMagnitude, Double(Int.max), -1] {
+            guard TimeFormatting.duration(time) == "--:--" else {
+                throw NSError(domain: "TrackMetadataSmokeTest.InvalidTime", code: 100)
+            }
+        }
+        guard TimeFormatting.duration(3661.9) == "1:01:01" else {
+            throw NSError(domain: "TrackMetadataSmokeTest.Time", code: 101)
+        }
         let audio = AudioTrack(
             streamIndex: 1,
             codec: "eac3",

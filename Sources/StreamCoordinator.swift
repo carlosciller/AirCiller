@@ -62,8 +62,7 @@ final class StreamCoordinator {
 
     var activePreparedDirectory: URL? { temporaryDirectory }
     @ObservationIgnored private var streamTask: Task<Void, Never>?
-    @ObservationIgnored private var authorizationTask: Task<Void, Never>?
-    @ObservationIgnored private var authorizationRequestID: UUID?
+    @ObservationIgnored private let authorizationPreflight = PlaybackAuthorizationPreflight()
     @ObservationIgnored private var authorizationRetryPolicy = AirPlayAuthorizationRetryPolicy()
     @ObservationIgnored private let mediaAnalysisTasks = MediaAnalysisTasks()
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
@@ -234,6 +233,22 @@ final class StreamCoordinator {
 
     var selectedSubtitle: SubtitleTrack? {
         subtitleTracks.first(where: { $0.id == selectedSubtitleID })
+    }
+
+    var trackSettings: TrackSettings {
+        get {
+            TrackSettings(
+                audioID: selectedAudioID, subtitleID: selectedSubtitleID,
+                audioDelay: audioDelay, subtitleDelay: subtitleDelay, audioOutputMode: audioOutputMode
+            )
+        }
+        set {
+            selectedAudioID = newValue.audioID
+            selectedSubtitleID = newValue.subtitleID
+            audioDelay = newValue.audioDelay
+            subtitleDelay = newValue.subtitleDelay
+            audioOutputMode = newValue.audioOutputMode
+        }
     }
 
     var diagnosticPlaybackRoute: String {
@@ -459,8 +474,8 @@ final class StreamCoordinator {
         loadVideo(first, autoStart: false)
     }
 
-    func addExternalSubtitle() {
-        guard selectedURL != nil else { return }
+    func chooseExternalSubtitle() -> SubtitleTrack? {
+        guard selectedURL != nil else { return nil }
         let panel = NSOpenPanel()
         panel.title = L10n.text("Añadir subtítulos")
         panel.prompt = L10n.text("Añadir")
@@ -470,22 +485,20 @@ final class StreamCoordinator {
         panel.allowedContentTypes = ["srt", "ass", "ssa", "vtt"].compactMap { extensionName in
             UTType(filenameExtension: extensionName)
         }
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        attachExternalSubtitle(url)
+        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        return registerExternalSubtitle(url)
     }
 
-    func attachExternalSubtitle(_ url: URL) {
-        guard selectedURL != nil else { return }
+    func registerExternalSubtitle(_ url: URL) -> SubtitleTrack? {
+        guard selectedURL != nil else { return nil }
         let track = MediaProbeService.externalTrack(url: url)
         if !subtitleTracks.contains(where: { $0.id == track.id }) {
             subtitleTracks.append(track)
         }
-        selectedSubtitleID = track.id
-        status = "Subtítulo externo añadido"
-        detail = "Pulsa Aplicar pistas para usarlo."
+        return track
     }
 
-    func openRecent(_ item: RecentMediaItem) {
+    func playRecent(_ item: RecentMediaItem) {
         guard FileManager.default.fileExists(atPath: item.path) else {
             removeRecent(item)
             hasError = true
@@ -493,7 +506,7 @@ final class StreamCoordinator {
             detail = "Se ha retirado del historial."
             return
         }
-        loadVideo(item.url, autoStart: false)
+        loadVideo(item.url, autoStart: true)
     }
 
     func loadVideo(_ url: URL, autoStart: Bool, startingAt requestedStart: Double? = nil) {
@@ -644,13 +657,18 @@ final class StreamCoordinator {
         }
         if airPlay.isCheckingAuthorization {
             pendingStartTime = requestedTime
+            isPreparing = true
             status = "Comprobando autorización de AirPlay…"
             detail = "AirCiller continuará automáticamente cuando macOS confirme el acceso seguro."
-            Task { [weak self] in
-                guard let self else { return }
-                await self.airPlay.refreshAuthorization()
-                guard self.selectedURL == selectedURL else { return }
+            authorizationPreflight.start {
+                try await self.airPlay.refreshAuthorization()
+            } onSuccess: { [weak self] in
+                guard let self, self.selectedURL == selectedURL else { return }
+                self.isPreparing = false
                 self.continueStart(at: requestedTime)
+            } onFailure: { [weak self] error in
+                self?.isPreparing = false
+                self?.presentError(title: "No se pudo comprobar la autorización", detail: error.localizedDescription)
             }
             return
         }
@@ -683,34 +701,19 @@ final class StreamCoordinator {
             isPreparing = true
             status = "Comprobando autorización con el Apple TV…"
             detail = "La credencial se valida antes de preparar el VOD para evitar esperas y reintentos innecesarios."
-            let requestID = UUID()
-            authorizationRequestID = requestID
-            authorizationTask = Task { [weak self] in
+            authorizationPreflight.start {
+                try await self.airPlay.validateAuthorization()
+            } onSuccess: { [weak self] in
+                guard let self, self.selectedURL == selectedURL else { return }
+                self.isPreparing = false
+                self.continueStart(at: requestedTime)
+            } onFailure: { [weak self] error in
                 guard let self else { return }
-                do {
-                    try await self.airPlay.validateAuthorization()
-                    guard self.authorizationRequestID == requestID,
-                        self.selectedURL == selectedURL
-                    else { return }
-                    self.authorizationTask = nil
-                    self.authorizationRequestID = nil
-                    self.isPreparing = false
-                    self.continueStart(at: requestedTime)
-                } catch is CancellationError {
+                self.isPreparing = false
+                if self.requestAuthorizationRenewalIfNeeded(error, retryAt: requestedTime) {
                     return
-                } catch {
-                    guard self.authorizationRequestID == requestID else { return }
-                    self.authorizationTask = nil
-                    self.authorizationRequestID = nil
-                    self.isPreparing = false
-                    if self.requestAuthorizationRenewalIfNeeded(error, retryAt: requestedTime) {
-                        return
-                    }
-                    self.presentError(
-                        title: "No se pudo comprobar la autorización",
-                        detail: error.localizedDescription
-                    )
                 }
+                self.presentError(title: "No se pudo comprobar la autorización", detail: error.localizedDescription)
             }
             return
         }
@@ -814,6 +817,8 @@ final class StreamCoordinator {
         streamTask?.cancel()
         streamTask = nil
         cancelAuthorizationPreflight()
+        airPlay.cancelPairing()
+        showConversionAlert = false
         player.pause()
         player.replaceCurrentItem(with: nil)
         airPlay.stop(silently: true)
@@ -830,12 +835,6 @@ final class StreamCoordinator {
                 ? "Elige una película y AirCiller comprobará todas sus pistas."
                 : "No queda ningún proceso reproduciendo en segundo plano."
         }
-    }
-
-    func selectQueueItem(_ item: QueueMediaItem) {
-        focusQueueItem(item)
-        guard queueFileExists(item) else { return }
-        loadVideo(item.url, autoStart: false)
     }
 
     func playQueueItem(_ item: QueueMediaItem) {
@@ -870,6 +869,10 @@ final class StreamCoordinator {
     func focusQueueItem(_ item: QueueMediaItem) {
         guard queueItems.contains(where: { $0.id == item.id }) else { return }
         focusedQueueItemID = item.id
+    }
+
+    func clearQueueFocus() {
+        focusedQueueItemID = nil
     }
 
     var canMoveFocusedQueueItemUp: Bool {
@@ -1479,10 +1482,12 @@ final class StreamCoordinator {
 
     private func observe(item: AVPlayerItem) {
         clearItemObservers()
+        let sessionID = activeSessionID
         itemStatusObservation = item.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard item.status == .failed else { return }
             Task { @MainActor [weak self] in
-                self?.presentPlaybackFailure(item.error)
+                guard let self, self.activeSessionID == sessionID, self.player.currentItem === item else { return }
+                self.presentPlaybackFailure(item.error)
             }
         }
         itemEndObserver = NotificationCenter.default.addObserver(
@@ -1490,7 +1495,10 @@ final class StreamCoordinator {
             object: item,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.playbackFinished() }
+            Task { @MainActor [weak self] in
+                guard let self, self.activeSessionID == sessionID, self.player.currentItem === item else { return }
+                self.playbackFinished()
+            }
         }
         itemErrorObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemNewErrorLogEntry,
@@ -1498,9 +1506,10 @@ final class StreamCoordinator {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
-                self?.recordErrorLog(for: item)
+                guard let self, self.activeSessionID == sessionID, self.player.currentItem === item else { return }
+                self.recordErrorLog(for: item)
                 if let error = item.error {
-                    self?.presentPlaybackFailure(error)
+                    self.presentPlaybackFailure(error)
                 }
             }
         }
@@ -1655,9 +1664,7 @@ final class StreamCoordinator {
     }
 
     private func cancelAuthorizationPreflight() {
-        authorizationTask?.cancel()
-        authorizationTask = nil
-        authorizationRequestID = nil
+        authorizationPreflight.cancel()
     }
 
     private func resetStreamSessionMetrics() {
@@ -1714,6 +1721,7 @@ final class StreamCoordinator {
 
     private func cleanupRuntime() {
         activeSessionID = nil
+        airPlay.stop(silently: true)
         playbackPower.end()
         clearItemObservers()
         if let process = ffmpegProcess {

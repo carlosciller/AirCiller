@@ -68,6 +68,15 @@ compile_and_run pairing-intent \
 compile_and_run pairing-lifecycle \
   "$project_dir/Sources/AirPlayPairingLifecycle.swift" \
   "$project_dir/Tests/AirPlayPairingLifecycleSmokeTest.swift"
+compile_and_run authorization-preflight \
+  "$project_dir/Sources/PlaybackAuthorizationPreflight.swift" \
+  "$project_dir/Tests/PlaybackAuthorizationPreflightSmokeTest.swift"
+compile_and_run seek-reconciliation \
+  "$project_dir/Sources/AirPlaySeekReconciliation.swift" \
+  "$project_dir/Tests/AirPlaySeekReconciliationSmokeTest.swift"
+compile_and_run helper-command-writer \
+  "$project_dir/Sources/HelperCommandWriter.swift" \
+  "$project_dir/Tests/HelperCommandWriterSmokeTest.swift"
 compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
@@ -81,6 +90,9 @@ compile_and_run power-assertion \
 compile_and_run cancellable-process \
   "$project_dir/Sources/CancellableProcess.swift" \
   "$project_dir/Tests/CancellableProcessSmokeTest.swift"
+compile_and_run process-buffer \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Tests/ProcessDataBufferSmokeTest.swift"
 compile_and_run captured-process \
   "$project_dir/Sources/ProcessDataBuffer.swift" \
   "$project_dir/Sources/CancellableProcess.swift" \
@@ -100,8 +112,12 @@ compile_and_run opensubtitles-service \
   "$project_dir/Sources/AirCillerError.swift" \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Sources/OpenSubtitlesCredentialStore.swift" \
+  "$project_dir/Sources/BoundedHTTPResponse.swift" \
   "$project_dir/Sources/OpenSubtitlesService.swift" \
   "$project_dir/Tests/OpenSubtitlesServiceSmokeTest.swift"
+compile_and_run bounded-http-response \
+  "$project_dir/Sources/BoundedHTTPResponse.swift" \
+  "$project_dir/Tests/BoundedHTTPResponseSmokeTest.swift"
 compile_and_run airplay-runtime-probe \
   "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
   "$project_dir/Tests/AirPlayRuntimeProbeSmokeTest.swift"
@@ -120,15 +136,8 @@ compile_and_run component-manager \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/DiagnosticsReport.swift" \
   "$project_dir/Sources/ManagedComponentModels.swift" \
-  "$project_dir/Sources/ManagedComponentDistribution.swift" \
-  "$project_dir/Sources/ManagedComponentDownloader.swift" \
   "$project_dir/Sources/ComponentManager.swift" \
   "$project_dir/Tests/ComponentManagerSmokeTest.swift"
-compile_and_run component-distribution \
-  "$project_dir/Sources/Localization.swift" \
-  "$project_dir/Sources/ManagedComponentModels.swift" \
-  "$project_dir/Sources/ManagedComponentDistribution.swift" \
-  "$project_dir/Tests/ManagedComponentDistributionSmokeTest.swift"
 compile_and_run history-store \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \
@@ -168,7 +177,6 @@ compile_and_run attached-artwork-probe \
   "$project_dir/Sources/ProcessDataBuffer.swift" \
   "$project_dir/Sources/CancellableProcess.swift" \
   "$project_dir/Sources/ManagedComponentModels.swift" \
-  "$project_dir/Sources/ManagedComponentDistribution.swift" \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
@@ -176,6 +184,32 @@ compile_and_run attached-artwork-probe \
 compile_and_run diagnostics-report \
   "$project_dir/Sources/DiagnosticsReport.swift" \
   "$project_dir/Tests/DiagnosticsReportSmokeTest.swift"
+compile_and_run media-probe-validation \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Tests/MediaProbeValidationSmokeTest.swift"
+compile_and_run stream-diagnostics \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/VODBuildProcess.swift" \
+  "$project_dir/Sources/StreamDiagnostics.swift" \
+  "$project_dir/Sources/SubtitleService.swift" \
+  "$project_dir/Sources/ASSSubtitleConverter.swift" \
+  "$project_dir/Sources/PGSSubtitleConverter.swift" \
+  "$project_dir/Sources/SubtitleOCRService.swift" \
+  "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Tests/StreamDiagnosticsSmokeTest.swift"
 compile_and_run http-server \
   -framework Network \
   "$project_dir/Sources/Localization.swift" \

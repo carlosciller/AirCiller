@@ -74,6 +74,21 @@ struct HTTPServerSmokeTest {
         mark("persistent keep-alive")
         try verifyPersistentRanges(baseURL: baseURL, expected: segment)
 
+        for specification in ["bytes=abc-5", "bytes=999999999999999999999999-5"] {
+            var malformed = range
+            malformed.setValue(specification, forHTTPHeaderField: "Range")
+            let (_, response) = try await session.data(for: malformed)
+            guard (response as? HTTPURLResponse)?.statusCode == 416 else {
+                throw NSError(domain: "HTTPServerSmokeTest.MalformedRange", code: 30)
+            }
+        }
+        var suffix = range
+        suffix.setValue("bytes=-5", forHTTPHeaderField: "Range")
+        let (suffixData, suffixResponse) = try await session.data(for: suffix)
+        guard (suffixResponse as? HTTPURLResponse)?.statusCode == 206,
+            suffixData == Data(segment.suffix(5))
+        else { throw NSError(domain: "HTTPServerSmokeTest.SuffixRange", code: 31) }
+
         mark("invalid range")
         var invalidRange = URLRequest(url: baseURL.appendingPathComponent("segment.m4s"))
         invalidRange.setValue("bytes=2000000-2000010", forHTTPHeaderField: "Range")

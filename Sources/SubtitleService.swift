@@ -506,30 +506,6 @@ enum SubtitleService {
         return lines.joined(separator: "\n")
     }
 
-    private static func writeIFramePlaylist(outputDirectory: URL) throws {
-        let videoPlaylistURL = outputDirectory.appendingPathComponent("video.m3u8")
-        let source = try String(contentsOf: videoPlaylistURL, encoding: .utf8)
-        var lines = source.components(separatedBy: "\n")
-        guard lines.contains(where: { $0.hasPrefix("#EXT-X-MAP:") }),
-            lines.contains("#EXT-X-INDEPENDENT-SEGMENTS")
-        else {
-            throw AirCillerError.invalidVODPackage(
-                "El vídeo no permite crear la pista de navegación rápida que exige Apple TV."
-            )
-        }
-        if !lines.contains("#EXT-X-I-FRAMES-ONLY") {
-            let insertionIndex =
-                lines.firstIndex(where: { $0.hasPrefix("#EXT-X-PLAYLIST-TYPE:") })
-                .map { $0 + 1 } ?? min(1, lines.count)
-            lines.insert("#EXT-X-I-FRAMES-ONLY", at: insertionIndex)
-        }
-        try (lines.joined(separator: "\n")).write(
-            to: outputDirectory.appendingPathComponent("iframe.m3u8"),
-            atomically: true,
-            encoding: .utf8
-        )
-    }
-
     private static func extractWebVTT(
         track: SubtitleTrack,
         videoURL: URL,
