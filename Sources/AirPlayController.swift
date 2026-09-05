@@ -183,7 +183,7 @@ final class AirPlayController {
             } else {
                 selectedDeviceID = devices.first?.id
             }
-            await refreshAuthorization()
+            try await refreshAuthorization()
             status =
                 devices.isEmpty
                 ? "No se encontró ningún Apple TV"
@@ -204,10 +204,15 @@ final class AirPlayController {
         selectedDeviceID = deviceID
         authorizationState = .unknown
         validatedAuthorizationDeviceID = nil
-        await refreshAuthorization()
+        do {
+            try await refreshAuthorization()
+        } catch {
+            scanError = error.localizedDescription
+            status = "No se pudo comprobar la autorización"
+        }
     }
 
-    func refreshAuthorization() async {
+    func refreshAuthorization() async throws {
         guard let device = selectedDevice else {
             authorizationState = .unknown
             return
@@ -223,7 +228,12 @@ final class AirPlayController {
 
         authorizationState = .checking
         let deviceID = device.id
-        let credential = await credentialStore.credential(for: deviceID)
+        defer {
+            if selectedDeviceID == deviceID, authorizationState == .checking {
+                authorizationState = .unknown
+            }
+        }
+        let credential = try await credentialStore.credential(for: deviceID)
         guard selectedDeviceID == deviceID else { return }
         if let credential, !credential.isEmpty {
             credentialCache[deviceID] = credential
@@ -269,7 +279,7 @@ final class AirPlayController {
         if let cached = credentialCache[deviceID], !cached.isEmpty {
             credential = cached
         } else {
-            let stored = await credentialStore.credential(for: deviceID)
+            let stored = try await credentialStore.credential(for: deviceID)
             guard let stored, !stored.isEmpty else {
                 markAuthorizationRequired(for: deviceID)
                 throw DirectAirPlayError.authorizationRequired(
@@ -281,6 +291,13 @@ final class AirPlayController {
         }
 
         authorizationState = .checking
+        defer {
+            // A cancelled or failed helper must not leave the picker stuck at
+            // Checking. The next Play still validates the cached credential.
+            if selectedDeviceID == deviceID, authorizationState == .checking {
+                authorizationState = .authorized
+            }
+        }
         var input = try JSONSerialization.data(withJSONObject: ["credentials": credential])
         input.append(0x0A)
         let address = selectedDevice.address
@@ -320,6 +337,7 @@ final class AirPlayController {
         duration: Double = 0,
         title: String? = nil
     ) async throws {
+        try Task.checkCancellation()
         guard let selectedDevice else { throw DirectAirPlayError.noDevice }
         let credential: String?
         if selectedDevice.pairing == "Mandatory" {
@@ -327,7 +345,7 @@ final class AirPlayController {
                 credential = cached
             } else {
                 let deviceID = selectedDevice.id
-                credential = await credentialStore.credential(for: deviceID)
+                credential = try await credentialStore.credential(for: deviceID)
                 guard let credential, !credential.isEmpty else {
                     authorizationState = .required
                     throw DirectAirPlayError.authorizationRequired(
@@ -340,6 +358,7 @@ final class AirPlayController {
         } else {
             credential = nil
         }
+        try Task.checkCancellation()
         stop(silently: true)
         resetTimeline(position: position, duration: duration)
         playbackDeviceID = selectedDevice.id
@@ -432,19 +451,26 @@ final class AirPlayController {
             "Control directo hacia \(selectedDevice.name, privacy: .private) (\(selectedDevice.address, privacy: .private))"
         )
 
-        try await withCheckedThrowingContinuation { continuation in
-            pendingStart = continuation
-            startTimeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(35))
-                guard !Task.isCancelled else { return }
-                await MainActor.run { [weak self] in
-                    guard let self,
-                        self.playbackSessionID == sessionID,
-                        self.pendingStart != nil
-                    else { return }
-                    self.failPendingStart(DirectAirPlayError.connectionTimedOut)
-                    self.stop(silently: true)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                pendingStart = continuation
+                startTimeoutTask = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(35))
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run { [weak self] in
+                        guard let self,
+                            self.playbackSessionID == sessionID,
+                            self.pendingStart != nil
+                        else { return }
+                        self.failPendingStart(DirectAirPlayError.connectionTimedOut)
+                        self.stop(silently: true)
+                    }
                 }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                guard let self, self.playbackSessionID == sessionID else { return }
+                self.stop(silently: true)
             }
         }
     }
@@ -620,7 +646,7 @@ final class AirPlayController {
         Task { [weak process] in
             try? await Task.sleep(for: .seconds(2))
             guard let process, process.isRunning else { return }
-            process.terminate()
+            CancellableProcess(process).terminate()
         }
     }
 
@@ -736,6 +762,9 @@ final class AirPlayController {
     }
 
     private func handle(_ event: AirPlayHelperEvent) {
+        // Replies already in flight after Stop cannot resume the timeline or
+        // advance the playlist. Only the shutdown acknowledgement is relevant.
+        guard !stopping || event.event == "stopped" || event.event == "error" else { return }
         switch event.event {
         case "connecting":
             let name = event.device?.name ?? playbackDeviceName ?? "Apple TV"
@@ -1014,7 +1043,6 @@ final class AirPlayController {
             ? [bundledPython].compactMap { $0 }
             : [
                 bundledPython,
-                ManagedComponentStore.executableURL(for: .airPlay)?.path,
                 recordedPython?.path,
                 "/opt/homebrew/opt/python@3.13/bin/python3.13",
                 "/usr/local/opt/python@3.13/bin/python3.13",
@@ -1037,10 +1065,6 @@ final class AirPlayController {
     private nonisolated static func helperEnvironment(vendor: URL) -> [String: String] {
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = vendor.path
-        // macOS still links /usr/bin/python3 to LibreSSL. urllib3 announces that
-        // mismatch even though AirCiller only uses it on the local AirPlay link.
-        // Keep every other Python warning visible for diagnostics.
-        environment["PYTHONWARNINGS"] = "ignore:urllib3 v2 only supports OpenSSL"
         environment["PYTHONPYCACHEPREFIX"] =
             FileManager.default.temporaryDirectory
             .appendingPathComponent("AirCiller-PythonCache", isDirectory: true).path

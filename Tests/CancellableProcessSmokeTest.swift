@@ -49,6 +49,32 @@ struct CancellableProcessSmokeTest {
             throw NSError(domain: "CancellableProcessSmokeTest.ProgressStillRunning", code: 4)
         }
 
+        // Stop can arrive after a progress-producing process starts but before
+        // its observer task gets scheduled. The observer must still reap it.
+        let cancelledBeforeWait = Process()
+        cancelledBeforeWait.executableURL = URL(fileURLWithPath: "/usr/bin/yes")
+        cancelledBeforeWait.standardOutput = FileHandle.nullDevice
+        cancelledBeforeWait.standardError = FileHandle.nullDevice
+        try cancelledBeforeWait.run()
+        defer {
+            if cancelledBeforeWait.isRunning {
+                Darwin.kill(cancelledBeforeWait.processIdentifier, SIGKILL)
+            }
+        }
+        let cancelledWait = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await CancellableProcess(cancelledBeforeWait).waitForExit()
+        }
+        do {
+            _ = try await cancelledWait.value
+            throw NSError(domain: "CancellableProcessSmokeTest.EarlyWaitNotCancelled", code: 6)
+        } catch is CancellationError {
+            // Expected.
+        }
+        guard !cancelledBeforeWait.isRunning else {
+            throw NSError(domain: "CancellableProcessSmokeTest.EarlyCancellationLeakedProcess", code: 7)
+        }
+
         let stubbornProcess = Process()
         stubbornProcess.executableURL = URL(fileURLWithPath: "/bin/sh")
         stubbornProcess.arguments = ["-c", "trap '' TERM; while :; do :; done"]

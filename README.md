@@ -1,109 +1,71 @@
 <div align="center">
-  <img src="Resources/AirCiller-1024.png" width="132" alt="AirCiller app icon">
+  <img src="Resources/AirCiller-1024.png" width="128" alt="AirCiller">
   <h1>AirCiller</h1>
-  <p><strong>Play local movies on Apple TV from your Mac.</strong></p>
-  <p>AirCiller is a native macOS app with support for HDR, Dolby Vision, multiple audio tracks and selectable subtitles.</p>
-  <p>
-    <a href="https://github.com/carlosciller/AirCiller/releases/latest"><strong>Download AirCiller</strong></a>
-    · <a href="CHANGELOG.md">Release notes</a>
-  </p>
-  <p>
-    <a href="https://github.com/carlosciller/AirCiller/releases/latest"><img src="https://img.shields.io/github/v/release/carlosciller/AirCiller?style=flat-square&label=release" alt="Latest release"></a>
-    <a href="https://github.com/carlosciller/AirCiller/actions/workflows/ci.yml"><img src="https://github.com/carlosciller/AirCiller/actions/workflows/ci.yml/badge.svg" alt="Build status"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/github/license/carlosciller/AirCiller?style=flat-square" alt="GPL-3.0 license"></a>
-  </p>
+  <p>Play the movies on your Mac on your Apple TV.</p>
+  <p><a href="https://github.com/carlosciller/AirCiller/releases/latest"><strong>Download AirCiller</strong></a> · <a href="CHANGELOG.md">What's new</a> · <a href="https://github.com/carlosciller/AirCiller/issues">Report a bug</a></p>
 </div>
 
-AirCiller is available in English and Spanish.
+Open a movie, choose your Apple TV and press Play. AirCiller sends it over AirPlay 2, with audio and subtitle tracks you can change along the way.
 
-## What it does
+Free and open source. Available in English and Spanish.
 
-- Sends local H.264 and HEVC video to an AirPlay 2 compatible Apple TV.
-- Preserves compatible HDR and Dolby Vision video.
-- Lets you choose audio and subtitle tracks and adjust their timing.
-- Supports SRT, WebVTT and ASS/SSA subtitles.
-- Uses local Apple Vision OCR to make Blu-ray PGS and DVD VobSub subtitles selectable.
-- Searches OpenSubtitles.com only when requested, prefers exact file matches and lets you choose before downloading.
-- Keeps playback position, pause, resume and seeking synchronized with the Apple TV remote.
-- Includes an ordered playlist, recent movies, chapters and saved progress.
-- Provides optional network and preparation diagnostics.
-- Checks for signed updates through Sparkle when a release feed is configured.
+## Get started
 
-AirCiller does not download or include media. Use it with files you have the right to play.
+You need an **Apple silicon Mac with macOS 14 or later**, an AirPlay 2 compatible Apple TV, and a local network that lets the two devices communicate. HDR and Dolby Vision also need compatible television and receiver hardware.
 
-## Download
+1. [Download AirCiller](https://github.com/carlosciller/AirCiller/releases/latest), unzip it and move it to Applications.
+2. Open a movie and choose your Apple TV. Enter the code shown on the television if requested.
+3. Press Play. Use AirCiller, the Apple TV remote or the iPhone Remote to pause, seek and resume.
 
-The current stable release is **AirCiller 0.12.0**. It requires an Apple silicon Mac running macOS 14 or later.
+**First launch:** AirCiller is not notarized with Apple. macOS may block a downloaded copy until you allow it in Privacy & Security. Follow [Apple's instructions](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac), and only open a copy you trust.
 
-### [Download the latest release](https://github.com/carlosciller/AirCiller/releases/latest)
+The playback engines are included. There is nothing else to install. Future updates arrive through the app with your confirmation.
 
-Unzip AirCiller and move it to your Applications folder. The current build is locally signed and has not yet been notarized with an Apple Developer ID. macOS may ask you to confirm the first launch.
+## Your tracks, your playlist
 
-You will also need an AirPlay 2 compatible Apple TV on the same local network.
+- **Original picture.** Compatible H.264 and HEVC video, including HDR and Dolby Vision, is sent without video encoding.
+- **Original audio first.** Choose a track by name and language. If audio needs conversion, AirCiller explains the change and asks before starting.
+- **Selectable subtitles.** Embedded and external text tracks, timing adjustments, and local text recognition for embedded Blu-ray PGS and DVD VobSub subtitles.
+- **Language preferences.** Set preferred audio and subtitle languages, including standard, forced or SDH subtitles.
+- **A small library.** Reorder your Playlist, browse recent movies and pick up where you left off. Chapters and keyboard controls are included.
+- **Optional subtitle search.** Search OpenSubtitles.com, review the matches and choose a download. Your own API key is required; service limits apply.
 
-AirCiller includes the tested FFmpeg and AirPlay engines used by that release. They do not need separate installation or maintenance.
+Not every file will play. Elaborate ASS styling is simplified, OCR can make mistakes, and unsupported audio may need conversion. [Read the compatibility guide](COMPATIBILITY.md).
 
-## Privacy
+## On your Mac
 
-Movies remain on the Mac and original files are never modified. AirCiller has no account of its own, advertising, analytics, cloud library or permanent server.
+AirCiller has no advertising or analytics. Movies stay on the local network, originals are never changed, and the playback server closes when the session ends. Subtitle recognition runs on the Mac.
 
-Video conversion never happens silently. If an audio track needs conversion, AirCiller explains why and asks first. Subtitle OCR runs locally and creates a selectable text track. It does not burn subtitles into the image.
+Internet access is used for updates and OpenSubtitles searches you request. OpenSubtitles receives search information, never the movie. Credentials stay in the macOS Keychain. [Privacy details](PRIVACY.md).
 
-The temporary playback server is available only on the local network and closes when the session ends. AirPlay and optional OpenSubtitles credentials are stored in the macOS Keychain. OpenSubtitles receives a local file fingerprint and size only after you start a search; it never receives the movie. See [PRIVACY.md](PRIVACY.md) for the full details.
+## About
 
-## Playback
+I started AirCiller to watch my own movie collection on Apple TV. Dolby Vision, subtitles and remote controls took quite a few evenings to get right. I shared the project so others could use it, inspect it and help improve it.
 
-AirCiller uses two playback routes:
+I use **OpenAI Codex** to write, review and debug the code. I make the product decisions and test playback on my Mac and Apple TV. OpenAI does not sponsor or endorse the project.
 
-1. **Direct MP4** for compatible HDR or Dolby Vision video and supported audio.
-2. **HLS/fMP4 VOD** for other compatible sources and selectable WebVTT subtitles.
+Found a problem? [Open an issue](https://github.com/carlosciller/AirCiller/issues) with the app version, file format and what happened. Please remove personal filenames, device names, addresses and credentials. The [roadmap](ROADMAP.md) shows what is being worked on.
 
-The app shows which route is being used. It also explains when Apple TV cannot accept a selected track.
+## Build and contribute
 
-## Technical details
+The app uses Swift 6, SwiftUI and AppKit. A bundled Python bridge provides AirPlay 2 through pyatv. FFmpeg prepares compatible media and Apple Vision recognizes bitmap subtitles.
 
-Most of AirCiller is written in Swift 6 with SwiftUI and AppKit. The repository also contains a small Python component: a bundled `pyatv` bridge used for AirPlay 2 discovery, authorization, queue control and receiver events.
-
-FFmpeg inspects and packages media when required. Apple Vision handles subtitle OCR on the Mac. A temporary HTTP server supplies the selected file or prepared VOD to Apple TV during playback. Playback stays on the local network and does not require internet access.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md), [TESTING.md](TESTING.md) and [DISTRIBUTION.md](DISTRIBUTION.md) for more detail.
-
-## Build from source
-
-Requirements:
-
-- Apple silicon Mac with macOS 14 or later.
-- Xcode Command Line Tools with Swift 6.
-- The pinned playback-engine archives prepared by `./Scripts/bootstrap_engine.sh`.
+On an Apple silicon Mac with the Swift 6 Command Line Tools:
 
 ```sh
 brew bundle
 ./Scripts/bootstrap_dependencies.sh
 ./Scripts/bootstrap_sparkle.sh
 ./Scripts/bootstrap_engine.sh
-./build.sh
-```
-
-The app is created at `.build/AirCiller.app`. Building does not replace or launch an installed copy.
-
-Run the local checks with:
-
-```sh
 ./Scripts/check.sh
 ```
 
-Playback changes are tested locally and on a physical Apple TV before release. Read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing a change.
+The checks build `.build/AirCiller.app` without replacing or launching an installed copy. Use `./build.sh` for subsequent development builds.
 
-## About the project
+[Contributing](CONTRIBUTING.md) · [Architecture](ARCHITECTURE.md) · [Testing](TESTING.md) · [Distribution](DISTRIBUTION.md)
 
-I started AirCiller because I wanted a quick way to play the movie files on my Mac through Apple TV, including the awkward ones with Dolby Vision or unusual subtitles. It grew through a lot of testing on my own Mac and Apple TV. I published the source because other people may find it useful and because I did not want all that work to live on one Mac.
+## License
 
-I use **OpenAI Codex** to help me write, review and debug the code. I decide how the app should work and test each release on the actual hardware. OpenAI does not sponsor or endorse AirCiller.
+AirCiller's source and original artwork are licensed under [GPL-3.0](LICENSE). Dependencies keep their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
 
-Bug reports and focused ideas are welcome. Please remove private filenames, receiver names, addresses and credentials before opening an issue.
-
-## License and trademarks
-
-AirCiller's source code and original artwork are licensed under the [GNU General Public License v3.0](LICENSE). Dependencies retain their own licenses; see [Third-party notices](THIRD_PARTY_NOTICES.md).
-
-AirCiller is independent and is not affiliated with Apple. Apple, macOS, tvOS, Apple TV and AirPlay are trademarks of Apple Inc. The AirCiller name and icon are original parts of this project.
+AirCiller is an independent project. Apple, macOS, tvOS, Apple TV and AirPlay are trademarks of Apple Inc.

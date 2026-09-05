@@ -38,6 +38,23 @@ struct StreamDiagnosticsSmokeTest {
         }
 
         let progress = ProcessProgressBuffer()
+        let sparse = MediaDemandAnalysis(
+            duration: 18, windowDuration: 6,
+            bytesByStreamAndWindow: [0: [0: 600, 1_000_000_000: 600]],
+            totalBytesByStream: [0: 1200]
+        )
+        guard sparse.profile(videoStreamIndex: 0, audioStreamIndex: nil)?.peakTime == 0 else {
+            throw NSError(domain: "StreamDiagnosticsSmokeTest.SparseTimestamps", code: 5)
+        }
+        let accumulator = PacketDemandAccumulator(duration: 18, windowDuration: 6)
+        accumulator.append(Data("0,1e100,N/A,10\n0,nan,N/A,10\n0,0,N/A,-1\n0,0,N/A,600\n".utf8))
+        guard accumulator.snapshot.totalBytesByStream == [0: 600] else {
+            throw NSError(domain: "StreamDiagnosticsSmokeTest.InvalidPacket", code: 6)
+        }
+        accumulator.append(Data("0,0,N/A,9223372036854775807\n".utf8))
+        guard accumulator.snapshot.totalBytesByStream == [0: 600] else {
+            throw NSError(domain: "StreamDiagnosticsSmokeTest.Overflow", code: 7)
+        }
         progress.append("out_time_us=120000000\nspeed=12.5x\nprogress=continue\n")
         guard progress.seconds == 120, progress.speed == 12.5 else {
             throw NSError(domain: "StreamDiagnosticsSmokeTest.Progress", code: 4)

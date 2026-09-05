@@ -221,7 +221,7 @@ struct OpenSubtitlesSearchView: View {
                         Label(
                             usedExactFileMatch
                                 ? "Coincidencias exactas para este archivo"
-                                : "No hubo coincidencia exacta. Resultados por título",
+                                : "Resultados por título",
                             systemImage: usedExactFileMatch ? "checkmark.seal.fill" : "magnifyingglass"
                         )
                         .font(.caption.weight(.semibold))
@@ -250,6 +250,7 @@ struct OpenSubtitlesSearchView: View {
 
             HStack {
                 Button("Cancelar") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
                 Spacer()
                 Button {
                     beginDownload()
@@ -280,12 +281,15 @@ struct OpenSubtitlesSearchView: View {
     }
 
     private func beginNameSearch() {
+        guard !isWorking, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        isWorking = true
         operationTask?.cancel()
         operationTask = Task { await search(exactFirst: false) }
     }
 
     private func beginDownload() {
-        guard let result = selectedResult else { return }
+        guard !isWorking, let result = selectedResult else { return }
+        isWorking = true
         operationTask?.cancel()
         operationTask = Task { await download(result) }
     }

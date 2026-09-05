@@ -1,17 +1,9 @@
 # AirCiller X.Y.Z
 
-One short sentence describing the release in terms of what changes for the user.
+- Describe the most useful change first.
+- For a fix, name the symptom a person would recognize.
+- Mention changed requirements or actions the user needs to take.
 
-### New
+Use short sentences. Group under New, Improved or Fixed only when the release needs sections. Omit internal refactors, test counts, repeated privacy promises and unverified performance claims.
 
-- Add only user-visible features.
-
-### Improvements
-
-- Describe the result, not the implementation.
-
-### Fixes
-
-- State what was wrong and what now works.
-
-Remove empty sections. Put compatibility or required user action in a final **Requirements** or **Notes** section only when it changes.
+Keep the same factual changes in CHANGELOG.md and GitHub. Do not change published signed archives or appcasts when editing release prose.

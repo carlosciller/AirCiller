@@ -125,6 +125,18 @@ struct OpenSubtitlesServiceSmokeTest {
             throw NSError(domain: "OpenSubtitlesServiceSmokeTest.UnknownExtension", code: 5)
         }
 
+        let unusualResponse = Data(
+            """
+            {"data":[{"id":"1","attributes":{"ratings":1e100,"download_count":-50,
+            "files":[{"file_id":1,"file_name":"A.srt"},{"file_id":1,"file_name":"A.srt"},
+            {"file_id":2,"file_name":"B.srt"}]}}]}
+            """.utf8
+        )
+        let unusual = try OpenSubtitlesService.decodeSearchResults(from: unusualResponse, exactFileMatch: false)
+        guard unusual.map(\.id) == ["1-1", "1-2"] else {
+            throw NSError(domain: "OpenSubtitlesServiceSmokeTest.DuplicateOrExtremeRating", code: 6)
+        }
+
         print("OpenSubtitles file hash, REST requests, and result decoding: OK")
     }
 }

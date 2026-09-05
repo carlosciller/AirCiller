@@ -39,6 +39,29 @@ struct ASSSubtitleConverterSmokeTest {
                 userInfo: [NSLocalizedDescriptionKey: conversion.webVTT]
             )
         }
+
+        let eventHeader = "[Events]\nFormat: Start, End, Text\n"
+        for time in ["inf:00:00", "1e100:00:00", "0:00:nan", "-1:00:00", "0:99:00"] {
+            let malformed = eventHeader + "Dialogue: 0:00:00,\(time),Invalid timestamp"
+            guard !ASSSubtitleConverter.convert(malformed).webVTT.contains("Invalid timestamp") else {
+                throw NSError(domain: "ASSSubtitleConverterSmokeTest.InvalidTimestamp", code: 20)
+            }
+        }
+        for (legacy, modern) in [(1, 1), (2, 2), (3, 3), (5, 7), (6, 8), (7, 9), (9, 4), (10, 5), (11, 6)] {
+            for suffix in ["", #"\b1"#] {
+                let legacySource = eventHeader + "Dialogue: 0:00:01.00,0:00:02.00,{\\a\(legacy)\(suffix)}Text"
+                let modernSource = eventHeader + "Dialogue: 0:00:01.00,0:00:02.00,{\\an\(modern)\(suffix)}Text"
+                guard
+                    ASSSubtitleConverter.convert(legacySource).webVTT
+                        == ASSSubtitleConverter.convert(modernSource).webVTT
+                else {
+                    throw NSError(domain: "ASSSubtitleConverterSmokeTest.LegacyAlignment", code: legacy)
+                }
+            }
+        }
+        DispatchQueue.concurrentPerform(iterations: 64) { _ in
+            precondition(ASSSubtitleConverter.convert(source) == conversion)
+        }
         print("ASS/SSA · position, basic formatting, and explicit simplification · OK")
     }
 }

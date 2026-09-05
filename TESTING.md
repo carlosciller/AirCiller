@@ -121,3 +121,23 @@ Build 53 completed the physical Apple TV reliability check on 3 September 2026:
 - Picture and sound were confirmed in both HLS/fMP4 runs; subtitles appeared only in the selected-subtitle run, and changing the track preserved the playback position.
 
 The original movies were not modified. The local and physical release gates are complete; GitHub CI remains required before tagging.
+
+## 12. Reproducible performance fixtures
+
+Run `./Scripts/benchmark_performance.sh` for optimized, synthetic measurements of ASS conversion and bounded process output. It reports all seven samples and their median, checks stable conversion and buffer output, and saves generated WebVTT alongside timings under `.build/performance/`. It does not use private media or install the app.
+
+To compare an earlier implementation, pass a directory containing its `ASSSubtitleConverter.swift` and `ProcessDataBuffer.swift` as the first argument. Use the same compiler and fixture, run the versions sequentially, and compare their generated WebVTT with `cmp`. The fixture uses modern alignment; legacy SSA alignment is covered separately by the regression test because the original expression silently failed to compile.
+
+These measurements cover 2,000 subtitle cues and 32 MiB of writes in 4 KiB chunks with a 1 MiB retained tail. They do not measure end-to-end playback, television compatibility, or battery consumption. The process buffer amortizes copying by retaining up to twice its configured byte limit internally; snapshots still expose at most the configured limit.
+
+`./Scripts/check.sh` includes deterministic tests for buffer limits, compaction, retained snapshots, concurrent writes, legacy subtitle alignment, and concurrent conversions. Timing thresholds are intentionally excluded from CI.
+
+## 13. Stability review candidate
+
+The integrated checks passed on 5 September 2026. New coverage includes early process cancellation, obsolete authorization completions, unavailable Keychain reads, bounded HTTP responses, duplicate online results, invalid media/ASS times, sparse demand timestamps and malformed byte ranges. `StreamDiagnosticsSmokeTest` is now part of the required suite.
+
+The candidate's bundled FFmpeg and Python imports were checked directly. A 60-second direct Dolby Vision sample passed packaging and AVFoundation asset checks with E-AC-3 audio and selectable subtitles.
+
+The HLS/WebVTT sample passed packaging, duration and subtitle-group checks, but the local AVPlayer playback test returned AVFoundation -11848 / CoreMedia -15516. The unmodified published base returned the same error in this environment and produced byte-for-byte identical output. Do not describe local HLS decoding as passed or infer physical Apple TV playback from these results.
+
+The empty window, library picker, non-playing Recents selection and loaded controls were inspected. Changing audio output and cancelling preserved the original selection when the tracks panel reopened. The Mac locked before the final Apply/reset check completed. That check, the final preview-corner adjustment and the full physical matrix remain pending. See [the review record](Docs/STABILITY_REVIEW.md). The installed app and stable feed are unchanged.

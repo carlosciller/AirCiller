@@ -97,7 +97,10 @@ enum MediaProbeService {
             subtitleTracks.append(contentsOf: discoverExternalSubtitles(for: url))
 
             let chapters = (response.chapters ?? []).enumerated().compactMap { offset, chapter -> MediaChapter? in
-                guard let start = Double(chapter.startTime), let end = Double(chapter.endTime) else { return nil }
+                guard let start = Double(chapter.startTime), let end = Double(chapter.endTime),
+                    start.isFinite, end.isFinite, start >= 0, end > start,
+                    end < Double(Int.max / 1000)
+                else { return nil }
                 return MediaChapter(
                     id: offset,
                     start: start,
@@ -106,8 +109,12 @@ enum MediaProbeService {
                 )
             }
 
+            let duration = Double(response.format?.duration ?? "") ?? 0
+            guard duration.isFinite, duration >= 0, duration < Double(Int.max / 1000) else {
+                throw AirCillerError.probeFailed(L10n.text("El archivo contiene una duración no válida."))
+            }
             return MediaProbe(
-                duration: Double(response.format?.duration ?? "") ?? 0,
+                duration: duration,
                 fileSize: Int64(response.format?.size ?? ""),
                 bitRate: Int64(response.format?.bitRate ?? ""),
                 videoStreamIndex: video.index,
@@ -336,12 +343,6 @@ enum Executables {
             return bundled
         }
         if BundledEngine.isRequired { return nil }
-        if let managed = ManagedComponentStore.executableURL(
-            for: .ffmpeg,
-            named: name
-        ) {
-            return managed
-        }
         let candidates = [
             "/opt/homebrew/bin/\(name)",
             "/usr/local/bin/\(name)",

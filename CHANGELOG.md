@@ -1,147 +1,129 @@
 # Release notes
 
-This page covers public AirCiller releases. Engineering notes and the physical playback matrix live in [TESTING.md](TESTING.md).
+Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
+
+## Unreleased
+
+### Fixed
+
+- Stop cancels pending authorization and prevents delayed replies from starting a movie again.
+- A Keychain access error is no longer treated as a missing Apple TV code.
+- Cancel in the tracks panel leaves the active audio and subtitle choices unchanged.
+- Invalid subtitle times and media-analysis timestamps no longer cause crashes or long stalls.
+- OpenSubtitles responses are limited during download; duplicate and malformed results are handled safely.
+- Restored legacy SSA subtitle alignment.
+
+### Improved
+
+- Simpler playback controls, system colors and materials, and a clearer empty window.
+- Select an item in Recents without interrupting the current movie; use Return or double-click to play it.
+- Faster ASS subtitle conversion and more efficient capture of helper output.
+- Removed the obsolete component downloader. Playback engines remain bundled with the app.
+
+This candidate still needs physical Apple TV validation. It is not available through the stable update feed.
 
 ## 0.12.0 (3 September 2026)
 
 ### New
 
-- Adds manual OpenSubtitles.com search with exact local-file matching and a fallback title search.
-- Shows language, format, trusted-source, forced, SDH, translation and release details before downloading.
+- Find subtitles on OpenSubtitles.com from the tracks panel. Review file matches or search by title before downloading.
+- See the subtitle language, format, release, SDH and forced-track details in the results.
 
 ### Improved
 
-- Makes the audio track and its output format separate choices. Original audio remains the preferred default, while E-AC-3 5.1 and AAC stereo are clearly marked as optional conversions.
+- Audio track and output format are separate choices. Original audio is the default; E-AC-3 5.1 and AAC stereo are clearly labeled as conversions.
 
 ### Fixed
 
-- Prevents repeated Apple TV range changes from exhausting local playback resources during long movies.
-- Closes a failed local stream with a clear message instead of leaving Apple TV on an endless loading spinner.
-- Cancels helper processes promptly even when one of their short-lived child processes keeps an output pipe open.
-- Clears temporary seeking and buffering messages as soon as Apple TV confirms that playback is advancing again.
-- Labels OpenSubtitles results without a subtitle extension as SRT instead of mistaking a release suffix for the format.
+- Long movies could become stuck loading after repeated seeking. The local server now releases abandoned requests correctly.
+- A local file read failure now ends the session with an error instead of leaving the television loading.
+- Stopping authorization or preparation no longer waits for helper output pipes to close.
+- Seeking and buffering messages clear when playback resumes.
+- Subtitle results without a filename extension are correctly identified as SRT.
 
-### Privacy
-
-- Stores optional OpenSubtitles credentials in the macOS Keychain.
-- Never uploads the movie. Searches send its fingerprint, size and requested language, plus the visible search text only when an exact match is unavailable.
+OpenSubtitles is optional, uses credentials stored in Keychain and never receives the movie.
 
 ## 0.11.3 (2 September 2026)
 
-### Improvements
-
-- Uses one native Playlist selection for clicking, keyboard navigation and reordering.
-- Keeps the current movie playing while another Playlist row is selected.
-- Plays the selected movie only after Return, a double-click or an explicit play command.
+- Playlist uses a single native selection for the mouse, keyboard and reordering.
+- Selecting another row leaves the current movie playing.
+- Press Return, double-click or use Play to start the selected movie.
 
 ## 0.11.2 (2 September 2026)
 
-### Improvements
-
-- Adds native Playlist selection and keyboard reordering.
+- Select Playlist items with the keyboard.
+- Reorder the selected item with Option-Command-Up or Option-Command-Down, or use Move Up and Move Down in the menu.
 
 ## 0.11.1 (1 September 2026)
 
-### Reliability
-
-- Prevents a new Apple TV authorization attempt from overlapping a helper that is still closing, avoiding repeated code prompts.
-- Recognizes receiver requests consistently across IPv4, IPv6 and VPN interfaces without mixing unrelated traffic into stream measurements.
-- Confirms clean end-of-file, Playlist advance and rapid remote commands through physical Apple TV testing.
+- Fixed repeated authorization prompts when a new pairing attempt began before the previous helper had closed.
+- Improved recognition of Apple TV traffic on Macs using IPv4, IPv6 or a VPN.
 
 ## 0.11.0 (1 September 2026)
 
-### Distribution
-
-- Includes the tested FFmpeg and AirPlay engines inside the app, so playback works without separate component setup.
-- Moves engine versions into a compact diagnostic disclosure and removes component update controls from Settings.
-- Updates the engines only as part of a tested AirCiller release.
+- FFmpeg and the AirPlay engine are now included in AirCiller. No separate component setup is needed.
+- Engine versions have moved to Diagnostics.
+- Playback engines update together with the app, after testing.
 
 ## 0.10.5 (31 August 2026)
 
-### Reliability
-
-- Cancels short-lived AirPlay helper commands with the task that started them and serializes Apple TV credential changes.
-- Requires the selected Python runtime to load the complete AirPlay engine before reporting it as ready.
-- Stops managed downloads that exceed their signed size and lets a reinstall repair the same component version while preserving rollback.
-- Resets damaged Playlist or Recents data safely instead of retrying the same invalid data on every launch.
+- Improved cancellation during Apple TV authorization.
+- Fixed overlapping changes to saved Apple TV credentials.
+- Runtime checks now verify that the AirPlay engine can load.
+- Reinstalling a damaged component can repair the current version; oversized downloads are stopped.
+- Damaged Playlist and Recents data no longer causes the same failure on every launch.
 
 ## 0.10.4 (31 August 2026)
 
 ### New
 
-- Adds a subtitle preference for standard, SDH, or forced tracks in the selected language.
-- Adds private local diagnostic exports and a focused action to reset authorization for the selected Apple TV.
-- Adds AirCiller-managed FFmpeg and AirPlay runtime downloads with visible progress, cancellation, verification, and rollback. Homebrew remains available.
+- Choose standard, SDH or forced subtitles in your preferred language.
+- Export a local diagnostic report or reset authorization for one Apple TV.
+- Download and manage playback components from Settings, with progress, cancellation and rollback.
 
-### Improvements
+### Fixed
 
-- Keeps Playlist and Recents rows aligned to a consistent two-line layout while retaining the complete filename in the hover text.
-
-### Fixes
-
-- Ignores embedded cover art when choosing the movie's video stream and maps the selected stream exactly during preparation.
-- Stops both media analyses immediately when playback is stopped or another movie is selected.
-- Ends the Mac playback session when Apple TV closes it, without leaving a running timer or showing a false connection error.
+- Playlist and Recents rows keep a consistent height with long filenames.
+- Embedded cover art is no longer mistaken for the movie's video track.
+- Stop and changing movies cancel both media analyses.
+- Closing playback on Apple TV no longer leaves a running timer or a false connection error on the Mac.
 
 ## 0.10.3 (26 August 2026)
 
-### Maintenance
+- Improved update validation and verified installation through the signed in-app update feed.
 
-- Completes the first signed in-app update path.
-- Improves the reliability of release validation.
-
-Playback, audio, subtitles, and media preparation are unchanged in this release.
+Playback and track handling are unchanged.
 
 ## 0.10.2 (25 August 2026)
 
 ### New
 
-- Adds in-app update checks with a standard **Check for Updates…** command and a dedicated Updates pane.
-- Adds native Playback, Components, and Storage settings.
-- Adds preferred audio and subtitle languages, with a safe fallback to the file's default tracks.
+- Check for signed app updates from the AirCiller menu or the new Updates settings.
+- Set preferred audio and subtitle languages in Playback settings.
+- Manage components and storage in Settings.
 
-### Improvements
+### Improved
 
-- Keeps play, pause, skip, and the timeline better synchronized with macOS and the iPhone remote.
-- Shows the installed FFmpeg and AirPlay engine versions, with clear maintenance actions.
-- Updates the AirPlay environment to Python 3.13.15 and refreshes its locked dependencies.
+- Better synchronization of play, pause, skip and the timeline with system media controls.
+- Updated the AirPlay runtime to Python 3.13.15 and refreshed its dependencies.
 
-### Updates and privacy
-
-- Every app update is delivered over HTTPS, verified with a signature, and installed only after confirmation.
-- Update checks wait until movie preparation or playback has stopped.
-- Movies and subtitles remain local. AirCiller does not modify original files or transcode video.
+Update checks wait until preparation and playback have stopped. Installation requires your confirmation.
 
 ## 0.10.1 (24 August 2026)
 
-### New
-
-- Adds selectable DVD VobSub subtitles through local Apple Vision OCR.
-- Adds visible storage controls and a configurable limit for subtitle and prepared-media caches.
-
-### Improvements
-
-- Stops FFmpeg, analysis, subtitle extraction, and OCR promptly when playback is stopped or another movie is selected.
-- Chooses the network route used by the selected Apple TV, improving reliability with VPNs and multiple adapters.
-- Cleans abandoned preparation files automatically while preserving original media.
-
-### Fixes
-
-- Corrects a Vision OCR error that could turn music-note symbols into `&` and `s` around song lyrics.
+- Added selectable DVD VobSub subtitles using local text recognition.
+- Added subtitle-cache limits and controls for clearing temporary media.
+- Stop and changing movies cancel preparation and subtitle recognition more promptly.
+- Improved network selection with VPNs and multiple adapters.
+- Abandoned preparation files are cleaned up without changing original media.
+- Fixed music-note symbols being recognized as letters around song lyrics.
 
 ## 0.9.8 (24 August 2026)
 
-AirCiller's first public release.
+The first public release of AirCiller.
 
-### Highlights
-
-- Streams Dolby Vision, HDR, H.264, and HEVC movies to Apple TV through AirPlay 2 without transcoding video.
-- Supports selectable text subtitles, Blu-ray PGS through local OCR, multichannel audio, playlists, recent movies, and saved progress.
-- Includes native English and Spanish localization.
-
-### Reliability
-
-- Confirms real media traffic before reporting that playback has started.
-- Keeps healthy playback alive if the optional AirPlay feedback channel closes.
-- Synchronizes pause, resume, seeking, and the timeline with the Apple TV remote.
-- Keeps media, filenames, receiver details, and diagnostic addresses private.
+- Play compatible H.264, HEVC, HDR and Dolby Vision movies on Apple TV over AirPlay 2.
+- Choose audio and subtitle tracks, including Blu-ray PGS subtitles recognized locally.
+- Keep an ordered Playlist, recent movies and saved progress.
+- Control pause, resume and seeking from the Apple TV remote.
+- Use the app in English or Spanish.
