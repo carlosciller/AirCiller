@@ -42,6 +42,10 @@ struct AirCillerApp: App {
                     .keyboardShortcut(.leftArrow, modifiers: [])
                 Button("Avanzar 10 segundos") { coordinator.skip(by: 10) }
                     .keyboardShortcut(.rightArrow, modifiers: [])
+                Button("Retroceder 30 segundos") { coordinator.skip(by: -30) }
+                    .keyboardShortcut(.leftArrow, modifiers: .option)
+                Button("Avanzar 30 segundos") { coordinator.skip(by: 30) }
+                    .keyboardShortcut(.rightArrow, modifiers: .option)
                 Divider()
                 Button("Detener") { coordinator.stop() }
                     .keyboardShortcut(".", modifiers: .command)
@@ -179,35 +183,43 @@ struct ContentView: View {
         )
     }
 
+    @ViewBuilder
     private var mainContent: some View {
-        GeometryReader { proxy in
-            ScrollView {
-                VStack(spacing: 18) {
-                    header
-                    playerStage
-                        .frame(height: playerHeight(availableHeight: proxy.size.height))
-                        .animation(.smooth(duration: 0.36), value: coordinator.isStreaming)
-                    badgeStrip
-                    informationPanels
-                }
-                .frame(maxWidth: 1_080)
-                .padding(.horizontal, 26)
-                .padding(.vertical, 22)
-                .frame(maxWidth: .infinity)
+        if coordinator.selectedURL == nil {
+            ContentUnavailableView {
+                Label("Elige una película", systemImage: "airplayvideo")
+            } description: {
+                Text("Abre una película o arrástrala aquí. AirCiller conserva el vídeo original.")
+            } actions: {
+                Button("Abrir película…") { coordinator.chooseVideos() }
+                    .buttonStyle(.borderedProminent)
             }
-            .scrollIndicators(.hidden)
+        } else {
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: 18) {
+                        header
+                        playerStage
+                            .frame(height: playerHeight(availableHeight: proxy.size.height))
+                            .animation(.smooth(duration: 0.36), value: coordinator.isStreaming)
+                        badgeStrip
+                        informationPanels
+                    }
+                    .frame(maxWidth: 1_080)
+                    .padding(.horizontal, 26)
+                    .padding(.vertical, 22)
+                    .frame(maxWidth: .infinity)
+                }
+                .scrollIndicators(.hidden)
+            }
         }
     }
 
     private var header: some View {
         HStack(alignment: .bottom, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(L10n.text(coordinator.selectedURL == nil ? "AIRPLAY 2" : "AHORA EN AIRCILLER"))
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.25)
-                    .foregroundStyle(Color.airCillerYellow)
                 Text(displayTitle)
-                    .font(.system(size: 27, weight: .bold, design: .rounded))
+                    .font(.title2.weight(.semibold))
                     .lineLimit(2)
                     .textSelection(.enabled)
                 if !headerDetail.isEmpty {
@@ -226,7 +238,7 @@ struct ContentView: View {
                         systemImage: coordinator.airPlay.isConnected ? "airplayvideo.circle.fill" : "airplayvideo"
                     )
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(coordinator.airPlay.isConnected ? Color.airCillerYellow : .secondary)
+                    .foregroundStyle(.secondary)
                     Text(device.name)
                         .font(.headline)
                         .lineLimit(1)
@@ -264,12 +276,6 @@ struct ContentView: View {
     private var player: some View {
         PlayerView(player: coordinator.player)
             .background(Color.black)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.white.opacity(0.11), lineWidth: 1)
-            }
-            .shadow(color: .black.opacity(0.22), radius: 28, y: 14)
             .overlay {
                 if !coordinator.isStreaming && !coordinator.isPreparing {
                     ZStack {
@@ -340,6 +346,12 @@ struct ContentView: View {
                     .allowsHitTesting(false)
                 }
             }
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Color.white.opacity(0.11), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.22), radius: 28, y: 14)
     }
 
     private var playerStage: some View {
@@ -391,15 +403,7 @@ struct ContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
-        .background(
-            .regularMaterial,
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.13), lineWidth: 1)
-        }
-        .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
+        .modifier(PlaybackControlSurface())
     }
 
     private var timeline: some View {
@@ -420,6 +424,7 @@ struct ContentView: View {
                     }
                 }
             )
+            .accessibilityLabel("Posición de reproducción")
             .disabled(coordinator.duration <= 0 || coordinator.isPreparing)
 
             HStack {
@@ -435,7 +440,9 @@ struct ContentView: View {
     }
 
     private var playbackControls: some View {
-        ZStack {
+        HStack(spacing: 12) {
+            playbackInformationButton
+            Spacer(minLength: 0)
             HStack(spacing: 9) {
                 Button {
                     coordinator.previousChapter()
@@ -444,9 +451,9 @@ struct ContentView: View {
                 }
                 .airCillerGlassControl()
                 .help("Capítulo anterior")
+                .accessibilityLabel("Capítulo anterior")
                 .disabled(coordinator.chapters.isEmpty || coordinator.isPreparing)
 
-                skipButton(seconds: -30, symbol: "gobackward.30")
                 skipButton(seconds: -10, symbol: "gobackward.10")
 
                 Button {
@@ -457,10 +464,10 @@ struct ContentView: View {
                         .frame(width: 46, height: 32)
                 }
                 .airCillerGlassControl()
+                .accessibilityLabel(coordinator.isPlaying ? Text("Pausa") : Text("Reproducir"))
                 .disabled(coordinator.selectedURL == nil || coordinator.probeInfo == nil || coordinator.isPreparing)
 
                 skipButton(seconds: 10, symbol: "goforward.10")
-                skipButton(seconds: 30, symbol: "goforward.30")
 
                 Button {
                     coordinator.nextChapter()
@@ -469,27 +476,12 @@ struct ContentView: View {
                 }
                 .airCillerGlassControl()
                 .help("Capítulo siguiente")
+                .accessibilityLabel("Capítulo siguiente")
                 .disabled(coordinator.chapters.isEmpty || coordinator.isPreparing)
             }
 
+            Spacer(minLength: 0)
             HStack(spacing: 9) {
-                Button {
-                    showingTracks = false
-                    showingStreamInfo.toggle()
-                } label: {
-                    Label("Información de reproducción", systemImage: "info.circle")
-                        .labelStyle(.iconOnly)
-                }
-                .airCillerGlassControl()
-                .foregroundStyle(streamInfoButtonColor)
-                .help("Información de reproducción")
-                .popover(isPresented: $showingStreamInfo, arrowEdge: .bottom) {
-                    PlaybackInformationView(coordinator: coordinator)
-                }
-                .disabled(coordinator.probeInfo == nil || coordinator.isPreparing)
-
-                Spacer()
-
                 Button {
                     showingStreamInfo = false
                     showingTracks.toggle()
@@ -511,11 +503,27 @@ struct ContentView: View {
                 }
                 .airCillerGlassControl()
                 .help("Detener")
-                .foregroundStyle(coordinator.isStreaming || coordinator.isPreparing ? .red : .secondary)
                 .disabled(!coordinator.isStreaming && !coordinator.isPreparing)
             }
         }
-        .controlSize(.large)
+        .controlSize(.regular)
+    }
+
+    private var playbackInformationButton: some View {
+        Button {
+            showingTracks = false
+            showingStreamInfo.toggle()
+        } label: {
+            Label("Información de reproducción", systemImage: "info.circle")
+                .labelStyle(.iconOnly)
+        }
+        .airCillerGlassControl()
+        .foregroundStyle(streamInfoButtonColor)
+        .help("Información de reproducción")
+        .popover(isPresented: $showingStreamInfo, arrowEdge: .bottom) {
+            PlaybackInformationView(coordinator: coordinator)
+        }
+        .disabled(coordinator.probeInfo == nil || coordinator.isPreparing)
     }
 
     private func skipButton(seconds: Double, symbol: String) -> some View {
@@ -526,6 +534,11 @@ struct ContentView: View {
         }
         .airCillerGlassControl()
         .help(
+            seconds < 0
+                ? L10n.format("Retroceder %lld segundos", Int64(abs(seconds)))
+                : L10n.format("Avanzar %lld segundos", Int64(seconds))
+        )
+        .accessibilityLabel(
             seconds < 0
                 ? L10n.format("Retroceder %lld segundos", Int64(abs(seconds)))
                 : L10n.format("Avanzar %lld segundos", Int64(seconds))
@@ -598,7 +611,7 @@ struct ContentView: View {
         case .tight, .insufficient, .error:
             return true
         case .pending, .excellent, .good:
-            return coordinator.rebufferEvents > 0
+            return false
         }
     }
 
@@ -838,6 +851,7 @@ enum LibraryTab: String, CaseIterable, Identifiable {
 struct LibrarySidebar: View {
     var coordinator: StreamCoordinator
     @Binding var selectedTab: LibraryTab
+    @AirCillerState private var selectedRecentID: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -858,24 +872,13 @@ struct LibrarySidebar: View {
             .padding(.top, 14)
             .padding(.bottom, 16)
 
-            VStack(spacing: 3) {
-                LibraryNavigationRow(
-                    title: "Playlist",
-                    symbol: "play.square.stack.fill",
-                    count: coordinator.queueItems.count,
-                    isSelected: selectedTab == .playlist
-                ) {
-                    selectedTab = .playlist
-                }
-                LibraryNavigationRow(
-                    title: "Recientes",
-                    symbol: "clock.fill",
-                    count: coordinator.recentItems.count,
-                    isSelected: selectedTab == .recent
-                ) {
-                    selectedTab = .recent
+            Picker("Tu biblioteca", selection: $selectedTab) {
+                ForEach(LibraryTab.allCases) { tab in
+                    Text(L10n.text(tab.rawValue)).tag(tab)
                 }
             }
+            .labelsHidden()
+            .pickerStyle(.segmented)
             .padding(.horizontal, 9)
             .padding(.bottom, 12)
 
@@ -887,6 +890,9 @@ struct LibrarySidebar: View {
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 Spacer()
+                Text("\(selectedTab == .playlist ? coordinator.queueItems.count : coordinator.recentItems.count)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
             .padding(.top, 13)
@@ -898,6 +904,9 @@ struct LibrarySidebar: View {
                 playlistView
             }
         }
+        .onChange(of: selectedTab) { _, tab in
+            if tab == .recent { coordinator.clearQueueFocus() }
+        }
     }
 
     private var recentList: some View {
@@ -905,57 +914,47 @@ struct LibrarySidebar: View {
             if coordinator.recentItems.isEmpty {
                 LibraryEmptyView(symbol: "clock.arrow.circlepath", text: "Aquí aparecerán las películas que abras")
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 5) {
-                        ForEach(coordinator.recentItems) { item in
-                            Button {
-                                coordinator.openRecent(item)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(item.title.softWrappedFilename)
-                                        .font(.callout.weight(.medium))
-                                        .lineLimit(2)
-                                        .truncationMode(.tail)
-                                        .frame(minHeight: 34, alignment: .topLeading)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                    if item.duration > 0 {
-                                        ProgressView(value: item.progress)
-                                        Text(
-                                            item.lastPosition > 0
-                                                ? L10n.format(
-                                                    "Continuar en %@",
-                                                    TimeFormatting.duration(item.lastPosition))
-                                                : TimeFormatting.duration(item.duration)
-                                        )
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                    }
-                                }
-                                .padding(10)
-                                .background(
-                                    Color.primary.opacity(0.045),
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                List(selection: $selectedRecentID) {
+                    ForEach(coordinator.recentItems) { item in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(item.title.softWrappedFilename)
+                                .font(.callout.weight(.medium))
+                                .lineLimit(2)
+                                .truncationMode(.tail)
+                                .frame(minHeight: 34, alignment: .topLeading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            if item.duration > 0 {
+                                ProgressView(value: item.progress)
+                                Text(
+                                    item.lastPosition > 0
+                                        ? L10n.format(
+                                            "Continuar en %@",
+                                            TimeFormatting.duration(item.lastPosition))
+                                        : TimeFormatting.duration(item.duration)
                                 )
-                                .overlay {
-                                    if coordinator.selectedURL?.path == item.path {
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                            .stroke(Color.airCillerYellow.opacity(0.72), lineWidth: 1.5)
-                                    }
-                                }
-                            }
-                            .buttonStyle(.plain)
-                            .help(item.title)
-                            .contextMenu {
-                                Button("Reproducir desde el inicio") {
-                                    coordinator.playRecentFromBeginning(item)
-                                }
-                                Divider()
-                                Button("Quitar de Recientes", role: .destructive) { coordinator.removeRecent(item) }
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(.secondary)
                             }
                         }
+                        .padding(.vertical, 6)
+                        .tag(item.id)
+                        .help(item.title)
                     }
-                    .padding(.horizontal, 9)
-                    .padding(.bottom, 6)
+                }
+                .listStyle(.sidebar)
+                .contextMenu(forSelectionType: String.self) { ids in
+                    if let item = coordinator.recentItems.first(where: { ids.contains($0.id) }) {
+                        Button("Reproducir") { coordinator.playRecent(item) }
+                        Button("Reproducir desde el inicio") {
+                            coordinator.playRecentFromBeginning(item)
+                        }
+                        Divider()
+                        Button("Quitar de Recientes", role: .destructive) { coordinator.removeRecent(item) }
+                    }
+                } primaryAction: { ids in
+                    if let item = coordinator.recentItems.first(where: { ids.contains($0.id) }) {
+                        coordinator.playRecent(item)
+                    }
                 }
                 Button("Borrar historial", role: .destructive) { coordinator.clearRecent() }
                     .font(.caption)
@@ -1052,44 +1051,23 @@ struct PlaylistMediaRow: View {
     }
 }
 
-struct LibraryNavigationRow: View {
-    let title: String
-    let symbol: String
-    let count: Int
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.airCillerYellow)
-                    .frame(width: 20)
-                Text(L10n.text(title))
-                    .font(.callout.weight(.semibold))
-                Spacer()
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .contentShape(Rectangle())
-            .airCillerSidebarSelection(isSelected: isSelected)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
 struct TrackSettingsView: View {
     @Bindable var coordinator: StreamCoordinator
     @Binding var isPresented: Bool
     @AirCillerState private var showingOpenSubtitles = false
+    @AirCillerState private var draft: TrackSettings
+    private let videoURL: URL?
+
+    init(coordinator: StreamCoordinator, isPresented: Binding<Bool>) {
+        self.coordinator = coordinator
+        _isPresented = isPresented
+        _draft = AirCillerState(initialValue: coordinator.trackSettings)
+        videoURL = coordinator.selectedURL
+    }
+
+    private var selectedSubtitle: SubtitleTrack? {
+        coordinator.subtitleTracks.first { $0.id == draft.subtitleID }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1105,27 +1083,27 @@ struct TrackSettingsView: View {
                                 .tag(Optional(track.id))
                         }
                     }
-                    Picker("Formato de salida", selection: $coordinator.audioOutputMode) {
+                    Picker("Formato de salida", selection: $draft.audioOutputMode) {
                         ForEach(AudioOutputMode.allCases) { mode in
                             Text(mode.title).tag(mode)
                         }
                     }
                     .pickerStyle(.menu)
-                    .disabled(coordinator.selectedAudio == nil)
+                    .disabled(draft.audioID == nil)
                     Label(
-                        coordinator.audioOutputMode.explanation,
-                        systemImage: coordinator.audioOutputMode == .original
+                        draft.audioOutputMode.explanation,
+                        systemImage: draft.audioOutputMode == .original
                             ? "checkmark.circle"
                             : "arrow.triangle.2.circlepath"
                     )
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     HStack {
-                        Stepper(value: $coordinator.audioDelay, in: -5...5, step: 0.05) {
-                            Text(L10n.format("Sincronía: %@ s", signed(coordinator.audioDelay)))
+                        Stepper(value: $draft.audioDelay, in: -5...5, step: 0.05) {
+                            Text(L10n.format("Sincronía: %@ s", signed(draft.audioDelay)))
                                 .monospacedDigit()
                         }
-                        Button("Restablecer") { coordinator.audioDelay = 0 }
+                        Button("Restablecer") { draft.audioDelay = 0 }
                             .font(.caption)
                     }
                     Text("Valores positivos retrasan el audio; negativos lo adelantan.")
@@ -1137,7 +1115,7 @@ struct TrackSettingsView: View {
 
             GroupBox("Subtítulos") {
                 VStack(alignment: .leading, spacing: 10) {
-                    Picker("Pista", selection: $coordinator.selectedSubtitleID) {
+                    Picker("Pista", selection: $draft.subtitleID) {
                         Text("Desactivados").tag(String?.none)
                         ForEach(coordinator.subtitleTracks) { track in
                             Text(
@@ -1149,7 +1127,9 @@ struct TrackSettingsView: View {
                         }
                     }
                     Button {
-                        coordinator.addExternalSubtitle()
+                        if let track = coordinator.chooseExternalSubtitle() {
+                            draft.subtitleID = track.id
+                        }
                     } label: {
                         Label("Añadir SRT, ASS o VTT…", systemImage: "plus")
                     }
@@ -1163,29 +1143,29 @@ struct TrackSettingsView: View {
                     .buttonStyle(.link)
                     .disabled(coordinator.selectedURL == nil)
 
-                    if let reason = coordinator.selectedSubtitle?.unsupportedReason {
+                    if let reason = selectedSubtitle?.unsupportedReason {
                         Label(L10n.text(reason), systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundStyle(.orange)
-                    } else if let notice = coordinator.selectedSubtitle?.stylingNotice {
+                    } else if let notice = selectedSubtitle?.stylingNotice {
                         Label(L10n.text(notice), systemImage: "info.circle")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
 
                     HStack {
-                        Stepper(value: $coordinator.subtitleDelay, in: -10...10, step: 0.1) {
-                            Text(L10n.format("Sincronía: %@ s", signed(coordinator.subtitleDelay)))
+                        Stepper(value: $draft.subtitleDelay, in: -10...10, step: 0.1) {
+                            Text(L10n.format("Sincronía: %@ s", signed(draft.subtitleDelay)))
                                 .monospacedDigit()
                         }
-                        Button("Restablecer") { coordinator.subtitleDelay = 0 }
+                        Button("Restablecer") { draft.subtitleDelay = 0 }
                             .font(.caption)
                     }
                     Text(
                         L10n.text(
-                            coordinator.selectedSubtitle?.usesBitmapOCR == true
+                            selectedSubtitle?.usesBitmapOCR == true
                                 ? "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones."
-                                : coordinator.selectedSubtitle?.usesAdvancedTextStyling == true
+                                : selectedSubtitle?.usesAdvancedTextStyling == true
                                     ? (coordinator.probeInfo?.isHDR == true
                                         ? "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS."
                                         : "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad.")
@@ -1207,25 +1187,31 @@ struct TrackSettingsView: View {
             HStack {
                 Spacer()
                 Button("Cancelar") { isPresented = false }
+                    .keyboardShortcut(.cancelAction)
                 Button("Aplicar cambios") {
+                    guard coordinator.selectedURL == videoURL else { return }
+                    coordinator.trackSettings = draft
                     isPresented = false
                     coordinator.applyTrackSettings()
                 }
                 .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
             }
         }
         .padding(18)
         .frame(width: 620)
         .sheet(isPresented: $showingOpenSubtitles) {
-            if let videoURL = coordinator.selectedURL {
+            if let videoURL {
                 OpenSubtitlesSearchView(
                     videoURL: videoURL,
                     preferredLanguage: coordinator.preferredSubtitleLanguage
                 ) { url in
-                    coordinator.attachExternalSubtitle(url)
+                    guard coordinator.selectedURL == videoURL else { return }
+                    draft.subtitleID = coordinator.registerExternalSubtitle(url)?.id
                 }
             }
         }
+        .onChange(of: coordinator.selectedURL) { _, _ in isPresented = false }
     }
 
     private func signed(_ value: Double) -> String {
@@ -1234,10 +1220,10 @@ struct TrackSettingsView: View {
 
     private var selectedAudio: Binding<String?> {
         Binding(
-            get: { coordinator.selectedAudioID },
+            get: { draft.audioID },
             set: { identifier in
-                coordinator.selectedAudioID = identifier
-                coordinator.audioOutputMode = .original
+                draft.audioID = identifier
+                draft.audioOutputMode = .original
             }
         )
     }
@@ -1505,58 +1491,26 @@ extension String {
 
 struct AirCillerBackdrop: View {
     var body: some View {
-        ZStack {
-            Color(nsColor: .windowBackgroundColor)
-            RadialGradient(
-                colors: [
-                    Color.airCillerYellow.opacity(0.105),
-                    Color.airCillerYellow.opacity(0.018),
-                    Color.clear,
-                ],
-                center: .topTrailing,
-                startRadius: 18,
-                endRadius: 720
-            )
-            LinearGradient(
-                colors: [Color.white.opacity(0.035), Color.clear, Color.black.opacity(0.025)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-        .ignoresSafeArea()
+        Color(nsColor: .windowBackgroundColor).ignoresSafeArea()
     }
 }
 
 private struct AirCillerGlassControlModifier: ViewModifier {
-    @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(macOS 26.0, *) {
-            content.buttonStyle(.glass)
-        } else {
-            content.buttonStyle(.bordered)
-        }
+        content
+            .buttonStyle(.borderless)
+            .padding(5)
+            .contentShape(Rectangle())
     }
 }
 
-private struct AirCillerSidebarSelectionModifier: ViewModifier {
-    let isSelected: Bool
-
+private struct PlaybackControlSurface: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
-        if isSelected {
-            if #available(macOS 26.0, *) {
-                content.glassEffect(
-                    .regular.interactive(),
-                    in: RoundedRectangle(cornerRadius: 11, style: .continuous)
-                )
-            } else {
-                content.background(
-                    Color.airCillerYellow.opacity(0.22),
-                    in: RoundedRectangle(cornerRadius: 11, style: .continuous)
-                )
-            }
+        if #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 22))
         } else {
-            content
+            content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22))
         }
     }
 }
@@ -1580,10 +1534,6 @@ private struct AirCillerContentCardModifier: ViewModifier {
 extension View {
     fileprivate func airCillerGlassControl() -> some View {
         modifier(AirCillerGlassControlModifier())
-    }
-
-    fileprivate func airCillerSidebarSelection(isSelected: Bool) -> some View {
-        modifier(AirCillerSidebarSelectionModifier(isSelected: isSelected))
     }
 
     fileprivate func airCillerContentCard(cornerRadius: CGFloat) -> some View {

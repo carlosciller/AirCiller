@@ -9,7 +9,7 @@ struct AirPlayCredentialStoreSmokeTest {
         try await store.storeCredential("old", for: "living-room")
         try await store.removeCredential(for: "living-room")
         try await store.storeCredential("fresh", for: "living-room")
-        guard await store.credential(for: "living-room") == "fresh" else {
+        guard try await store.credential(for: "living-room") == "fresh" else {
             throw NSError(domain: "AirPlayCredentialStoreSmokeTest.Order", code: 1)
         }
 
@@ -21,14 +21,32 @@ struct AirPlayCredentialStoreSmokeTest {
             }
         }
         try await store.storeCredential("final", for: "shared")
-        guard await store.credential(for: "shared") == "final",
+        guard try await store.credential(for: "shared") == "final",
             !backend.detectedOverlap
         else {
             throw NSError(domain: "AirPlayCredentialStoreSmokeTest.Serialization", code: 2)
         }
 
-        print("AirPlay credential reads, removals, and pairing writes are serialized: OK")
+        let unavailable = AirPlayCredentialStore(backend: UnavailableCredentialBackend())
+        do {
+            _ = try await unavailable.credential(for: "living-room")
+            throw NSError(domain: "AirPlayCredentialStoreSmokeTest.ErrorHiddenAsMissing", code: 3)
+        } catch let error as NSError where error.domain == "KeychainUnavailable" {
+            // Denied or locked Keychain access must not trigger fresh pairing.
+        }
+        guard try await store.credential(for: "missing") == nil else {
+            throw NSError(domain: "AirPlayCredentialStoreSmokeTest.Missing", code: 4)
+        }
+        print("AirPlay credential access is serialized; unavailable and missing credentials remain distinct: OK")
     }
+}
+
+private struct UnavailableCredentialBackend: AirPlayCredentialBackend {
+    func credential(for deviceID: String) throws -> String? {
+        throw NSError(domain: "KeychainUnavailable", code: -25308)
+    }
+    func storeCredential(_ credential: String, for deviceID: String) throws {}
+    func removeCredential(for deviceID: String) throws {}
 }
 
 private final class InMemoryCredentialBackend: AirPlayCredentialBackend, @unchecked Sendable {

@@ -140,9 +140,15 @@ enum AirCillerStorage {
         return (values ?? []).filter { url in
             let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
             return isDirectory
-                && url.lastPathComponent.hasPrefix("AirCiller-")
+                && isPreparedMediaDirectoryName(url.lastPathComponent)
                 && url.standardizedFileURL.path != excludedPath
         }
+    }
+
+    static func isPreparedMediaDirectoryName(_ name: String) -> Bool {
+        let prefix = "AirCiller-"
+        guard name.hasPrefix(prefix) else { return false }
+        return UUID(uuidString: String(name.dropFirst(prefix.count))) != nil
     }
 
     private static func directorySize(of directories: [URL]) -> Int64 {

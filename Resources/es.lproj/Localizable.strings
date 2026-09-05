@@ -600,6 +600,9 @@
 "Autorización restablecida" = "Autorización restablecida";
 
 /* Actualizaciones */
+"Posición de reproducción" = "Posición de reproducción";
+"Resultados por título" = "Resultados por título";
+"El archivo contiene una duración no válida." = "El archivo contiene una duración no válida.";
 "Actualizaciones" = "Actualizaciones";
 "Buscar actualizaciones…" = "Buscar actualizaciones…";
 "%@ (compilación %@)" = "%@ (compilación %@)";

@@ -22,8 +22,6 @@ struct ManagedComponentStatus: Equatable, Sendable {
     let source: String?
     let isCompatible: Bool
 
-    var isInstalled: Bool { path != nil }
-
     static func missing(_ component: ManagedComponent) -> Self {
         Self(
             component: component,

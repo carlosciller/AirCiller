@@ -284,13 +284,19 @@ actor OpenSubtitlesService {
         contentRequest.httpMethod = "GET"
         contentRequest.timeoutInterval = 60
         contentRequest.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
-        let (temporaryURL, urlResponse) = try await session.download(for: contentRequest)
-        try Self.validate(urlResponse)
-        let values = try temporaryURL.resourceValues(forKeys: [.fileSizeKey])
-        guard let byteCount = values.fileSize, byteCount <= Self.maximumSubtitleBytes else {
+        let data: Data
+        do {
+            let (content, urlResponse) = try await BoundedHTTPResponse.data(
+                for: contentRequest, using: session, maximumBytes: Self.maximumSubtitleBytes
+            )
+            try Self.validate(urlResponse)
+            guard let finalURL = urlResponse.url, Self.isTrustedDownloadURL(finalURL) else {
+                throw OpenSubtitlesError.unsafeDownloadLink
+            }
+            data = content
+        } catch BoundedHTTPResponse.Failure.tooLarge {
             throw OpenSubtitlesError.subtitleTooLarge
         }
-        let data = try Data(contentsOf: temporaryURL)
         guard !data.isEmpty, !Self.looksLikeHTML(data) else {
             throw OpenSubtitlesError.emptySubtitle
         }
@@ -305,6 +311,7 @@ actor OpenSubtitlesService {
             requestedFormat: requestedFormat
         )
         let destination = directory.appendingPathComponent(fileName, isDirectory: false)
+        try Task.checkCancellation()
         try data.write(to: destination, options: .atomic)
         AirCillerStorage.touchCachedSubtitle(destination)
         _ = try? AirCillerStorage.pruneSubtitleCache()
@@ -428,11 +435,16 @@ actor OpenSubtitlesService {
         _ request: URLRequest
     ) async throws -> Response {
         try Task.checkCancellation()
-        let (data, response) = try await session.data(for: request)
-        try Self.validate(response, data: data)
-        guard data.count <= Self.maximumResponseBytes else {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await BoundedHTTPResponse.data(
+                for: request, using: session, maximumBytes: Self.maximumResponseBytes
+            )
+        } catch BoundedHTTPResponse.Failure.tooLarge {
             throw OpenSubtitlesError.invalidResponse
         }
+        try Self.validate(response, data: data)
         do {
             return try JSONDecoder().decode(Response.self, from: data)
         } catch {
@@ -505,7 +517,8 @@ actor OpenSubtitlesService {
                 )
             }
         }
-        return values.sorted { left, right in
+        var seen = Set<String>()
+        return values.filter { seen.insert($0.id).inserted }.sorted { left, right in
             let leftScore = resultScore(left)
             let rightScore = resultScore(right)
             if leftScore == rightScore {
@@ -519,8 +532,9 @@ actor OpenSubtitlesService {
         var score = result.isExactFileMatch ? 1_000_000 : 0
         score += result.isTrusted ? 100_000 : 0
         score += result.isMachineTranslated || result.isAITranslated ? -50_000 : 0
-        score += min(40_000, result.downloadCount)
-        score += Int(result.rating * 100)
+        score += min(40_000, max(0, result.downloadCount))
+        let rating = result.rating.isFinite ? min(10, max(0, result.rating)) : 0
+        score += Int(rating * 100)
         return score
     }
 

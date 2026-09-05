@@ -17,6 +17,9 @@ scan_paths=(
   Info.plist
   Brewfile
   README.md
+  COMPATIBILITY.md
+  AGENTS.md
+  Docs
   CHANGELOG.md
   ARCHITECTURE.md
   CODE_OF_CONDUCT.md
@@ -38,6 +41,10 @@ public_prose_paths=(
   .github
   Distribution
   README.md
+  CHANGELOG.md
+  COMPATIBILITY.md
+  AGENTS.md
+  Docs
   ARCHITECTURE.md
   CODE_OF_CONDUCT.md
   CONTRIBUTING.md

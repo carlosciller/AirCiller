@@ -26,21 +26,25 @@ struct AirCillerStorageSmokeTest {
         let prepared = AirCillerStorage.preparedMediaDirectories(
             in: FileManager.default.temporaryDirectory
         )
-        let foundPreparedDirectory = prepared.contains {
+        let foundTestDirectory = prepared.contains {
             $0.standardizedFileURL.path == root.standardizedFileURL.path
         }
         guard remaining == 80,
             !FileManager.default.fileExists(atPath: oldest.path),
             FileManager.default.fileExists(atPath: middle.path),
             FileManager.default.fileExists(atPath: newest.path),
-            foundPreparedDirectory
+            !foundTestDirectory,
+            AirCillerStorage.isPreparedMediaDirectoryName("AirCiller-\(UUID().uuidString)"),
+            !AirCillerStorage.isPreparedMediaDirectoryName("AirCiller-PythonCache"),
+            !AirCillerStorage.isPreparedMediaDirectoryName("AirCiller-SubtitleOCR-Test"),
+            !AirCillerStorage.isPreparedMediaDirectoryName("AirCiller-Downloads")
         else {
             throw NSError(
                 domain: "AirCillerStorageSmokeTest",
                 code: 1,
                 userInfo: [
                     NSLocalizedDescriptionKey:
-                        "remaining=\(remaining), oldest=\(FileManager.default.fileExists(atPath: oldest.path)), prepared=\(foundPreparedDirectory)"
+                        "remaining=\(remaining), oldest=\(FileManager.default.fileExists(atPath: oldest.path)), includedTestDirectory=\(foundTestDirectory)"
                 ]
             )
         }

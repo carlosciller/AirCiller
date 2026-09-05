@@ -1,12 +1,18 @@
-# Managed components
+# Distribution files
 
-AirCiller can download its two optional runtimes from GitHub Releases:
+Current releases include their playback engines. AirCiller does not download or update FFmpeg or Python separately.
 
-- a self-contained FFmpeg build used for probing and media preparation;
-- a standalone CPython runtime used by AirCiller's pinned AirPlay engine.
+## Current inputs
 
-`components-v1.json` contains the exact version, architecture, minimum macOS version, download size, SHA-256 digest and executable path for every archive. `components-v1.json.sig` is an Ed25519 signature over the exact JSON bytes. AirCiller verifies the signature before reading any URL, then verifies the selected archive again before extraction.
+- `ReleaseNotes/`: notes for each app version.
+- `appcast.xml.example`: signed Sparkle feed documentation.
+- `Scripts/bootstrap_engine.sh`: fetches pinned, checksum-verified archives at build time.
+- `Scripts/build_managed_components.sh`: builds those archives from recorded sources. Its historical filename is retained.
 
-An installation is staged under `~/Library/Application Support/AirCiller/Components`. The active version changes only after the executable and every extracted path pass validation. The previous version remains available for rollback.
+Scripts are relative to the repository root. See [Distribution and updates](../DISTRIBUTION.md) for packaging, signatures and publication.
 
-The archives are built locally with `Scripts/build_managed_components.sh` and the signed catalogue is generated with `Scripts/package_managed_components.sh`. The latter uses the same private key kept by Sparkle in the maintainer's Keychain; the private key is never stored in this repository.
+## Historical component catalogue
+
+`components-v1.json` and `components-v1.json.sig` describe separate downloads used by older releases. Keep the exact signed files and archives for auditing and reproduction. Current builds do not read this catalogue.
+
+`Scripts/package_managed_components.sh` creates the historical archives and signs the catalogue using the maintainer's Keychain. Removing the unused installer does not remove these tools or older users' installed components.

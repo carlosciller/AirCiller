@@ -759,7 +759,7 @@ final class LocalHTTPServer: @unchecked Sendable {
             return start..<(end + 1)
         }
 
-        if let suffixLength = Int(parts[1]), suffixLength > 0 {
+        if parts[0].isEmpty, let suffixLength = Int(parts[1]), suffixLength > 0 {
             let start = max(0, total - suffixLength)
             return start..<total
         }

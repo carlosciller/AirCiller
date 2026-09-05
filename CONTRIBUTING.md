@@ -12,10 +12,15 @@ AirCiller is a personal project, but focused reviews and small proposals are wel
 
 ## Minimum validation
 
-1. Run `./Scripts/check.sh`.
-2. Build with `./build.sh` using strict Swift 6 and warnings-as-errors.
-3. State clearly which tests are local and which were performed on a physical Apple TV.
-4. For playback changes, validate the two paths in [TESTING.md](TESTING.md) separately.
+For documentation-only changes, review the diff, verify referenced paths and consistency, and run `git diff --check`. No app build or physical playback is required unless executable behavior also changes.
+
+For code, dependency, or build changes:
+
+1. Run `./Scripts/check.sh`. It already invokes `./build.sh` using strict Swift 6 and warnings-as-errors; a second identical build is unnecessary after it passes.
+2. State clearly which tests are local and which were performed on a physical Apple TV.
+3. For playback changes, validate the affected cases in [TESTING.md](TESTING.md), keeping the two paths separate. Engine upgrades require both paths.
+
+Add tests for meaningful changed behavior. Once required checks pass, repeat or broaden validation only when new changes, failures, or unresolved concerns justify it.
 
 Changes produced with AI tools are acceptable, but they must be reviewed, understandable, and held to the same validation standard as any other change.
 

@@ -411,6 +411,7 @@ struct StorageSettingsView: View {
                         Text(byteCount(Int64(megabytes) * 1_024 * 1_024)).tag(megabytes)
                     }
                 }
+                .disabled(coordinator.isPreparing || coordinator.isStreaming)
                 .onChange(of: cacheLimitMB) { _, newValue in
                     AirCillerStorage.setSubtitleCacheLimitMB(newValue)
                     refresh()
@@ -426,7 +427,7 @@ struct StorageSettingsView: View {
                     try? AirCillerStorage.clearSubtitleCache()
                     refresh()
                 }
-                .disabled(snapshot.subtitleCacheBytes == 0)
+                .disabled(snapshot.subtitleCacheBytes == 0 || coordinator.isPreparing || coordinator.isStreaming)
             }
 
             Section("Preparación de películas") {

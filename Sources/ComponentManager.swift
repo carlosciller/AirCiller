@@ -15,9 +15,7 @@ final class ComponentManager {
         defer { hasRefreshed = true }
 
         let recordedPythonPath = Self.recordedPythonPath()
-        let snapshot = await Task.detached(priority: .utility) {
-            await Self.scan(recordedPythonPath: recordedPythonPath)
-        }.value
+        let snapshot = await Self.scan(recordedPythonPath: recordedPythonPath)
         guard !Task.isCancelled else { return }
         statuses = snapshot.statuses
     }
@@ -38,12 +36,10 @@ final class ComponentManager {
 
     private nonisolated static func scan(recordedPythonPath: String?) async -> ComponentSnapshot {
         let bundledFFmpegPath = BundledEngine.ffmpegExecutable(named: "ffmpeg")?.path
-        let managedFFmpegPath = ManagedComponentStore.executableURL(for: .ffmpeg)?.path
         let ffmpegPath =
             BundledEngine.isRequired
             ? bundledFFmpegPath
             : bundledFFmpegPath
-                ?? managedFFmpegPath
                 ?? executablePath(in: [
                     "/opt/homebrew/bin/ffmpeg",
                     "/usr/local/bin/ffmpeg",
@@ -61,7 +57,7 @@ final class ComponentManager {
             version: ffmpegVersion,
             path: ffmpegPath,
             source: ffmpegPath.map {
-                bundledFFmpegPath == $0 || managedFFmpegPath == $0
+                bundledFFmpegPath == $0
                     ? "AirCiller"
                     : componentSource(for: $0)
             },
@@ -69,13 +65,11 @@ final class ComponentManager {
         )
 
         let bundledPythonPath = BundledEngine.airPlayPython()?.path
-        let managedPythonPath = ManagedComponentStore.executableURL(for: .airPlay)?.path
         var pythonCandidates =
             BundledEngine.isRequired
             ? [bundledPythonPath].compactMap { $0 }
             : [
                 bundledPythonPath,
-                managedPythonPath,
                 recordedPythonPath,
                 "/opt/homebrew/opt/python@3.13/bin/python3.13",
                 "/opt/homebrew/bin/python3",
@@ -113,7 +107,7 @@ final class ComponentManager {
             version: pythonVersion,
             path: pythonPath,
             source: pythonPath.map {
-                bundledPythonPath == $0 || managedPythonPath == $0
+                bundledPythonPath == $0
                     ? "AirCiller"
                     : componentSource(for: $0)
             },
@@ -175,28 +169,16 @@ final class ComponentManager {
         environment: [String: String]?,
         maximumOutputBytes: Int
     ) async throws -> ProcessResult {
-        let process = Process()
-        let output = Pipe()
-        let buffer = ProcessDataBuffer(maximumBytes: maximumOutputBytes)
-        process.executableURL = URL(fileURLWithPath: executablePath)
-        process.arguments = arguments
-        process.environment = environment
-        process.standardOutput = output
-        process.standardError = output
-        output.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty {
-                handle.readabilityHandler = nil
-            } else {
-                buffer.append(data)
-            }
-        }
-        defer { output.fileHandleForReading.readabilityHandler = nil }
-
-        let status = try await CancellableProcess(process).run()
-        buffer.append(output.fileHandleForReading.readDataToEndOfFile())
-        let text = String(decoding: buffer.snapshot, as: UTF8.self)
-        return ProcessResult(status: status, output: text)
+        let result = try await CapturedProcess.run(
+            executable: URL(fileURLWithPath: executablePath),
+            arguments: arguments,
+            environment: environment,
+            maximumOutputBytes: maximumOutputBytes
+        )
+        return ProcessResult(
+            status: result.status,
+            output: String(decoding: result.output + result.errorOutput, as: UTF8.self)
+        )
     }
 
     private nonisolated static func firstMatch(in text: String, pattern: String) -> String? {

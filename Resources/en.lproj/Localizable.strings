@@ -600,6 +600,9 @@
 "Autorización restablecida" = "Authorization Reset";
 
 /* Updates */
+"Posición de reproducción" = "Playback Position";
+"Resultados por título" = "Title Results";
+"El archivo contiene una duración no válida." = "The file contains an invalid duration.";
 "Actualizaciones" = "Updates";
 "Buscar actualizaciones…" = "Check for Updates…";
 "%@ (compilación %@)" = "%@ (build %@)";

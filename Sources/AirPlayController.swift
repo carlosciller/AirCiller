@@ -73,10 +73,11 @@ private struct AirPlayHelperEvent: Decodable {
     let duration: Double?
     let position: Double?
     let playing: Bool?
+    let requestID: String?
 
     enum CodingKeys: String, CodingKey {
         case event, devices, device, message, technical, reason, source, credentials, deviceName, duration, position,
-            playing
+            playing, requestID
         case protocolName = "protocol"
     }
 }
@@ -141,6 +142,7 @@ final class AirPlayController {
     @ObservationIgnored private var timelineDuration = 0.0
     @ObservationIgnored private var timelineIsPlaying = false
     @ObservationIgnored private var timelineReferenceDate = Date()
+    @ObservationIgnored private var seekReconciliation = AirPlaySeekReconciliation()
     @ObservationIgnored private var pairingProcess: Process?
     @ObservationIgnored private var pairingSessionID: UUID?
     @ObservationIgnored private var pairingDeviceID: String?
@@ -183,7 +185,7 @@ final class AirPlayController {
             } else {
                 selectedDeviceID = devices.first?.id
             }
-            await refreshAuthorization()
+            try await refreshAuthorization()
             status =
                 devices.isEmpty
                 ? "No se encontró ningún Apple TV"
@@ -204,10 +206,15 @@ final class AirPlayController {
         selectedDeviceID = deviceID
         authorizationState = .unknown
         validatedAuthorizationDeviceID = nil
-        await refreshAuthorization()
+        do {
+            try await refreshAuthorization()
+        } catch {
+            scanError = error.localizedDescription
+            status = "No se pudo comprobar la autorización"
+        }
     }
 
-    func refreshAuthorization() async {
+    func refreshAuthorization() async throws {
         guard let device = selectedDevice else {
             authorizationState = .unknown
             return
@@ -223,7 +230,12 @@ final class AirPlayController {
 
         authorizationState = .checking
         let deviceID = device.id
-        let credential = await credentialStore.credential(for: deviceID)
+        defer {
+            if selectedDeviceID == deviceID, authorizationState == .checking {
+                authorizationState = .unknown
+            }
+        }
+        let credential = try await credentialStore.credential(for: deviceID)
         guard selectedDeviceID == deviceID else { return }
         if let credential, !credential.isEmpty {
             credentialCache[deviceID] = credential
@@ -269,7 +281,7 @@ final class AirPlayController {
         if let cached = credentialCache[deviceID], !cached.isEmpty {
             credential = cached
         } else {
-            let stored = await credentialStore.credential(for: deviceID)
+            let stored = try await credentialStore.credential(for: deviceID)
             guard let stored, !stored.isEmpty else {
                 markAuthorizationRequired(for: deviceID)
                 throw DirectAirPlayError.authorizationRequired(
@@ -281,6 +293,13 @@ final class AirPlayController {
         }
 
         authorizationState = .checking
+        defer {
+            // A cancelled or failed helper must not leave the picker stuck at
+            // Checking. The next Play still validates the cached credential.
+            if selectedDeviceID == deviceID, authorizationState == .checking {
+                authorizationState = .authorized
+            }
+        }
         var input = try JSONSerialization.data(withJSONObject: ["credentials": credential])
         input.append(0x0A)
         let address = selectedDevice.address
@@ -320,6 +339,7 @@ final class AirPlayController {
         duration: Double = 0,
         title: String? = nil
     ) async throws {
+        try Task.checkCancellation()
         guard let selectedDevice else { throw DirectAirPlayError.noDevice }
         let credential: String?
         if selectedDevice.pairing == "Mandatory" {
@@ -327,7 +347,7 @@ final class AirPlayController {
                 credential = cached
             } else {
                 let deviceID = selectedDevice.id
-                credential = await credentialStore.credential(for: deviceID)
+                credential = try await credentialStore.credential(for: deviceID)
                 guard let credential, !credential.isEmpty else {
                     authorizationState = .required
                     throw DirectAirPlayError.authorizationRequired(
@@ -340,6 +360,7 @@ final class AirPlayController {
         } else {
             credential = nil
         }
+        try Task.checkCancellation()
         stop(silently: true)
         resetTimeline(position: position, duration: duration)
         playbackDeviceID = selectedDevice.id
@@ -432,19 +453,26 @@ final class AirPlayController {
             "Control directo hacia \(selectedDevice.name, privacy: .private) (\(selectedDevice.address, privacy: .private))"
         )
 
-        try await withCheckedThrowingContinuation { continuation in
-            pendingStart = continuation
-            startTimeoutTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(35))
-                guard !Task.isCancelled else { return }
-                await MainActor.run { [weak self] in
-                    guard let self,
-                        self.playbackSessionID == sessionID,
-                        self.pendingStart != nil
-                    else { return }
-                    self.failPendingStart(DirectAirPlayError.connectionTimedOut)
-                    self.stop(silently: true)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                pendingStart = continuation
+                startTimeoutTask = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(35))
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run { [weak self] in
+                        guard let self,
+                            self.playbackSessionID == sessionID,
+                            self.pendingStart != nil
+                        else { return }
+                        self.failPendingStart(DirectAirPlayError.connectionTimedOut)
+                        self.stop(silently: true)
+                    }
                 }
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                guard let self, self.playbackSessionID == sessionID else { return }
+                self.stop(silently: true)
             }
         }
     }
@@ -552,7 +580,7 @@ final class AirPlayController {
         guard var data = try? JSONSerialization.data(withJSONObject: ["pin": digits]) else { return }
         data.append(0x0A)
         do {
-            try handle.write(contentsOf: data)
+            try HelperCommandWriter.write(data, to: handle)
         } catch {
             pairingState = .failed(L10n.text("No se pudo enviar el código al motor AirPlay."))
         }
@@ -597,8 +625,12 @@ final class AirPlayController {
 
     @discardableResult
     func seek(to position: Double) -> Bool {
-        guard send(["command": "seek", "position": max(0, position)]) else { return false }
-        timelinePosition = min(max(0, position), timelineDuration > 0 ? timelineDuration : position)
+        guard position.isFinite else { return false }
+        let target = min(max(0, position), timelineDuration > 0 ? timelineDuration : max(0, position))
+        let requestID = UUID().uuidString
+        guard send(["command": "seek", "position": target, "requestID": requestID]) else { return false }
+        seekReconciliation.begin(id: requestID, position: target, now: ProcessInfo.processInfo.systemUptime)
+        timelinePosition = target
         timelineReferenceDate = Date()
         publishTimeline()
         return true
@@ -613,14 +645,18 @@ final class AirPlayController {
             playbackDeviceName = nil
             return
         }
+        guard !stopping else { return }
+        let shouldSendStop = !receivedTerminalEvent && process.isRunning
         stopping = true
-        receivedTerminalEvent = silently
-        send(["command": "stop"])
-        if !silently { status = "Deteniendo AirPlay…" }
+        receivedTerminalEvent = receivedTerminalEvent || silently
+        if shouldSendStop {
+            send(["command": "stop"])
+            if !silently { status = "Deteniendo AirPlay…" }
+        }
         Task { [weak process] in
             try? await Task.sleep(for: .seconds(2))
             guard let process, process.isRunning else { return }
-            process.terminate()
+            CancellableProcess(process).terminate()
         }
     }
 
@@ -637,7 +673,7 @@ final class AirPlayController {
         }
         data.append(0x0A)
         do {
-            try handle.write(contentsOf: data)
+            try HelperCommandWriter.write(data, to: handle)
             return true
         } catch {
             if stopping { return false }
@@ -736,6 +772,9 @@ final class AirPlayController {
     }
 
     private func handle(_ event: AirPlayHelperEvent) {
+        // Replies already in flight after Stop cannot resume the timeline or
+        // advance the playlist. Only the shutdown acknowledgement is relevant.
+        guard !stopping || event.event == "stopped" || event.event == "error" else { return }
         switch event.event {
         case "connecting":
             let name = event.device?.name ?? playbackDeviceName ?? "Apple TV"
@@ -796,7 +835,11 @@ final class AirPlayController {
                 playing: true
             )
         case "seeked":
-            if let position = event.position {
+            if let position = event.position,
+                seekReconciliation.acknowledge(
+                    id: event.requestID, position: position, now: ProcessInfo.processInfo.systemUptime
+                )
+            {
                 timelinePosition = min(max(0, position), timelineDuration > 0 ? timelineDuration : position)
                 timelineReferenceDate = Date()
                 publishTimeline()
@@ -929,6 +972,7 @@ final class AirPlayController {
     }
 
     private func resetTimeline(position: Double, duration: Double) {
+        seekReconciliation.reset()
         timelineTask?.cancel()
         timelineTask = nil
         timelinePosition = max(0, position)
@@ -942,7 +986,9 @@ final class AirPlayController {
         if let duration, duration.isFinite, duration > 0 {
             timelineDuration = duration
         }
-        if let position, position.isFinite, position >= 0 {
+        if let position,
+            seekReconciliation.acceptsPosition(position, now: ProcessInfo.processInfo.systemUptime)
+        {
             timelinePosition = min(position, timelineDuration > 0 ? timelineDuration : position)
         }
         timelineIsPlaying = playing
@@ -977,6 +1023,7 @@ final class AirPlayController {
     }
 
     private func stopTimeline() {
+        seekReconciliation.reset()
         updateTimelineClock()
         timelineIsPlaying = false
         timelineTask?.cancel()
@@ -1014,7 +1061,6 @@ final class AirPlayController {
             ? [bundledPython].compactMap { $0 }
             : [
                 bundledPython,
-                ManagedComponentStore.executableURL(for: .airPlay)?.path,
                 recordedPython?.path,
                 "/opt/homebrew/opt/python@3.13/bin/python3.13",
                 "/usr/local/opt/python@3.13/bin/python3.13",
@@ -1037,10 +1083,6 @@ final class AirPlayController {
     private nonisolated static func helperEnvironment(vendor: URL) -> [String: String] {
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = vendor.path
-        // macOS still links /usr/bin/python3 to LibreSSL. urllib3 announces that
-        // mismatch even though AirCiller only uses it on the local AirPlay link.
-        // Keep every other Python warning visible for diagnostics.
-        environment["PYTHONWARNINGS"] = "ignore:urllib3 v2 only supports OpenSSL"
         environment["PYTHONPYCACHEPREFIX"] =
             FileManager.default.temporaryDirectory
             .appendingPathComponent("AirCiller-PythonCache", isDirectory: true).path

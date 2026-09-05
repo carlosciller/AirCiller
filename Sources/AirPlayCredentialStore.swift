@@ -2,7 +2,7 @@ import Foundation
 import Security
 
 protocol AirPlayCredentialBackend: Sendable {
-    func credential(for deviceID: String) -> String?
+    func credential(for deviceID: String) throws -> String?
     func storeCredential(_ credential: String, for deviceID: String) throws
     func removeCredential(for deviceID: String) throws
 }
@@ -10,7 +10,7 @@ protocol AirPlayCredentialBackend: Sendable {
 struct KeychainAirPlayCredentialBackend: AirPlayCredentialBackend {
     private let service = "local.carlosciller.AirCiller.AirPlay"
 
-    func credential(for deviceID: String) -> String? {
+    func credential(for deviceID: String) throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -19,10 +19,15 @@ struct KeychainAirPlayCredentialBackend: AirPlayCredentialBackend {
             kSecMatchLimit as String: kSecMatchLimitOne,
         ]
         var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-            let data = result as? Data
-        else { return nil }
-        return String(data: data, encoding: .utf8)
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status != errSecItemNotFound else { return nil }
+        guard status == errSecSuccess else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+        }
+        guard let data = result as? Data, let credential = String(data: data, encoding: .utf8) else {
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecDecode))
+        }
+        return credential
     }
 
     func storeCredential(_ credential: String, for deviceID: String) throws {
@@ -67,8 +72,8 @@ actor AirPlayCredentialStore {
         self.backend = backend
     }
 
-    func credential(for deviceID: String) -> String? {
-        backend.credential(for: deviceID)
+    func credential(for deviceID: String) throws -> String? {
+        try backend.credential(for: deviceID)
     }
 
     func storeCredential(_ credential: String, for deviceID: String) throws {

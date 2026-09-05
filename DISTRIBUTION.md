@@ -71,6 +71,8 @@ Sparkle's `generate_appcast` tool should create the published XML. It signs the 
 
 ## Release procedure
 
+Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidate and complete the applicable physical matrix in [TESTING.md](TESTING.md). Shared session or server changes affect both playback paths. Record failures and untested cases explicitly; a successful build alone does not pass this gate.
+
 1. Increase `CFBundleShortVersionString` and the numeric `CFBundleVersion`.
 2. Update `CHANGELOG.md` and write concise, user-facing notes in `Distribution/ReleaseNotes/<version>.md`. Use `TEMPLATE.md` as the starting point, describe visible outcomes, and omit implementation details.
 3. Prepare the pinned engine, build AirCiller, and verify its ad hoc signature:
@@ -113,7 +115,7 @@ Sparkle's `generate_appcast` tool should create the published XML. It signs the 
 8. Upload the ZIP, release notes, and appcast to their final HTTPS locations.
 9. Confirm that every URL in the appcast returns the expected file without authentication or redirects to an untrusted host.
 10. Use an older AirCiller build to run **Check for Updates…**, download the new archive, install it, relaunch, and confirm the new version.
-11. Run the physical Apple TV playback matrix before replacing the installed daily-use copy.
+11. Replace the daily-use copy only after the candidate is accepted and installation is authorized. Keep a rollback copy. The physical matrix must already be complete before publication.
 
 The placeholder values above are documentation markers. They are not valid publication URLs.
 
