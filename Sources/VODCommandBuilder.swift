@@ -50,6 +50,11 @@ enum VODCommandBuilder {
             switch outputMode {
             case .original:
                 arguments += ["-c:a", "copy"]
+                if audio.codec.lowercased() == "aac" {
+                    // HLS/fMP4 does not auto-insert this for ADTS carried by TS.
+                    // It removes transport framing without encoding the AAC audio.
+                    arguments += ["-bsf:a", "aac_adtstoasc"]
+                }
             case .compatible:
                 arguments += ["-c:a", "eac3", "-b:a", "640k"]
                 if (audio.channels ?? 0) > 6 { arguments += ["-ac:a", "6"] }
@@ -115,6 +120,9 @@ enum VODCommandBuilder {
             switch outputMode {
             case .original:
                 arguments += ["-c:a", "copy"]
+                if audio.codec.lowercased() == "aac" {
+                    arguments += ["-bsf:a", "aac_adtstoasc"]
+                }
             case .compatible:
                 arguments += ["-c:a", "eac3", "-b:a", "640k"]
                 if (audio.channels ?? 0) > 6 { arguments += ["-ac:a", "6"] }

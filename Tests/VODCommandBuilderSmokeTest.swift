@@ -59,7 +59,31 @@ struct VODCommandBuilderSmokeTest {
                 throw NSError(domain: "VODCommandBuilderSmokeTest.VideoMap", code: 1)
             }
         }
+        for codec in ["aac", "eac3", "ac3", "alac"] {
+            let audio = AudioTrack(
+                streamIndex: 8, codec: codec, profile: nil, channels: 2, channelLayout: "stereo",
+                language: nil, title: nil, isDefault: true)
+            for mode in AudioOutputMode.allCases {
+                let variants = [
+                    VODCommandBuilder.arguments(
+                        input: input, outputDirectory: directory, probe: probe, audio: audio,
+                        outputMode: mode, audioDelay: 0),
+                    VODCommandBuilder.multiplexedArguments(
+                        input: input, outputDirectory: directory, probe: probe, audio: audio,
+                        outputMode: mode, audioDelay: 0),
+                ]
+                for arguments in variants {
+                    guard arguments.contains("aac_adtstoasc") == (codec == "aac" && mode == .original),
+                        let videoIndex = arguments.firstIndex(of: "-c:v"), arguments[videoIndex + 1] == "copy",
+                        let audioIndex = arguments.firstIndex(of: "-c:a"),
+                        (arguments[audioIndex + 1] == "copy") == (mode == .original),
+                        containsMap("0:8", in: arguments)
+                    else { throw NSError(domain: "VODCommandBuilderSmokeTest.AudioCopy", code: 2) }
+                }
+            }
+        }
         print("Exact primary video stream mapping for HLS and direct MP4: OK")
+        print("HLS adapts ADTS framing only for original AAC; audio conversion remains explicit: OK")
     }
 
     private static func containsMap(_ value: String, in arguments: [String]) -> Bool {

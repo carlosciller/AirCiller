@@ -27,7 +27,22 @@ struct MediaProbeValidationSmokeTest {
                 guard duration != "12.5" else { throw Failure.rejectedValidData }
             }
         }
+        for (programs, duration, accepted) in [(1, "60", true), (2, "60", false), (1, "0", false)] {
+            let programJSON = Array(repeating: "{\"program_id\":1}", count: programs).joined(separator: ",")
+            let json = """
+                {"streams":[{"index":0,"codec_type":"video","codec_name":"hevc"}],
+                 "programs":[\(programJSON)],"format":{"format_name":"mpegts","duration":"\(duration)"}}
+                """
+            try "#!/bin/sh\nprintf '%s' '\(json)'\n".write(to: fixture, atomically: true, encoding: .utf8)
+            do {
+                _ = try await MediaProbeService.probe(url: movie, ffprobeURL: fixture)
+                guard accepted else { throw Failure.acceptedInvalidData }
+            } catch AirCillerError.probeFailed {
+                guard !accepted else { throw Failure.rejectedValidData }
+            }
+        }
         print("Invalid media durations are rejected; invalid chapters are ignored: OK")
+        print("Transport streams require one program and a finite duration: OK")
     }
 
     private enum Failure: Error { case acceptedInvalidData, rejectedValidData }

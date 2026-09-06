@@ -468,7 +468,7 @@ final class StreamCoordinator {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = Self.videoContentTypes
+        panel.allowedContentTypes = MediaFileTypes.contentTypes
 
         guard panel.runModal() == .OK, let first = panel.urls.first else { return }
         handleURLs([first] + Array(panel.urls.dropFirst()))
@@ -481,18 +481,17 @@ final class StreamCoordinator {
         panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = Self.videoContentTypes
+        panel.allowedContentTypes = MediaFileTypes.contentTypes
         guard panel.runModal() == .OK else { return }
         enqueue(panel.urls)
     }
 
     func handleURLs(_ urls: [URL]) {
-        let acceptedExtensions = Set(["mkv", "mp4", "m4v", "mov"])
-        let videos = urls.filter { acceptedExtensions.contains($0.pathExtension.lowercased()) }
+        let videos = urls.filter(MediaFileTypes.accepts)
         guard let first = videos.first else {
             presentError(
                 title: "No hay ninguna película compatible",
-                detail: "Arrastra o abre un archivo MKV, MP4, M4V o MOV."
+                detail: "Arrastra o abre un archivo MKV, MP4, M4V, MOV, TS, MTS o M2TS."
             )
             return
         }
@@ -1327,6 +1326,7 @@ final class StreamCoordinator {
                     expectedDuration: info.duration
                 )
 
+                var preparedSubtitle = subtitle
                 if let subtitle {
                     self.status =
                         subtitle.usesBitmapOCR
@@ -1337,7 +1337,7 @@ final class StreamCoordinator {
                         ? "Apple Vision reconoce la pista gráfica localmente y la convierte en WebVTT seleccionable."
                         : "Creando una pista WebVTT para cada tramo de la película."
                     self.preparationProgress = 0.91
-                    try await SubtitleService.prepare(
+                    preparedSubtitle = try await SubtitleService.prepare(
                         track: subtitle,
                         videoURL: url,
                         delay: chosenSubtitleDelay,
@@ -1365,7 +1365,7 @@ final class StreamCoordinator {
                         probe: info,
                         audio: audio,
                         audioOutputMode: outputMode,
-                        subtitle: subtitle,
+                        subtitle: preparedSubtitle,
                         outputDirectory: directory
                     )
                 }
@@ -1603,7 +1603,7 @@ final class StreamCoordinator {
     }
 
     private func enqueue(_ urls: [URL]) {
-        for url in urls where !queueItems.contains(where: { $0.path == url.path }) {
+        for url in urls where MediaFileTypes.accepts(url) && !queueItems.contains(where: { $0.path == url.path }) {
             queueItems.append(QueueMediaItem(path: url.path, title: url.deletingPathExtension().lastPathComponent))
         }
         HistoryStore.saveQueue(queueItems)
@@ -1953,14 +1953,6 @@ final class StreamCoordinator {
             "Para conservar el vídeo sin recodificar hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no borrará ni reducirá nada silenciosamente.",
             formatter.string(fromByteCount: required),
             formatter.string(fromByteCount: free))
-    }
-
-    nonisolated private static var videoContentTypes: [UTType] {
-        var types: [UTType] = [.movie, .mpeg4Movie, .quickTimeMovie]
-        for extensionName in ["mkv", "m4v", "mov", "mp4"] {
-            if let type = UTType(filenameExtension: extensionName) { types.append(type) }
-        }
-        return Array(Set(types))
     }
 
     nonisolated private static func cleanupStaleBuffers() {

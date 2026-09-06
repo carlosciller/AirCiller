@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 struct HLSSegment: Hashable, Sendable {
     let index: Int
@@ -93,6 +94,7 @@ enum SubtitleService {
         }
     }
 
+    @discardableResult
     static func prepare(
         track: SubtitleTrack,
         videoURL: URL,
@@ -101,7 +103,7 @@ enum SubtitleService {
         outputDirectory: URL,
         maximumOCRFrames: Int? = nil,
         ocrProgress: (@Sendable (_ completed: Int, _ total: Int) -> Void)? = nil
-    ) async throws {
+    ) async throws -> SubtitleTrack {
         guard track.isSelectable else {
             throw AirCillerError.unsupportedSubtitle(track.unsupportedReason ?? "Pista de subtítulos no compatible.")
         }
@@ -140,6 +142,7 @@ enum SubtitleService {
                 try writeWebVTTSegment(segment, cues: cues, outputDirectory: outputDirectory)
             }
             try writeSubtitlePlaylist(segments: segments, outputDirectory: outputDirectory)
+            return resolvedBitmapTrack(track, webVTT: webVTT)
         }
     }
 
@@ -164,16 +167,43 @@ enum SubtitleService {
         )
         let outputURL = outputDirectory.appendingPathComponent("subtitles-ocr.vtt")
         try conversion.webVTT.write(to: outputURL, atomically: true, encoding: .utf8)
+        let resolved = resolvedBitmapTrack(track, webVTT: conversion.webVTT)
         return SubtitleTrack(
             streamIndex: nil,
             codec: "webvtt",
-            language: track.language,
-            title: track.title,
+            language: resolved.language,
+            title: resolved.title,
             isDefault: track.isDefault,
             isForced: track.isForced,
             isHearingImpaired: track.isHearingImpaired,
             externalPath: outputURL.path
         )
+    }
+
+    /// A standalone Blu-ray M2TS may not carry the subtitle language stored
+    /// in the disc metadata. Infer only missing bitmap-track metadata from
+    /// already-recognized text, on device; never replace a declared language.
+    static func resolvedBitmapTrack(_ track: SubtitleTrack, webVTT: String) -> SubtitleTrack {
+        let declared = track.language?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+        guard track.usesBitmapOCR, declared.isEmpty || declared == "und" else { return track }
+        let text = parseCues(String(webVTT.prefix(32_000)), delay: 0)
+            .flatMap(\.payload).joined(separator: "\n")
+        guard text.unicodeScalars.filter({ CharacterSet.letters.contains($0) }).count >= 40 else { return track }
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let language = recognizer.dominantLanguage,
+            (recognizer.languageHypotheses(withMaximum: 1)[language] ?? 0) >= 0.9
+        else { return track }
+        guard let code = Locale.LanguageCode(language.rawValue).identifier(.alpha3),
+            code.count == 3, code != "und"
+        else { return track }
+        let name = L10n.format("%@ (detectado localmente)", LanguageNames.name(for: code))
+        let originalTitle = track.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return SubtitleTrack(
+            streamIndex: track.streamIndex, codec: track.codec, language: code,
+            title: originalTitle.isEmpty ? name : "\(originalTitle) · \(name)",
+            isDefault: track.isDefault, isForced: track.isForced,
+            isHearingImpaired: track.isHearingImpaired, externalPath: track.externalPath)
     }
 
     static func writeMasterPlaylist(

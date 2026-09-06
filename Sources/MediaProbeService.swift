@@ -15,7 +15,7 @@ enum MediaProbeService {
             process.arguments = [
                 "-v", "error",
                 "-show_entries",
-                "format=duration,size,bit_rate:stream=index,codec_type,codec_name,profile,level,extradata,width,height,r_frame_rate,color_transfer,channels,channel_layout:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired,attached_pic:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
+                "format=format_name,duration,size,bit_rate:program=program_id:stream=index,codec_type,codec_name,profile,level,extradata,width,height,r_frame_rate,color_transfer,channels,channel_layout:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired,attached_pic:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
                 "-show_data",
                 "-of", "json",
                 url.path,
@@ -60,6 +60,15 @@ enum MediaProbeService {
 
             let data = outputBuffer.snapshot
             let response = try JSONDecoder().decode(ProbeResponse.self, from: data)
+            let isTransportStream = response.format?.formatName == "mpegts"
+            if isTransportStream, (response.programs?.count ?? 0) > 1 {
+                // Selecting video and audio independently could mix two TV channels.
+                throw AirCillerError.probeFailed(
+                    L10n.text(
+                        "Este TS contiene varios programas. Abre un archivo con un solo programa; AirCiller todavía no permite elegir entre ellos."
+                    )
+                )
+            }
             let videoStreams = response.streams.filter { $0.codecType == "video" }
             let candidates = videoStreams.map {
                 VideoStreamCandidate(
@@ -125,6 +134,13 @@ enum MediaProbeService {
             let duration = Double(response.format?.duration ?? "") ?? 0
             guard duration.isFinite, duration >= 0, duration < Double(Int.max / 1000) else {
                 throw AirCillerError.probeFailed(L10n.text("El archivo contiene una duración no válida."))
+            }
+            if isTransportStream, duration == 0 {
+                throw AirCillerError.probeFailed(
+                    L10n.text(
+                        "No se puede determinar la duración de este TS. Usa un archivo completo, sin cifrar y con tiempos válidos."
+                    )
+                )
             }
             return MediaProbe(
                 duration: duration,
@@ -263,9 +279,13 @@ private struct ProbeResponse: Decodable {
     let streams: [ProbeStream]
     let format: ProbeFormat?
     let chapters: [ProbeChapter]?
+    let programs: [ProbeProgram]?
 }
 
+private struct ProbeProgram: Decodable {}
+
 private struct ProbeFormat: Decodable {
+    let formatName: String?
     let duration: String?
     let size: String?
     let bitRate: String?
@@ -273,6 +293,7 @@ private struct ProbeFormat: Decodable {
     enum CodingKeys: String, CodingKey {
         case duration, size
         case bitRate = "bit_rate"
+        case formatName = "format_name"
     }
 }
 

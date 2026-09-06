@@ -265,7 +265,9 @@
 "Añadir a la playlist" = "Add to Playlist";
 "Añadir subtítulos" = "Add Subtitles";
 "No hay ninguna película compatible" = "No Compatible Movie Found";
-"Arrastra o abre un archivo MKV, MP4, M4V o MOV." = "Drag or open an MKV, MP4, M4V, or MOV file.";
+"Arrastra o abre un archivo MKV, MP4, M4V, MOV, TS, MTS o M2TS." = "Drag or open an MKV, MP4, M4V, MOV, TS, MTS, or M2TS file.";
+"Este TS contiene varios programas. Abre un archivo con un solo programa; AirCiller todavía no permite elegir entre ellos." = "This TS contains multiple programs. Open a file with a single program; AirCiller cannot select between them yet.";
+"No se puede determinar la duración de este TS. Usa un archivo completo, sin cifrar y con tiempos válidos." = "The duration of this TS could not be determined. Use a complete, unencrypted file with valid timestamps.";
 "Subtítulo externo añadido" = "External Subtitle Added";
 "Pulsa Aplicar pistas para usarlo." = "Choose Apply Tracks to use it.";
 "El archivo ya no está ahí" = "The File Is No Longer There";
@@ -600,6 +602,8 @@
 "Autorización restablecida" = "Authorization Reset";
 
 /* Updates */
+"%@ (detectado localmente)" = "%@ (detected on this Mac)";
+"No se pudo determinar el inicio del vídeo para sincronizar los subtítulos." = "The video start time could not be determined. Subtitles cannot be synchronized.";
 "Posición de reproducción" = "Playback Position";
 "Resultados por título" = "Title Results";
 "El archivo contiene una duración no válida." = "The file contains an invalid duration.";

@@ -81,8 +81,12 @@ compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
 compile_and_run playback-check-model \
+  "$project_dir/Sources/MediaFileTypes.swift" \
   "$project_dir/Tests/PlaybackChecks/PlaybackCheckModel.swift" \
   "$project_dir/Tests/PlaybackCheckModelSmokeTest.swift"
+compile_and_run media-file-types \
+  "$project_dir/Sources/MediaFileTypes.swift" \
+  "$project_dir/Tests/MediaFileTypesSmokeTest.swift"
 compile_and_run capture-policy \
   "$project_dir/Tests/PlaybackCapture/CapturePolicy.swift" \
   "$project_dir/Tests/CapturePolicySmokeTest.swift"
@@ -242,6 +246,22 @@ compile_and_run http-server \
   "$project_dir/Sources/LocalHTTPServer.swift" \
   "$project_dir/Tests/HTTPServerSmokeTest.swift"
 
+compile_and_run bitmap-timeline \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/SubtitleService.swift" \
+  "$project_dir/Sources/ASSSubtitleConverter.swift" \
+  "$project_dir/Sources/PGSSubtitleConverter.swift" \
+  "$project_dir/Sources/SubtitleOCRService.swift" \
+  "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Tests/BitmapTimelineSmokeTest.swift"
+
 python_path="$(< "$project_dir/VendorPython/.airciller-python-executable")"
 PYTHONPATH="$project_dir/VendorPython" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
@@ -250,6 +270,8 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackCheckLauncherSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackCaptureSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/StreamCopySmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackScenariosSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \

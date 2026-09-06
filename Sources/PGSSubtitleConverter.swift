@@ -15,7 +15,7 @@ struct PGSSubtitleConversion: Sendable {
 /// PNG frames. Apple Vision then performs local OCR. The movie itself is never
 /// decoded, modified, uploaded or burned into the picture.
 enum PGSSubtitleConverter {
-    private static let cacheVersion = 1
+    private static let cacheVersion = 2
 
     static func convert(
         track: SubtitleTrack,
@@ -181,6 +181,14 @@ enum PGSSubtitleConverter {
         let process = Process()
         process.executableURL = ffmpegURL
         var arguments = ["-hide_banner", "-nostdin", "-loglevel", "info"]
+        var timelineFilter = ""
+        if let origin = try await transportTimeOrigin(videoURL: videoURL) {
+            // Keep the subtitle's absolute clock until the filter. FFmpeg's
+            // automatic TS offset can otherwise move the first bitmap to zero.
+            arguments += ["-copyts"]
+            let seconds = String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), origin)
+            timelineFilter = "setpts='max(0,PTS-(\(seconds))/TB)',"
+        }
         if codec == "hdmv_pgs_subtitle" {
             let canvasSize = try await detectedCanvasSize(
                 ffmpegURL: ffmpegURL,
@@ -192,7 +200,7 @@ enum PGSSubtitleConverter {
         arguments += [
             "-i", videoURL.path,
             "-filter_complex",
-            "[0:\(streamIndex)]split=2[bitmap][bounds];[bounds]alphaextract,bbox=min_val=1,nullsink",
+            "[0:\(streamIndex)]\(timelineFilter)split=2[bitmap][bounds];[bounds]alphaextract,bbox=min_val=1,nullsink",
             "-map", "[bitmap]",
         ]
         if let maximumFrames, maximumFrames > 0 {
@@ -236,6 +244,59 @@ enum PGSSubtitleConverter {
             )
         }
         return parsedFrameBounds(from: errorBuffer.snapshot)
+    }
+
+    private static func transportTimeOrigin(videoURL: URL) async throws -> Double? {
+        guard let ffprobeURL = Executables.find("ffprobe") else {
+            throw AirCillerError.ffprobeMissing
+        }
+        let process = Process()
+        process.executableURL = ffprobeURL
+        process.arguments = [
+            "-v", "error", "-select_streams", "v:0",
+            "-show_entries", "format=format_name:stream=start_time",
+            "-of", "json", videoURL.path,
+        ]
+        let output = Pipe()
+        let buffer = ProcessDataBuffer(maximumBytes: 64_000)
+        output.fileHandleForReading.readabilityHandler = { buffer.append($0.availableData) }
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        defer {
+            output.fileHandleForReading.readabilityHandler = nil
+            try? output.fileHandleForReading.close()
+            try? output.fileHandleForWriting.close()
+        }
+        let status = try await CancellableProcess(process).run {
+            try? output.fileHandleForWriting.close()
+        }
+        output.fileHandleForReading.readabilityHandler = nil
+        buffer.append(output.fileHandleForReading.readDataToEndOfFile())
+        guard status == 0 else {
+            throw AirCillerError.subtitlePreparationFailed(
+                "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos.")
+        }
+        return try transportTimeOrigin(from: buffer.snapshot)
+    }
+
+    static func transportTimeOrigin(from data: Data) throws -> Double? {
+        struct Timeline: Decodable {
+            struct Format: Decodable { let formatName: String }
+            struct Stream: Decodable { let startTime: String? }
+            let format: Format
+            let streams: [Stream]
+        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let timeline = try decoder.decode(Timeline.self, from: data)
+        guard timeline.format.formatName == "mpegts" else { return nil }
+        guard let text = timeline.streams.first?.startTime,
+            let seconds = Double(text), seconds.isFinite
+        else {
+            throw AirCillerError.subtitlePreparationFailed(
+                "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos.")
+        }
+        return seconds
     }
 
     private static func detectedCanvasSize(
@@ -302,7 +363,7 @@ enum PGSSubtitleConverter {
             "-v", "error",
             "-select_streams", streamSpecifier,
             "-show_entries", "stream=width,height",
-            "-of", "csv=p=0:s=x",
+            "-of", "json",
             videoURL.path,
         ]
         let output = Pipe()
@@ -315,21 +376,25 @@ enum PGSSubtitleConverter {
         let status = try await CancellableProcess(process).run {
             try? output.fileHandleForWriting.close()
         }
-        let text = String(
-            data: output.fileHandleForReading.readDataToEndOfFile(),
-            encoding: .utf8
-        )?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let values = text?.split(separator: "x", maxSplits: 1).compactMap { Int($0) } ?? []
+        struct StreamSize: Decodable {
+            struct Stream: Decodable {
+                let width: Int?
+                let height: Int?
+            }
+            let streams: [Stream]
+        }
+        // TS also reports nested program streams. Read the root stream once.
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        let size = try? JSONDecoder().decode(StreamSize.self, from: data).streams.first
         guard status == 0,
-            values.count == 2,
-            values[0] > 0,
-            values[1] > 0
+            let width = size?.width, let height = size?.height,
+            width > 0, height > 0
         else {
             throw AirCillerError.subtitlePreparationFailed(
                 "FFmpeg no pudo determinar el lienzo de la pista gráfica."
             )
         }
-        return (values[0], values[1])
+        return (width, height)
     }
 
     private static func frameGroups(

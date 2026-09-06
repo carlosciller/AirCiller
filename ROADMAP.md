@@ -35,6 +35,10 @@ Prioritize keeping both video and audio in their original encoded formats. Remux
 
 Each addition needs a representative sample, copy-only audio/video verification, the relevant automated and audiovisual checks, clear rejection messages and a separate release decision. Add support only after the AirPlay receiver accepts it; FFmpeg being able to read a format is not enough.
 
+Part 1 is implemented in 0.12.3. The [validation record](Docs/TRANSPORT_STREAMS.md) covers eight copy-only preparation checks, four Apple TV output cases and two subsequent embedded-PGS cases after fixing timing, canvas lookup and missing-language metadata. HDR without subtitles is assessed separately. FLAC remains the next separate investigation.
+
+The first capture attempt supplied no initial frame until a separate known-good playback diagnostic restored capture output. The later format batch passed unchanged. Investigate this inactive-receiver startup condition separately; do not weaken source verification or treat a ready session as proof of visible output.
+
 ## After that: subtitle additions
 
 - External PGS and VobSub files through local OCR, including paired files, timing and palettes.

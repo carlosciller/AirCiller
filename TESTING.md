@@ -35,6 +35,8 @@ After playback, also test stop, replay, and closing the app. Only then should th
 
 ## 0.12.2 release candidate
 
+The subsequent [0.12.3 transport-stream candidate](Docs/TRANSPORT_STREAMS.md) is tracked separately. It passed eight local copy-only media checks and four Apple TV cases for TS/MTS/M2TS. A later review found PGS timing, canvas and missing-language problems plus an ineffective QA program-count check. The corrected candidate passed the strict suite and two further embedded-PGS cases using the same M2TS inputs on HLS and direct HDR. Captured subtitle text was compared with source bitmaps. Failed observations remain in the record. These bounded checks do not certify physical HDR rendering or whole-movie reliability.
+
 The 6 September playback-check records above cover the changes in this candidate. The PGS canvas correction passed a focused HLS output comparison on Apple TV. Cancellation passed twelve local in-app PGS/VobSub cases and the deterministic analysis/Vision tests. Shared controls also have separately recorded direct HDR and HLS playback, track-change, Playlist-transition and six-minute-pause evidence.
 
 Those device runs used the isolated 0.12.1 check build before the release metadata advanced to 0.12.2 (build 55). No production playback source or pinned engine changed after the final PGS run. The public package uses the established ad hoc/direct-Keychain configuration; the local installation uses the unchanged certificate-signed credential service. Neither is notarized. Packaging, GitHub CI and installation results are separate from the recorded playback observations.
