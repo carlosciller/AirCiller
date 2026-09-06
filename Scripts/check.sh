@@ -262,7 +262,24 @@ compile_and_run bitmap-timeline \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Tests/BitmapTimelineSmokeTest.swift"
 
+compile_and_run flac-manifest \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/SubtitleService.swift" \
+  "$project_dir/Sources/ASSSubtitleConverter.swift" \
+  "$project_dir/Sources/PGSSubtitleConverter.swift" \
+  "$project_dir/Sources/SubtitleOCRService.swift" \
+  "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Tests/FLACManifestSmokeTest.swift"
+
 python_path="$(< "$project_dir/VendorPython/.airciller-python-executable")"
+PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/BundleSizeSmokeTest.py"
 PYTHONPATH="$project_dir/VendorPython" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/AirPlayHelperSmokeTest.py"
