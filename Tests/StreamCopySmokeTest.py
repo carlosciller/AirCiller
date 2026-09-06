@@ -1,14 +1,37 @@
 """The copy verifier must detect altered coded pictures and Dolby Vision payloads."""
 from pathlib import Path
+import json
 import sys
 import unittest
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Scripts"))
-from verify_stream_copy import coded_picture_digest
+from verify_stream_copy import coded_picture_digest, packet_audio_digest, packet_duration
 
 
 class StreamCopyTests(unittest.TestCase):
+    def test_stream_duration_excludes_another_tracks_lead_in(self):
+        data = json.dumps({"packets": [
+            {"pts_time": "0.167", "duration_time": "0.5"},
+            {"pts_time": "0.667", "duration_time": "0.5"}]})
+        self.assertAlmostEqual(packet_duration(data), 1)
+        for value in ("nan", "inf", "0", "-1"):
+            with self.assertRaises(ValueError):
+                packet_duration(json.dumps({"packets": [{"pts_time": "0", "duration_time": value}]}))
+
+    def test_flac_frames_cannot_be_changed_dropped_or_reordered(self):
+        first = {"size": "12", "data_hash": "SHA256:" + "ab" * 32}
+        second = {"size": "13", "data_hash": "SHA256:" + "cd" * 32}
+        def digest(packets):
+            return packet_audio_digest(json.dumps({"packets": packets}))
+        original = digest([first, second])
+        for packets in ([first], [second, first], [first, first],
+                        [dict(first, size="11"), second]):
+            self.assertNotEqual(original, digest(packets))
+        for packets in ([], [dict(first, size="0")], [dict(first, data_hash="")]):
+            with self.assertRaises(ValueError):
+                digest(packets)
+
     def test_h264_framing_and_parameter_repetition(self):
         picture = b"\x65\x13\x80"
         a = b"\x00\x00\x01" + picture

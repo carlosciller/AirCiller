@@ -59,7 +59,7 @@ struct VODCommandBuilderSmokeTest {
                 throw NSError(domain: "VODCommandBuilderSmokeTest.VideoMap", code: 1)
             }
         }
-        for codec in ["aac", "eac3", "ac3", "alac"] {
+        for codec in ["aac", "eac3", "ac3", "alac", "flac"] {
             let audio = AudioTrack(
                 streamIndex: 8, codec: codec, profile: nil, channels: 2, channelLayout: "stereo",
                 language: nil, title: nil, isDefault: true)
@@ -71,15 +71,37 @@ struct VODCommandBuilderSmokeTest {
                     VODCommandBuilder.multiplexedArguments(
                         input: input, outputDirectory: directory, probe: probe, audio: audio,
                         outputMode: mode, audioDelay: 0),
+                    DirectFileCommandBuilder.arguments(
+                        input: input, output: directory.appendingPathComponent("movie.mp4"), probe: probe,
+                        audio: audio, outputMode: mode, audioDelay: 0, subtitle: nil, subtitleDelay: 0),
                 ]
-                for arguments in variants {
-                    guard arguments.contains("aac_adtstoasc") == (codec == "aac" && mode == .original),
+                for (index, arguments) in variants.enumerated() {
+                    guard arguments.contains("aac_adtstoasc") == (index < 2 && codec == "aac" && mode == .original),
                         let videoIndex = arguments.firstIndex(of: "-c:v"), arguments[videoIndex + 1] == "copy",
                         let audioIndex = arguments.firstIndex(of: "-c:a"),
                         (arguments[audioIndex + 1] == "copy") == (mode == .original),
                         containsMap("0:8", in: arguments)
                     else { throw NSError(domain: "VODCommandBuilderSmokeTest.AudioCopy", code: 2) }
                 }
+            }
+        }
+        for codec in ["flac", "FLAC", "dts", "truehd", "unknown"] {
+            for channels in [1, 2, 6, 8] {
+                let audio = AudioTrack(
+                    streamIndex: 1, codec: codec, profile: nil, channels: channels,
+                    channelLayout: [1: "mono", 2: "stereo", 6: "5.1(side)", 8: "7.1"][channels],
+                    language: nil, title: nil, isDefault: true)
+                guard audio.canPassThrough == (codec.lowercased() == "flac") else {
+                    throw NSError(domain: "VODCommandBuilderSmokeTest.FLACEligibility", code: 3)
+                }
+            }
+        }
+        for layout in ["5.1", "stereo", "unknown", ""] {
+            let audio = AudioTrack(
+                streamIndex: 1, codec: "flac", profile: nil, channels: 6, channelLayout: layout,
+                language: nil, title: nil, isDefault: true)
+            guard !audio.canPassThrough else {
+                throw NSError(domain: "VODCommandBuilderSmokeTest.FLACLayout", code: 4)
             }
         }
         print("Exact primary video stream mapping for HLS and direct MP4: OK")

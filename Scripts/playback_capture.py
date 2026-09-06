@@ -189,7 +189,7 @@ def probe_fixture(path, ffmpeg, ffprobe, hdr):
         if not math.isfinite(duration) or not 45 <= duration <= 180 or video.get("codec_name") not in {"h264", "hevc"} or is_hdr != hdr or not audio:
             raise CaptureError("unsupportedFixture")
         selected = next((a for a in audio if a.get("disposition", {}).get("default")), audio[0])
-        if selected.get("codec_name") not in {"aac", "ac3", "eac3"} or selected.get("channels", 0) < 2:
+        if selected.get("codec_name") not in {"aac", "ac3", "eac3", "flac"} or selected.get("channels", 0) < 2:
             raise CaptureError("unsupportedFixtureAudio")
         # Check the intervals used by the control test, including its 15-second seek.
         for start in (1, 15):

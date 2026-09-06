@@ -722,6 +722,11 @@ final class StreamCoordinator {
             conversionReason = L10n.format(
                 "La pista elegida usa %@, que Apple TV no admite en este HLS. AirCiller puede convertir solamente el audio a E-AC-3 y mantendrá el vídeo intacto.",
                 audio.codec.uppercased())
+            if audio.codec.lowercased() == "flac" {
+                conversionReason = L10n.format(
+                    "La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original.",
+                    audio.channelLayout ?? L10n.text("Desconocido"))
+            }
             showConversionAlert = true
             return
         }

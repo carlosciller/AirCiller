@@ -18,7 +18,17 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
     }
 
     var canPassThrough: Bool {
-        ["aac", "ac3", "eac3", "alac"].contains(codec.lowercased())
+        if codec.lowercased() == "flac" {
+            // fMP4 retains FLAC STREAMINFO, not Matroska channel-mask overrides.
+            // Do not silently reinterpret a non-native speaker layout on remux.
+            let layouts = [
+                1: "mono", 2: "stereo", 3: "3.0", 4: "quad", 5: "5.0(side)",
+                6: "5.1(side)", 7: "6.1", 8: "7.1",
+            ]
+            guard let channels, let channelLayout else { return false }
+            return layouts[channels] == channelLayout.lowercased()
+        }
+        return ["aac", "ac3", "eac3", "alac"].contains(codec.lowercased())
     }
 
     var displayName: String {

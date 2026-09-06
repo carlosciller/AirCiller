@@ -726,6 +726,7 @@ enum SubtitleService {
                 case "ac3": values.append("ac-3")
                 case "eac3": values.append("ec-3")
                 case "alac": values.append("alac")
+                case "flac": values.append("fLaC")
                 default: break
                 }
             }

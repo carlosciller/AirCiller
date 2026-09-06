@@ -2,6 +2,11 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.12.4 (6 September 2026)
+
+- Play compatible FLAC soundtracks without converting the audio, including supported surround layouts.
+- Get a clear explanation when a FLAC channel layout cannot be preserved.
+
 ## 0.12.3 (6 September 2026)
 
 - Open TS, MTS and M2TS files with compatible H.264 or HEVC video, including HDR. Original video and compatible audio are preserved.

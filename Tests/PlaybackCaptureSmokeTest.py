@@ -112,6 +112,18 @@ class CaptureWorkflowTests(unittest.TestCase):
                 capture.probe_fixture(self.fixture, "ffmpeg", "ffprobe", hdr=False)
             self.assertEqual(command.call_count, 1)
 
+    def test_probe_accepts_flac_and_still_requires_audible_intervals(self):
+        import array
+        probe = {"format": {"format_name": "matroska", "duration": "60"}, "streams": [
+            {"codec_type": "video", "codec_name": "h264"},
+            {"codec_type": "audio", "codec_name": "flac", "channels": 6, "index": 1}]}
+        signal = array.array("f", [0.1] * 100).tobytes()
+        with mock.patch.object(capture, "bounded_command", side_effect=[json.dumps(probe).encode(), signal, signal]):
+            self.assertEqual(capture.probe_fixture(self.fixture, "ffmpeg", "ffprobe", hdr=False)["audioCodec"], "flac")
+        with mock.patch.object(capture, "bounded_command", side_effect=[json.dumps(probe).encode(), bytes(400)]):
+            with self.assertRaisesRegex(capture.CaptureError, "fixtureHasSilentTestInterval"):
+                capture.probe_fixture(self.fixture, "ffmpeg", "ffprobe", hdr=False)
+
     def test_bounded_process_and_timeout(self):
         self.assertEqual(capture.bounded_command([sys.executable, "-c", "print('ok')"]), b"ok\n")
         with self.assertRaisesRegex(capture.CaptureError, "processOutputLimit"):

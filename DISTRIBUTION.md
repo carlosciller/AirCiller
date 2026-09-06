@@ -62,6 +62,12 @@ The dependency lives under `.build/dependencies` and is not committed. CI perfor
 
 ## Bundled playback engine
 
+### Bundle size
+
+Every build measures the signed app before replacing its previous build output. `Scripts/check_bundle_size.py` reports logical file bytes by component and fails above 165,000,000 bytes. Framework symlinks are counted once without following their targets. This measures the app, not download compression, filesystem allocation or prepared-media caches.
+
+The 0.12.3 local baseline is 153,923,546 bytes. FLAC support reuses the bundled engine. A dependency or asset change that exceeds the budget needs an explicit size review; do not raise the limit automatically or remove runtime files merely to pass it.
+
 AirCiller releases include fixed FFmpeg and CPython builds. End users update them only by installing a tested AirCiller release. Settings does not offer separate engine updates.
 
 `Scripts/bootstrap_engine.sh` downloads the pinned archives used for the build, verifies their SHA-256 digests, checks their executable versions, and stages them under `.build/dependencies`. `build.sh` copies the complete engine into the app. The runtime is therefore available on first launch and without internet access.
