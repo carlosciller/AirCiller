@@ -25,6 +25,12 @@ enum PGSSubtitleConverter {
         cacheDirectory explicitCacheDirectory: URL? = nil,
         progress: (@Sendable (_ completed: Int, _ total: Int) -> Void)? = nil
     ) async throws -> PGSSubtitleConversion {
+        try Task.checkCancellation()
+        #if AIRCILLER_PLAYBACK_CHECKS
+            let trace = BitmapCancellationTrace.current
+            trace?.conversionStarted()
+            defer { trace?.conversionFinished() }
+        #endif
         let codec = track.codec.lowercased()
         guard ["hdmv_pgs_subtitle", "dvd_subtitle"].contains(codec),
             let streamIndex = track.streamIndex
@@ -60,6 +66,9 @@ enum PGSSubtitleConverter {
             withIntermediateDirectories: true
         )
         defer { try? FileManager.default.removeItem(at: workingDirectory) }
+        #if AIRCILLER_PLAYBACK_CHECKS
+            trace?.recordDirectory(workingDirectory)
+        #endif
 
         let frameBounds = try await renderFrames(
             videoURL: videoURL,
@@ -90,6 +99,7 @@ enum PGSSubtitleConverter {
             recognitionLanguages: recognitionLanguages,
             progress: progress
         )
+        try Task.checkCancellation()
 
         let mergedCues = mergeAdjacentDuplicates(cues)
         guard !mergedCues.isEmpty else {
@@ -106,6 +116,7 @@ enum PGSSubtitleConverter {
         )
 
         if maximumRenderedFrames == nil {
+            try Task.checkCancellation()
             try FileManager.default.createDirectory(
                 at: cacheDirectory,
                 withIntermediateDirectories: true
@@ -202,8 +213,16 @@ enum PGSSubtitleConverter {
         }
         process.standardError = errors
         process.standardOutput = FileHandle.nullDevice
+        defer {
+            errors.fileHandleForReading.readabilityHandler = nil
+            try? errors.fileHandleForReading.close()
+            try? errors.fileHandleForWriting.close()
+        }
         let status = try await CancellableProcess(process).run {
             try? errors.fileHandleForWriting.close()
+            #if AIRCILLER_PLAYBACK_CHECKS
+                BitmapCancellationTrace.current?.recordProcess(process)
+            #endif
         }
         errors.fileHandleForReading.readabilityHandler = nil
         errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
@@ -262,10 +281,18 @@ enum PGSSubtitleConverter {
         {
             return (width, height)
         }
-        return try await detectedVideoSize(videoURL: videoURL)
+        // The subtitle canvas can differ from the video, for example a 1080p
+        // bitmap track carried alongside a 720p encode. Keep its declared size.
+        if let subtitleSize = try? await detectedStreamSize(videoURL: videoURL, streamSpecifier: String(streamIndex)) {
+            return subtitleSize
+        }
+        try Task.checkCancellation()
+        return try await detectedStreamSize(videoURL: videoURL, streamSpecifier: "v:0")
     }
 
-    private static func detectedVideoSize(videoURL: URL) async throws -> (width: Int, height: Int) {
+    private static func detectedStreamSize(videoURL: URL, streamSpecifier: String) async throws -> (
+        width: Int, height: Int
+    ) {
         guard let ffprobeURL = Executables.find("ffprobe") else {
             throw AirCillerError.ffprobeMissing
         }
@@ -273,7 +300,7 @@ enum PGSSubtitleConverter {
         process.executableURL = ffprobeURL
         process.arguments = [
             "-v", "error",
-            "-select_streams", "v:0",
+            "-select_streams", streamSpecifier,
             "-show_entries", "stream=width,height",
             "-of", "csv=p=0:s=x",
             videoURL.path,
@@ -281,6 +308,10 @@ enum PGSSubtitleConverter {
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
+        defer {
+            try? output.fileHandleForReading.close()
+            try? output.fileHandleForWriting.close()
+        }
         let status = try await CancellableProcess(process).run {
             try? output.fileHandleForWriting.close()
         }
@@ -426,6 +457,10 @@ enum PGSSubtitleConverter {
             var recognized: [IndexedCue] = []
             recognized.reserveCapacity(groups.count)
             while let result = try await taskGroup.next() {
+                try Task.checkCancellation()
+                #if AIRCILLER_PLAYBACK_CHECKS
+                    if result.cue != nil { BitmapCancellationTrace.current?.recognizedCue() }
+                #endif
                 recognized.append(result)
                 completed += 1
                 progress?(completed, groups.count)
@@ -461,10 +496,16 @@ enum PGSSubtitleConverter {
         else {
             return nil
         }
+        #if AIRCILLER_PLAYBACK_CHECKS
+            let trace = BitmapCancellationTrace.current
+            trace?.recognitionStarted()
+            defer { trace?.recognitionFinished() }
+        #endif
         let result = try await SubtitleOCRService.recognize(
             in: rendered.image,
             preferredLanguages: recognitionLanguages
         )
+        try Task.checkCancellation()
         let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, group.end > group.start else { return nil }
         return RecognizedCue(

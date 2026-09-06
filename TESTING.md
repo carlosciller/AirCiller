@@ -12,7 +12,15 @@ Executables in `Tests/` that require a real file receive its path through an arg
 
 ## 3. Physical Apple TV matrix
 
+The opt-in [playback check runner](Docs/PLAYBACK_CHECKS.md) can batch a subset of control checks through an isolated build of the real app. It distinguishes receiver evidence from command acknowledgements and leaves uncaptured audiovisual output unverified. Its capture workflow prepares audible fixtures and produces one report for direct Dolby Vision and HLS with and without subtitles, using only an explicitly approved Apple TV screen source. It observes sampled digital picture, audio levels and subtitle cues; it does not certify physical speakers, Atmos, HDR rendering or the full matrix below. The development record keeps prototype and integrated-run results separate.
+
+The integrated three-case command passed on 6 September 2026 without password dialogs or manual viewing confirmation. Receiver controls and captured-output checks passed separately, all test processes finished, and the installed app was unchanged. Counts and remaining limits are recorded in [the validation report](Docs/PLAYBACK_CHECKS.md#reusable-command-validation-6-september-2026).
+
+The subsequent [expanded seven-case batch](Docs/PLAYBACK_CHECKS.md#expanded-scenario-validation-6-september-2026) also passed subtitle replacement, a measured change between original audio tracks, subtitle removal, cancellation of a running FFmpeg preparation and exactly one automatic Playlist transition after a tail seek and natural end. Each stable playback phase had separate captured-output evidence. This does not establish long-pause behavior, analysis/OCR cancellation or full-movie reliability. No daily-use app was replaced.
+
 A version is not considered ready to install until these cases have been completed separately:
+
+The opt-in `directLongPause` and `hlsLongPause` scenarios completed six-minute holds and resumed at second 15 with captured output before and after. [The validation record](Docs/PLAYBACK_CHECKS.md#long-pause-validation-6-september-2026) distinguishes the corrected offline assessment for direct HDR from the subsequent live HLS pass. Local analysis-owner and Vision cancellation checks run in the strict suite. The separate [in-app bitmap profile](Docs/PLAYBACK_CHECKS.md#in-app-bitmap-cancellation-6-september-2026) passed twelve receiver-free PGS/VobSub extraction, OCR and file-replacement cases. A focused [Apple TV HLS run](Docs/PLAYBACK_CHECKS.md#pgs-canvas-output-validation-6-september-2026) subsequently passed controls and sampled motion/audio, with two captured PGS cues compared against their source bitmaps without clipping.
 
 | Path | Minimum case | Expected result |
 | --- | --- | --- |
@@ -24,6 +32,12 @@ A version is not considered ready to install until these cases have been complet
 | Control | Rapid pause, resume and seek commands from Mac, Apple TV Remote and iPhone Remote | Commands remain ordered, the timeline stays synchronized and AirPlay remains linked |
 
 After playback, also test stop, replay, and closing the app. Only then should the patch version be increased and the installed app replaced, while keeping a rollback copy.
+
+## 0.12.2 release candidate
+
+The 6 September playback-check records above cover the changes in this candidate. The PGS canvas correction passed a focused HLS output comparison on Apple TV. Cancellation passed twelve local in-app PGS/VobSub cases and the deterministic analysis/Vision tests. Shared controls also have separately recorded direct HDR and HLS playback, track-change, Playlist-transition and six-minute-pause evidence.
+
+Those device runs used the isolated 0.12.1 check build before the release metadata advanced to 0.12.2 (build 55). No production playback source or pinned engine changed after the final PGS run. The public package uses the established ad hoc/direct-Keychain configuration; the local installation uses the unchanged certificate-signed credential service. Neither is notarized. Packaging, GitHub CI and installation results are separate from the recorded playback observations.
 
 ## 4. Signed application updates
 

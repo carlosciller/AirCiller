@@ -80,6 +80,12 @@ compile_and_run helper-command-writer \
 compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
+compile_and_run playback-check-model \
+  "$project_dir/Tests/PlaybackChecks/PlaybackCheckModel.swift" \
+  "$project_dir/Tests/PlaybackCheckModelSmokeTest.swift"
+compile_and_run capture-policy \
+  "$project_dir/Tests/PlaybackCapture/CapturePolicy.swift" \
+  "$project_dir/Tests/CapturePolicySmokeTest.swift"
 compile_and_run update-configuration \
   "$project_dir/Sources/UpdateConfiguration.swift" \
   "$project_dir/Tests/UpdateConfigurationSmokeTest.swift"
@@ -100,6 +106,7 @@ compile_and_run captured-process \
   "$project_dir/Tests/CapturedProcessSmokeTest.swift"
 compile_and_run credential-store \
   -framework Security \
+  "$project_dir/Sources/CredentialServiceClient.swift" \
   "$project_dir/Sources/AirPlayCredentialStore.swift" \
   "$project_dir/Tests/AirPlayCredentialStoreSmokeTest.swift"
 compile_and_run opensubtitles-credential-store \
@@ -193,6 +200,22 @@ compile_and_run media-probe-validation \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
   "$project_dir/Tests/MediaProbeValidationSmokeTest.swift"
+export AIRCILLER_TEST_FFPROBE="$engine_path/ffmpeg/bin/ffprobe"
+compile_and_run media-probe-cancellation \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaAnalysisTasks.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Tests/MediaProbeCancellationSmokeTest.swift"
+unset AIRCILLER_TEST_FFPROBE
+compile_and_run subtitle-ocr-cancellation \
+  "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
+  "$project_dir/Sources/SubtitleOCRService.swift" \
+  "$project_dir/Tests/SubtitleOCRCancellationSmokeTest.swift"
 compile_and_run stream-diagnostics \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
@@ -223,7 +246,42 @@ python_path="$(< "$project_dir/VendorPython/.airciller-python-executable")"
 PYTHONPATH="$project_dir/VendorPython" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/AirPlayHelperSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/PlaybackCheckLauncherSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/PlaybackCaptureSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/PlaybackScenariosSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/SigningIdentitySmokeTest.py"
 
+# Typecheck the opt-in credential client without contacting XPC or Keychain.
+"$swiftc_path" "${common_swift_arguments[@]}" -typecheck \
+  "$project_dir/Sources/CredentialServiceClient.swift" "$project_dir/Tests/CredentialServiceProbe.swift"
+xcrun clang -target arm64-apple-macosx14.0 -fblocks -Wall -Wextra -Werror -fsyntax-only \
+  -D 'AC_SIGNER_FINGERPRINT="0000000000000000000000000000000000000000"' \
+  "$project_dir/CredentialService/main.c"
+
+xcrun clang -target arm64-apple-macosx14.0 -Wall -Wextra -Werror -c \
+  "$project_dir/Tests/PlaybackChecks/KeychainInteraction.c" -o "$test_dir/playback-keychain-interaction.o"
+compile_and_run playback-keychain-ui \
+  -import-objc-header "$project_dir/Tests/PlaybackChecks/KeychainInteraction.h" \
+  "$test_dir/playback-keychain-interaction.o" \
+  "$project_dir/Tests/PlaybackCheckKeychainSmokeTest.swift"
+
+# Check the opt-in hooks without building or launching a second app on every run.
+"$swiftc_path" "${common_swift_arguments[@]}" \
+  -typecheck -D AIRCILLER_PLAYBACK_CHECKS \
+  -import-objc-header "$project_dir/Tests/PlaybackChecks/KeychainInteraction.h" \
+  -F "$project_dir/.build/dependencies/Sparkle-2.9.6" \
+  "$project_dir"/Sources/*.swift \
+  "$project_dir/Tests/PlaybackChecks/PlaybackCheckModel.swift" \
+  "$project_dir/Tests/PlaybackChecks/PlaybackCheckRunner.swift" \
+  "$project_dir/Tests/PlaybackChecks/PlaybackCheckScenarios.swift" \
+  "$project_dir/Tests/PlaybackChecks/BitmapCancellationCheck.swift"
+
+# Compile the standalone capture tools without discovering or opening devices.
+/bin/zsh "$project_dir/Scripts/build_playback_capture.sh"
 "$project_dir/Scripts/check_publication.sh"
 "$project_dir/build.sh"
 

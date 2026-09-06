@@ -10,6 +10,7 @@ scan_paths=(
   .gitignore
   .swift-format
   Sources
+  CredentialService
   Tests
   Scripts
   Distribution

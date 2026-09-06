@@ -10,7 +10,7 @@
 
 ## Project map
 
-- Read `ARCHITECTURE.md` for media paths and boundaries; `CONTRIBUTING.md` for contribution and dependency rules; `TESTING.md` for validation. Read `DISTRIBUTION.md` when packaging, installing, or publishing.
+- Consult `ARCHITECTURE.md` for playback changes, `CONTRIBUTING.md` for dependency changes, `TESTING.md` for applicable validation, and `DISTRIBUTION.md` when packaging, installing, or publishing. A small unrelated edit does not require rereading every document.
 - `Sources/` contains the native Swift application; `Tests/` contains standalone smoke tests; `Scripts/` contains dependency, validation, and distribution tools.
 - `build.sh` compiles Swift directly and assembles the app. There is no Xcode project or Swift Package Manager application target; use the repository scripts.
 
@@ -21,12 +21,14 @@
 - Shared discovery, controls, and HTTP infrastructure serve both paths: assess effects on both and validate affected behavior even when only shared code changes.
 - Retain pinned, verified bundled playback runtimes and `ACBundledEngineRequired`. Do not silently fall back to a host-installed engine or update dependencies merely because newer versions exist.
 - Keep credentials in the established Keychain stores. Do not put private media, subtitles, credentials, device names, or network addresses in repository artifacts or published diagnostics.
+- Playback QA must not activate Mac or iPhone cameras or microphones, including previews. Do not use QuickTime's New Movie Recording workflow: it can activate a default camera before the Apple TV is selected. Capture requires an explicitly identified Apple TV screen/audio source with no fallback to another input; stop if that cannot be guaranteed.
 
 ## Validation proportional to the change
 
 - Documentation-only changes: review the diff, check referenced local paths and consistency, and run `git diff --check`. No app build or physical playback is needed unless executable behavior also changes.
 - Code, dependency, or build changes: use focused checks while iterating, then run `./Scripts/check.sh` before reporting completion. It includes the strict Swift 6 build, smoke tests, publication checks, and bundled-app checks; do not run a second identical `./build.sh` after it passes without a specific reason.
 - Add regression coverage for meaningful changed behavior. Avoid tests that merely reproduce implementation details. After required checks pass, repeat or broaden them only for a new change, failure, or unresolved concern.
+- Keep performance claims tied to repeatable measurements and preserved output. Remove wrappers, tests or instructions only when their redundancy is established, not because they look generated. Improve verification tools when repeated manual work is the bottleneck.
 - Playback changes require the applicable local-media and physical Apple TV checks in `TESTING.md`. Engine upgrades require both playback paths. Report local, simulated, and physical evidence separately; never infer television playback from a successful build.
 - If a device, dependency, or permission prevents validation, report exactly what ran and what remains unverified. Do not claim a completed release gate.
 
@@ -35,3 +37,7 @@
 - Prepare and validate a concrete candidate within the authorized task. Publish or replace the daily-use installed app only when the conversation authorizes that action; retain a rollback copy when replacing it.
 - Follow `DISTRIBUTION.md` for current signing, packaging, release, and update procedures. Preserve signed third-party bundles and never claim notarization from an ad hoc signature.
 - Derive versions and release status from current files and verified results, not previous task notes. Dependency locking follows `CONTRIBUTING.md`; do not hand-edit `requirements.lock`.
+
+## Review references
+
+The maintainer's references are [Theo's audit and verification suggestions](https://x.com/theo/status/2095966874010046621) and [Eric Provencher's guidance on lean agent instructions](https://x.com/pvncher/status/2095991462416490862). Apply the relevant ideas with evidence and keep instructions concise. These references do not authorize unrelated deletions, dependency upgrades or publication.

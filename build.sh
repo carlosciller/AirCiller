@@ -6,6 +6,35 @@ build_dir="$project_dir/.build"
 app_path="$build_dir/AirCiller.app"
 staged_app_path="$build_dir/AirCiller.staged.app"
 previous_app_path="$build_dir/AirCiller.previous.app"
+extra_swift_arguments=()
+extra_swift_sources=()
+extra_link_inputs=()
+if [[ "${1:-}" == "--playback-checks" && $# == 1 ]]; then
+  app_path="$build_dir/AirCiller Playback Checks.app"
+  staged_app_path="$build_dir/AirCiller Playback Checks.staged.app"
+  previous_app_path="$build_dir/AirCiller Playback Checks.previous.app"
+  extra_swift_arguments=(
+    -D AIRCILLER_PLAYBACK_CHECKS
+    -import-objc-header "$project_dir/Tests/PlaybackChecks/KeychainInteraction.h"
+  )
+  extra_link_inputs=("$build_dir/playback-keychain-interaction.o")
+  extra_swift_sources=(
+    "$project_dir/Tests/PlaybackChecks/PlaybackCheckModel.swift"
+    "$project_dir/Tests/PlaybackChecks/PlaybackCheckRunner.swift"
+    "$project_dir/Tests/PlaybackChecks/PlaybackCheckScenarios.swift"
+    "$project_dir/Tests/PlaybackChecks/BitmapCancellationCheck.swift"
+  )
+elif [[ $# != 0 ]]; then
+  echo "Usage: ./build.sh [--playback-checks]" >&2
+  exit 2
+fi
+signing_identity="$(/bin/zsh "$project_dir/Scripts/signing_identity.sh")"
+credential_service_path=""
+local_signing_options=()
+if [[ "$signing_identity" != "-" ]]; then
+  credential_service_path="$(/bin/zsh "$project_dir/Scripts/build_credential_service.sh" --verify)"
+  local_signing_options=(--options runtime --entitlements "$project_dir/CredentialService/Client.entitlements")
+fi
 contents_path="$staged_app_path/Contents"
 binary_path="$contents_path/MacOS/AirCiller"
 generated_resources="$build_dir/generated-resources"
@@ -36,6 +65,12 @@ fi
 sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
 swiftc_path="$(xcrun --find swiftc)"
 
+if [[ ${#extra_link_inputs[@]} != 0 ]]; then
+  mkdir -p "$build_dir"
+  xcrun clang -target arm64-apple-macosx14.0 -Wall -Wextra -Werror -c \
+    "$project_dir/Tests/PlaybackChecks/KeychainInteraction.c" -o "${extra_link_inputs[1]}"
+fi
+
 rm -rf "$staged_app_path" "$previous_app_path" "$generated_resources"
 mkdir -p \
   "$contents_path/MacOS" \
@@ -64,6 +99,7 @@ mkdir -p \
   -warn-concurrency \
   -strict-concurrency=complete \
   -warnings-as-errors \
+  "${extra_swift_arguments[@]}" \
   -O \
   -Xlinker -dead_strip \
   -Xlinker -rpath \
@@ -81,9 +117,22 @@ mkdir -p \
   -framework Security \
   -framework UniformTypeIdentifiers \
   "$project_dir"/Sources/*.swift \
+  "${extra_swift_sources[@]}" \
+  "${extra_link_inputs[@]}" \
   -o "$binary_path"
 
 cp "$project_dir/Info.plist" "$contents_path/Info.plist"
+if [[ -n "$credential_service_path" ]]; then
+  mkdir -p "$contents_path/XPCServices"
+  ditto "$credential_service_path" "$contents_path/XPCServices/AirCillerCredentialService.xpc"
+  plutil -insert ACCredentialServiceRequired -bool true "$contents_path/Info.plist"
+  plutil -insert ACCredentialServiceClientVersion -string 1 "$contents_path/Info.plist"
+fi
+if [[ ${#extra_swift_sources[@]} != 0 ]]; then
+  plutil -replace CFBundleIdentifier -string local.carlosciller.AirCiller.PlaybackChecks "$contents_path/Info.plist"
+  plutil -replace CFBundleName -string 'AirCiller Playback Checks' "$contents_path/Info.plist"
+  plutil -replace CFBundleDisplayName -string 'AirCiller Playback Checks' "$contents_path/Info.plist"
+fi
 ditto "$sparkle_framework" "$contents_path/Frameworks/Sparkle.framework"
 cp "$generated_resources/AirCiller.icns" "$contents_path/Resources/AirCiller.icns"
 cp "$generated_resources/AirCiller-1024.png" "$contents_path/Resources/AirCillerArtwork.png"
@@ -105,7 +154,7 @@ ditto "$engine_path/airplay" "$contents_path/Resources/Engine/airplay"
 printf '%s\n' "Engine/airplay/python/bin/python3" \
   > "$contents_path/Resources/VendorPython/.airciller-python-executable"
 
-codesign --force --sign - "$staged_app_path"
+codesign --force --sign "$signing_identity" "${local_signing_options[@]}" "$staged_app_path"
 codesign --verify --deep --strict "$staged_app_path"
 
 if [[ -e "$app_path" ]]; then

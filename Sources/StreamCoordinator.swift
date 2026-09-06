@@ -61,6 +61,27 @@ final class StreamCoordinator {
     @ObservationIgnored private var temporaryDirectory: URL?
 
     var activePreparedDirectory: URL? { temporaryDirectory }
+    #if AIRCILLER_PLAYBACK_CHECKS
+        func playbackCheckPrepareBitmap() throws {
+            guard airPlay.playbackCheckLocalOnly, let url = selectedURL, let info = probeInfo,
+                selectedSubtitle?.usesBitmapOCR == true, selectedAudio?.canPassThrough == true,
+                audioOutputMode == .original, (45...180).contains(info.duration)
+            else { throw PlaybackCheckFailure.unsupportedFixture }
+            if info.isHDR {
+                beginDirectHDRSubtitleStreaming(url: url, info: info, requestedTime: 0)
+            } else {
+                beginStreaming(url: url, info: info, requestedTime: 0)
+            }
+        }
+
+        @ObservationIgnored var onPlaybackCheckLoad: ((URL) -> Void)?
+        var playbackCheckPreparationProcessIsRunning: Bool { ffmpegProcess?.isRunning == true }
+        var playbackCheckRuntimeIsIdle: Bool {
+            server == nil && ffmpegProcess == nil && streamTask == nil && activeSessionID == nil
+                && player.currentItem == nil && !airPlay.isSessionActive
+                && !isPreparing && !isStreaming && !isPlaying
+        }
+    #endif
     @ObservationIgnored private var streamTask: Task<Void, Never>?
     @ObservationIgnored private let authorizationPreflight = PlaybackAuthorizationPreflight()
     @ObservationIgnored private var authorizationRetryPolicy = AirPlayAuthorizationRetryPolicy()
@@ -75,7 +96,9 @@ final class StreamCoordinator {
     @ObservationIgnored private var lastRebufferEvent = Date.distantPast
 
     init() {
-        Self.cleanupStaleBuffers()
+        #if !AIRCILLER_PLAYBACK_CHECKS
+            Self.cleanupStaleBuffers()
+        #endif
         player.allowsExternalPlayback = true
         player.automaticallyWaitsToMinimizeStalling = true
 
@@ -180,34 +203,37 @@ final class StreamCoordinator {
             self?.skip(by: interval)
         }
 
-        Task { [weak self] in
-            guard let self else { return }
-            if !self.launchOptions.skipsDeviceScan {
-                await self.airPlay.refreshDevices()
-            }
-            if let directTestURL = self.launchOptions.directAirPlayTestURL {
-                do {
-                    self.playbackPower.begin()
-                    self.isPreparing = true
-                    self.status = "Prueba AirPlay directa…"
-                    self.detail = "Esperando confirmación real del Apple TV."
-                    try await self.airPlay.startPlayback(url: directTestURL, position: 0)
-                    self.isPreparing = false
-                    self.isStreaming = true
-                    self.isPlaying = true
-                    self.status = L10n.format(
-                        "Prueba reproduciéndose en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
-                    self.detail = "El receptor ha confirmado una duración válida."
-                } catch {
-                    self.playbackPower.end()
-                    self.isPreparing = false
-                    self.presentError(title: "Falló la prueba AirPlay directa", detail: error.localizedDescription)
-                    self.playbackLogger.error("Prueba directa: \(error.localizedDescription, privacy: .public)")
+        #if !AIRCILLER_PLAYBACK_CHECKS
+            Task { [weak self] in
+                guard let self else { return }
+                if !self.launchOptions.skipsDeviceScan {
+                    await self.airPlay.refreshDevices()
                 }
-            } else if let autostartURL = self.launchOptions.autostartFileURL {
-                self.loadVideo(autostartURL, autoStart: true)
+                if let directTestURL = self.launchOptions.directAirPlayTestURL {
+                    do {
+                        self.playbackPower.begin()
+                        self.isPreparing = true
+                        self.status = "Prueba AirPlay directa…"
+                        self.detail = "Esperando confirmación real del Apple TV."
+                        try await self.airPlay.startPlayback(url: directTestURL, position: 0)
+                        self.isPreparing = false
+                        self.isStreaming = true
+                        self.isPlaying = true
+                        self.status = L10n.format(
+                            "Prueba reproduciéndose en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
+                        self.detail = "El receptor ha confirmado una duración válida."
+                    } catch {
+                        self.playbackPower.end()
+                        self.isPreparing = false
+                        self.presentError(title: "Falló la prueba AirPlay directa", detail: error.localizedDescription)
+                        self.playbackLogger.error("Prueba directa: \(error.localizedDescription, privacy: .public)")
+                    }
+                } else if let autostartURL = self.launchOptions.autostartFileURL {
+                    self.loadVideo(autostartURL, autoStart: true)
+                }
             }
-        }
+
+        #endif
 
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification,
@@ -510,6 +536,9 @@ final class StreamCoordinator {
     }
 
     func loadVideo(_ url: URL, autoStart: Bool, startingAt requestedStart: Double? = nil) {
+        #if AIRCILLER_PLAYBACK_CHECKS
+            onPlaybackCheckLoad?(url)
+        #endif
         let commandLineSubtitleIndex = autoStart ? launchOptions.subtitleStreamIndex : nil
         mediaAnalysisTasks.cancelAll()
         stop(resetStatus: false)
@@ -586,6 +615,7 @@ final class StreamCoordinator {
                 } catch is CancellationError {
                     return
                 } catch {
+                    guard !Task.isCancelled else { return }
                     self.hasError = true
                     self.status = "No se pudo analizar la película"
                     self.detail = error.localizedDescription
