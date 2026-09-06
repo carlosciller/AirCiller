@@ -102,12 +102,20 @@ final class AirPlayController {
     @ObservationIgnored var onPlaybackError: ((String) -> Void)?
     @ObservationIgnored var onAuthorizationRequired: ((String) -> Void)?
     @ObservationIgnored var onPairingSucceeded: ((Bool) -> Void)?
+    #if AIRCILLER_PLAYBACK_CHECKS
+        // Raw helper events, before the interpolated UI clock. Never include credentials or messages.
+        @ObservationIgnored var onPlaybackCheckEvent: ((String, String?, Double?, Double?, Bool?, String?) -> Void)?
+    #endif
 
     var selectedDevice: AirPlayDevice? {
         devices.first(where: { $0.id == selectedDeviceID })
     }
 
     var isSessionActive: Bool { playbackProcess != nil }
+    #if AIRCILLER_PLAYBACK_CHECKS
+        var playbackCheckLocalOnly = false
+        private(set) var playbackCheckBlockedStarts = 0
+    #endif
 
     var requiresPairing: Bool {
         guard let selectedDevice, selectedDevice.pairing == "Mandatory" else { return false }
@@ -340,6 +348,12 @@ final class AirPlayController {
         title: String? = nil
     ) async throws {
         try Task.checkCancellation()
+        #if AIRCILLER_PLAYBACK_CHECKS
+            if playbackCheckLocalOnly {
+                playbackCheckBlockedStarts += 1
+                throw DirectAirPlayError.noDevice
+            }
+        #endif
         guard let selectedDevice else { throw DirectAirPlayError.noDevice }
         let credential: String?
         if selectedDevice.pairing == "Mandatory" {
@@ -478,94 +492,100 @@ final class AirPlayController {
     }
 
     func beginPairing(resumePlayback: Bool = false) {
-        guard let selectedDevice else {
-            pairingState = .failed(DirectAirPlayError.noDevice.localizedDescription)
+        #if AIRCILLER_PLAYBACK_CHECKS
+            pairingState = .failed("Pairing is disabled in playback checks. Authorize the daily app separately.")
             isPairingPresented = true
             return
-        }
-        isPairingPresented = true
-        pairingState = .starting
-        guard
-            pairingLifecycle.requestStart(
-                resumePlayback: resumePlayback,
-                processIsActive: pairingProcess != nil
-            )
-        else {
-            cancelRunningPairingForRestart()
-            return
-        }
-        pairingDeviceID = selectedDevice.id
-        pairingDeviceName = selectedDevice.name
-        pairingIntent.begin(resumePlayback: resumePlayback)
-        pairingWasCancelled = false
-        successfulPairingSessionID = nil
-        pairingOutputBuffer.removeAll(keepingCapacity: true)
+        #else
+            guard let selectedDevice else {
+                pairingState = .failed(DirectAirPlayError.noDevice.localizedDescription)
+                isPairingPresented = true
+                return
+            }
+            isPairingPresented = true
+            pairingState = .starting
+            guard
+                pairingLifecycle.requestStart(
+                    resumePlayback: resumePlayback,
+                    processIsActive: pairingProcess != nil
+                )
+            else {
+                cancelRunningPairingForRestart()
+                return
+            }
+            pairingDeviceID = selectedDevice.id
+            pairingDeviceName = selectedDevice.name
+            pairingIntent.begin(resumePlayback: resumePlayback)
+            pairingWasCancelled = false
+            successfulPairingSessionID = nil
+            pairingOutputBuffer.removeAll(keepingCapacity: true)
 
-        do {
-            let sessionID = UUID()
-            let locations = try Self.helperLocations()
-            let process = Process()
-            let input = Pipe()
-            let output = Pipe()
-            let errors = Pipe()
-            let errorCollector = ProcessDataBuffer(maximumBytes: 1_048_576)
-            let errorDrain = DispatchGroup()
-            errorDrain.enter()
-            DispatchQueue.global(qos: .utility).async {
-                errorCollector.append(errors.fileHandleForReading.readDataToEndOfFile())
-                errorDrain.leave()
-            }
-            process.executableURL = locations.python
-            process.arguments = [
-                locations.script.path,
-                "pair",
-                "--address", selectedDevice.address,
-                "--timeout", "5",
-            ]
-            process.environment = Self.helperEnvironment(vendor: locations.vendor)
-            process.standardInput = input
-            process.standardOutput = output
-            process.standardError = errors
-            pairingProcess = process
-            pairingSessionID = sessionID
-            pairingInputPipe = input
-            pairingOutputPipe = output
-            pairingErrorPipe = errors
+            do {
+                let sessionID = UUID()
+                let locations = try Self.helperLocations()
+                let process = Process()
+                let input = Pipe()
+                let output = Pipe()
+                let errors = Pipe()
+                let errorCollector = ProcessDataBuffer(maximumBytes: 1_048_576)
+                let errorDrain = DispatchGroup()
+                errorDrain.enter()
+                DispatchQueue.global(qos: .utility).async {
+                    errorCollector.append(errors.fileHandleForReading.readDataToEndOfFile())
+                    errorDrain.leave()
+                }
+                process.executableURL = locations.python
+                process.arguments = [
+                    locations.script.path,
+                    "pair",
+                    "--address", selectedDevice.address,
+                    "--timeout", "5",
+                ]
+                process.environment = Self.helperEnvironment(vendor: locations.vendor)
+                process.standardInput = input
+                process.standardOutput = output
+                process.standardError = errors
+                pairingProcess = process
+                pairingSessionID = sessionID
+                pairingInputPipe = input
+                pairingOutputPipe = output
+                pairingErrorPipe = errors
 
-            output.fileHandleForReading.readabilityHandler = { [weak self] handle in
-                let data = handle.availableData
-                guard !data.isEmpty else {
-                    handle.readabilityHandler = nil
-                    return
+                output.fileHandleForReading.readabilityHandler = { [weak self] handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else {
+                        handle.readabilityHandler = nil
+                        return
+                    }
+                    Task { @MainActor [weak self] in
+                        self?.consumePairingOutput(data, sessionID: sessionID)
+                    }
                 }
-                Task { @MainActor [weak self] in
-                    self?.consumePairingOutput(data, sessionID: sessionID)
+                process.terminationHandler = { [weak self] process in
+                    errorDrain.wait()
+                    let stderr = errorCollector.snapshot
+                    Task { @MainActor [weak self] in
+                        self?.pairingTerminated(
+                            sessionID: sessionID,
+                            status: process.terminationStatus,
+                            stderr: stderr
+                        )
+                    }
                 }
-            }
-            process.terminationHandler = { [weak self] process in
-                errorDrain.wait()
-                let stderr = errorCollector.snapshot
-                Task { @MainActor [weak self] in
-                    self?.pairingTerminated(
-                        sessionID: sessionID,
-                        status: process.terminationStatus,
-                        stderr: stderr
-                    )
+                try process.run()
+                try? input.fileHandleForReading.close()
+                try? output.fileHandleForWriting.close()
+                try? errors.fileHandleForWriting.close()
+                status = L10n.format("Iniciando emparejamiento con %@…", selectedDevice.name)
+            } catch {
+                try? pairingOutputPipe?.fileHandleForWriting.close()
+                try? pairingErrorPipe?.fileHandleForWriting.close()
+                if let sessionID = pairingSessionID {
+                    clearPairingProcess(sessionID: sessionID)
                 }
+                pairingState = .failed(error.localizedDescription)
             }
-            try process.run()
-            try? input.fileHandleForReading.close()
-            try? output.fileHandleForWriting.close()
-            try? errors.fileHandleForWriting.close()
-            status = L10n.format("Iniciando emparejamiento con %@…", selectedDevice.name)
-        } catch {
-            try? pairingOutputPipe?.fileHandleForWriting.close()
-            try? pairingErrorPipe?.fileHandleForWriting.close()
-            if let sessionID = pairingSessionID {
-                clearPairingProcess(sessionID: sessionID)
-            }
-            pairingState = .failed(error.localizedDescription)
-        }
+        #endif
     }
 
     func submitPairingPIN(_ pin: String) {
@@ -775,6 +795,11 @@ final class AirPlayController {
         // Replies already in flight after Stop cannot resume the timeline or
         // advance the playlist. Only the shutdown acknowledgement is relevant.
         guard !stopping || event.event == "stopped" || event.event == "error" else { return }
+        #if AIRCILLER_PLAYBACK_CHECKS
+            onPlaybackCheckEvent?(
+                event.event, event.source, event.position, event.duration, event.playing, event.requestID
+            )
+        #endif
         switch event.event {
         case "connecting":
             let name = event.device?.name ?? playbackDeviceName ?? "Apple TV"

@@ -21,17 +21,25 @@ enum SubtitleOCRService {
         in image: CGImage,
         preferredLanguages: [String] = []
     ) async throws -> SubtitleOCRResult {
+        try Task.checkCancellation()
         let preparedImage = flattenedOnBlack(image) ?? image
-        if #available(macOS 15.0, *) {
-            return try await recognizeModern(
+        do {
+            if #available(macOS 15.0, *) {
+                return try await recognizeModern(
+                    in: preparedImage,
+                    preferredLanguages: preferredLanguages
+                )
+            }
+            return try recognizeLegacy(
                 in: preparedImage,
                 preferredLanguages: preferredLanguages
             )
+        } catch {
+            // Vision reports its own requestCancelled error. Keep task cancellation
+            // distinct from a recognition failure for callers and preparation UI.
+            try Task.checkCancellation()
+            throw error
         }
-        return try recognizeLegacy(
-            in: preparedImage,
-            preferredLanguages: preferredLanguages
-        )
     }
 
     @available(macOS 15.0, *)
@@ -47,6 +55,7 @@ enum SubtitleOCRService {
         request.recognitionLanguages = preferredLanguages.map(Locale.Language.init(identifier:))
 
         let observations = try await request.perform(on: image)
+        try Task.checkCancellation()
         let lines = observations.compactMap { observation -> OCRLine? in
             guard let candidate = observation.topCandidates(1).first else { return nil }
             let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -74,6 +83,7 @@ enum SubtitleOCRService {
 
         let handler = VNImageRequestHandler(cgImage: image, orientation: .up)
         try handler.perform([request])
+        try Task.checkCancellation()
 
         let lines = (request.results ?? []).compactMap { observation -> OCRLine? in
             guard let candidate = observation.topCandidates(1).first else { return nil }

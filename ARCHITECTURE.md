@@ -2,6 +2,8 @@
 
 AirCiller consists of a native application and one helper process for AirPlay 2.
 
+Local certificate-signed builds also embed an on-demand, read-only [credential service](Docs/CREDENTIAL_SERVICE.md). It authenticates XPC callers and keeps its executable unchanged across app rebuilds. It shares the existing AirPlay Keychain store and has no network listener or permanent background registration. Public ad hoc builds retain the original direct Keychain implementation.
+
 ## Main flow
 
 1. `MediaProbeService` inspects the container, video, audio, subtitles, and chapters through `ffprobe`.
