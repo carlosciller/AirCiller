@@ -2,7 +2,7 @@ import Foundation
 
 // Compiled into the opt-in check app and deterministic tests only.
 struct PlaybackCheckPlan: Decodable {
-    enum Route: String, Codable { case directHDR, hls }
+    enum Route: String, Codable { case directHDR, hls, hlsHDR }
     enum Profile: String, Codable {
         case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap
     }
@@ -22,10 +22,11 @@ struct PlaybackCheckPlan: Decodable {
 
         func validate() throws {
             guard path.hasPrefix("/"),
-                ["mp4", "m4v", "mkv", "mov"].contains(URL(fileURLWithPath: path).pathExtension.lowercased()),
+                MediaFileTypes.accepts(URL(fileURLWithPath: path)),
                 subtitleIndex.map({ $0 >= 0 }) ?? true,
                 subtitleIndex == nil || externalSubtitle == nil,
-                route != .directHDR || subtitleIndex != nil || externalSubtitle != nil
+                route != .directHDR || subtitleIndex != nil || externalSubtitle != nil,
+                route != .hlsHDR || (subtitleIndex == nil && externalSubtitle == nil)
             else { throw PlaybackCheckFailure.invalidPlan }
             if let externalSubtitle {
                 guard externalSubtitle.hasPrefix("/"),
@@ -40,8 +41,7 @@ struct PlaybackCheckPlan: Decodable {
             }
             if let nextClip {
                 guard nextClip.path.hasPrefix("/"), nextClip.path != path, nextClip.route == .hls,
-                    ["mp4", "m4v", "mkv", "mov"].contains(
-                        URL(fileURLWithPath: nextClip.path).pathExtension.lowercased())
+                    MediaFileTypes.accepts(URL(fileURLWithPath: nextClip.path))
                 else { throw PlaybackCheckFailure.invalidPlan }
             }
         }
@@ -77,6 +77,9 @@ struct PlaybackCheckPlan: Decodable {
             else { throw PlaybackCheckFailure.invalidPlan }
         }
         for clip in plan.clips {
+            guard clip.route != .hlsHDR || plan.selectedProfile == .controls else {
+                throw PlaybackCheckFailure.invalidPlan
+            }
             guard (clip.alternateSubtitle != nil) == (plan.selectedProfile == .trackChanges),
                 (clip.nextClip != nil) == (plan.selectedProfile == .playlistTransition)
             else { throw PlaybackCheckFailure.invalidPlan }
