@@ -9,8 +9,18 @@ protocol AirPlayCredentialBackend: Sendable {
 
 struct KeychainAirPlayCredentialBackend: AirPlayCredentialBackend {
     private let service = "local.carlosciller.AirCiller.AirPlay"
+    private let allowInteraction: Bool
+
+    #if AIRCILLER_PLAYBACK_CHECKS
+        init(allowInteraction: Bool = false) { self.allowInteraction = allowInteraction }
+    #else
+        init(allowInteraction: Bool = true) { self.allowInteraction = allowInteraction }
+    #endif
 
     func credential(for deviceID: String) throws -> String? {
+        if CredentialServiceClient.isRequired {
+            return try CredentialServiceClient.read(account: deviceID, allowInteraction: allowInteraction)
+        }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -31,36 +41,44 @@ struct KeychainAirPlayCredentialBackend: AirPlayCredentialBackend {
     }
 
     func storeCredential(_ credential: String, for deviceID: String) throws {
-        let data = Data(credential.utf8)
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: deviceID,
-        ]
-        let attributes: [String: Any] = [kSecValueData as String: data]
-        let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            var item = query
-            item[kSecValueData as String] = data
-            let addStatus = SecItemAdd(item as CFDictionary, nil)
-            guard addStatus == errSecSuccess else {
-                throw NSError(domain: NSOSStatusErrorDomain, code: Int(addStatus))
+        #if AIRCILLER_PLAYBACK_CHECKS
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecInteractionNotAllowed))
+        #else
+            let data = Data(credential.utf8)
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: deviceID,
+            ]
+            let attributes: [String: Any] = [kSecValueData as String: data]
+            let status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+            if status == errSecItemNotFound {
+                var item = query
+                item[kSecValueData as String] = data
+                let addStatus = SecItemAdd(item as CFDictionary, nil)
+                guard addStatus == errSecSuccess else {
+                    throw NSError(domain: NSOSStatusErrorDomain, code: Int(addStatus))
+                }
+            } else if status != errSecSuccess {
+                throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
             }
-        } else if status != errSecSuccess {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
-        }
+        #endif
     }
 
     func removeCredential(for deviceID: String) throws {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: deviceID,
-        ]
-        let status = SecItemDelete(query as CFDictionary)
-        guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
-        }
+        #if AIRCILLER_PLAYBACK_CHECKS
+            throw NSError(domain: NSOSStatusErrorDomain, code: Int(errSecInteractionNotAllowed))
+        #else
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: deviceID,
+            ]
+            let status = SecItemDelete(query as CFDictionary)
+            guard status == errSecSuccess || status == errSecItemNotFound else {
+                throw NSError(domain: NSOSStatusErrorDomain, code: Int(status))
+            }
+        #endif
     }
 }
 

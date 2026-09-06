@@ -2,11 +2,30 @@
 
 ## Current signing status
 
-AirCiller uses an ad hoc signature for local builds. The project does not assume an Apple Developer Program membership and does not run Developer ID signing, Hardened Runtime, notarization, stapling, or `notarytool`.
+AirCiller defaults to an ad hoc signature on a fresh checkout. Development machines can opt into a stable local code-signing identity and the [read-only credential service](Docs/CREDENTIAL_SERVICE.md). A certificate alone does not retain Keychain permission across rebuilt copies on the tested Mac; see the limitation below. Public release builds do not assume an Apple Developer Program membership or run Developer ID signing, notarization, stapling, or `notarytool`. Service-enabled local builds use Hardened Runtime.
 
 This has one visible consequence. A Mac that downloads AirCiller for the first time may block the first launch until the user confirms it through macOS. Sparkle cannot remove that first-install Gatekeeper step. It can securely deliver later AirCiller updates after the initial copy is trusted.
 
 Developer ID and notarization remain a future distribution improvement. Their absence must never be reported as a successful notarized build.
+
+## Stable local signing
+
+After explicitly approving creation of a local identity, run the following with the project's Python runtime:
+
+```sh
+python3 Scripts/setup_local_signing.py --create-or-reuse
+zsh Scripts/build_credential_service.sh
+```
+
+The setup uses the pinned `cryptography` package in `VendorPython`. It creates or reuses **AirCiller Local Development** in the login Keychain and stores only its public certificate fingerprint in the ignored `.local-signing-identity` file. Private key material travels in memory through a pipe to the system importer; it is never written to a temporary file. The imported key permits `/usr/bin/codesign`; setup does not grant access to all applications or change system trust settings.
+
+Both ordinary and playback-check builds use that identity, with distinct application identifiers. Keeping the same certificate and application identifier preserves the designated code requirement. No script requests, stores or forwards the user's Keychain password.
+
+**Keychain limitation verified on 5 September 2026:** the same approved executable can read the AirPlay credential repeatedly without interaction, but a changed executable with the identical designated requirement is denied. The file-based Keychain also checks a partition identifier. Apple's [securityd implementation](https://github.com/apple-oss-distributions/Security/blob/main/securityd/src/clientid.cpp) assigns a code hash to signatures outside its recognized Apple signing categories. The existing item's read-only ACL inspection confirmed accumulated code-hash entries. The credential service keeps its own executable unchanged and authenticates each caller; its validation is documented separately. Do not remove partition protections or add broad access rules.
+
+If configuration exists but the signing key is unavailable, the build fails without falling back to ad hoc signing. Preserve the identity across local rebuilds; removing `.build` does not remove it. An encrypted offline backup can be made separately through Keychain Access. Losing the private key requires a new identity and fresh approvals.
+
+Public release builds keep the existing signing policy. Explicitly set `AIRCILLER_SIGNING_IDENTITY=-` when building a release on a configured development machine. A certificate fingerprint can also be supplied through that variable. Local signing is not Developer ID, notarization or a replacement for Sparkle's separate EdDSA update key. See Apple's [code-signing guidance](https://developer.apple.com/library/archive/technotes/tn2206/_index.html).
 
 ## Sparkle integration
 
@@ -79,7 +98,7 @@ Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidat
 
    ```sh
    ./Scripts/bootstrap_engine.sh
-   ./build.sh
+   AIRCILLER_SIGNING_IDENTITY=- ./build.sh
    ```
 4. Package the app:
 

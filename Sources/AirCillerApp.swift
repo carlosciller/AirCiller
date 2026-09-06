@@ -8,7 +8,9 @@ import SwiftUI
 // property-wrapper type explicitly so standalone builds do not depend on it.
 private typealias AirCillerState<Value> = SwiftUI.State<Value>
 
-@main
+#if !AIRCILLER_PLAYBACK_CHECKS
+    @main
+#endif
 struct AirCillerApp: App {
     @NSApplicationDelegateAdaptor(AirCillerAppDelegate.self) private var appDelegate
     @AirCillerState private var coordinator = StreamCoordinator()
@@ -88,7 +90,9 @@ final class AirCillerAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
-        updateController.start()
+        #if !AIRCILLER_PLAYBACK_CHECKS
+            updateController.start()
+        #endif
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

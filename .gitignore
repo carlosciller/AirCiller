@@ -33,6 +33,19 @@ __pycache__/
 credentials*
 secrets*
 *.sparkle-private-key
+.local-signing-identity
+.local-credential-service/
+
+# Credential-service source is public code, not stored credentials.
+!/CredentialService/
+/CredentialService/*
+!/CredentialService/main.c
+!/CredentialService/Info.plist
+!/CredentialService/Client.entitlements
+!/Sources/CredentialServiceClient.swift
+!/Tests/CredentialServiceIntegrationTest.py
+!/Tests/CredentialServiceRawProbe.c
+!/Tests/CredentialServiceProbe.swift
 
 # Keep the deliberately tiny subtitle fixture.
 !Tests/Fixtures/*.ass

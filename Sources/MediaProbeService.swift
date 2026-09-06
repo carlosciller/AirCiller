@@ -1,7 +1,10 @@
 import Foundation
 
 enum MediaProbeService {
-    static func probe(url: URL, ffprobeURL explicitFFprobeURL: URL? = nil) async throws -> MediaProbe {
+    static func probe(
+        url: URL, ffprobeURL explicitFFprobeURL: URL? = nil,
+        onStarted: (@Sendable (Process) -> Void)? = nil
+    ) async throws -> MediaProbe {
         do {
             guard let ffprobeURL = explicitFFprobeURL ?? Executables.find("ffprobe") else {
                 throw AirCillerError.ffprobeMissing
@@ -30,9 +33,19 @@ enum MediaProbeService {
             }
             process.standardOutput = output
             process.standardError = errors
+            // Cancellation throws from run(). Always detach readers and close pipes.
+            defer {
+                output.fileHandleForReading.readabilityHandler = nil
+                errors.fileHandleForReading.readabilityHandler = nil
+                try? output.fileHandleForReading.close()
+                try? errors.fileHandleForReading.close()
+                try? output.fileHandleForWriting.close()
+                try? errors.fileHandleForWriting.close()
+            }
             let status = try await CancellableProcess(process).run {
                 try? output.fileHandleForWriting.close()
                 try? errors.fileHandleForWriting.close()
+                onStarted?(process)
             }
             output.fileHandleForReading.readabilityHandler = nil
             errors.fileHandleForReading.readabilityHandler = nil

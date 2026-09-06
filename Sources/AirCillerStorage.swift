@@ -31,6 +31,9 @@ enum AirCillerStorage {
     }
 
     static func subtitleCacheDirectory() throws -> URL {
+        #if AIRCILLER_PLAYBACK_CHECKS
+            if let trace = BitmapCancellationTrace.current { return trace.cacheDirectory }
+        #endif
         guard
             let base = FileManager.default.urls(
                 for: .cachesDirectory,

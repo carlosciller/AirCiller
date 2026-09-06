@@ -2,6 +2,11 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.12.2 (6 September 2026)
+
+- Fixed missing or cropped Blu-ray subtitles when their resolution differs from the video.
+- Fixed errors appearing after stopping or switching movies during analysis or subtitle recognition.
+
 ## 0.12.1 (5 September 2026)
 
 ### Fixed
