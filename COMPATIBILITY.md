@@ -8,10 +8,13 @@ This is the supported scope, not every format the bundled FFmpeg build can read.
 | Complete, unencrypted TS, MTS and M2TS with one program | Copies compatible H.264/HEVC and original audio; no disc menus, split-recording joining or live URLs |
 | HDR and Dolby Vision | Preserves compatible video and metadata. Dolby Vision Profile 8.1 has been physically tested; other profiles are not universally guaranteed |
 | AAC, AC-3, E-AC-3 and ALAC | Offered as original audio; the receiver must accept the channel layout and profile |
+| FLAC soundtracks with a preserved channel layout | Original audio in HLS/fMP4 and direct HDR MP4; stereo and 5.1 have captured Apple TV evidence |
 | Atmos carried by compatible E-AC-3 | Preserves the original stream; the playback chain determines Atmos output |
-| DTS, TrueHD, FLAC and other unsupported original audio | Requires an explicitly approved audio conversion; TrueHD Atmos metadata is not preserved by that conversion |
+| DTS, TrueHD and other unsupported original audio | Requires an explicitly approved audio conversion; TrueHD Atmos metadata is not preserved by that conversion |
 | SRT, WebVTT, ASS/SSA and embedded MP4 text | Selectable text with adjustable timing |
 | Embedded Blu-ray PGS and DVD VobSub | Local Apple Vision OCR produces selectable text; preparation takes longer and recognition can be imperfect |
+
+FLAC is supported as a movie soundtrack, not as a standalone music-file player. The current packager cannot retain some channel-mask overrides, such as a rear-channel `5.1` layout that becomes `5.1(side)` in fMP4. AirCiller explains the limitation and requires another track or explicit conversion approval. The [FLAC validation record](Docs/FLAC_AUDIO.md) lists tested cases and remaining limits.
 
 ## Subtitle appearance
 

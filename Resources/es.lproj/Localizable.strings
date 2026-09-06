@@ -623,3 +623,5 @@
 "Detén la reproducción o la preparación de la película antes de buscar actualizaciones." = "Detén la reproducción o la preparación de la película antes de buscar actualizaciones.";
 "AirCiller aplazará la actualización hasta que termine la reproducción." = "AirCiller aplazará la actualización hasta que termine la reproducción.";
 "Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película." = "Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película.";
+"La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original." = "La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original.";
+"Desconocido" = "Desconocido";

@@ -31,11 +31,13 @@ Acceptance: after any necessary capture setup, one command runs the selected cas
 Prioritize keeping both video and audio in their original encoded formats. Remuxing into a compatible streaming container is allowed; it must not silently become audio or video transcoding.
 
 1. TS, MTS and M2TS containers carrying already-compatible H.264 or HEVC and original audio accepted by the receiver.
-2. Original FLAC audio through HLS/fMP4, subject to successful stereo and multichannel Apple TV tests. This remains an investigation, not a promise of receiver compatibility.
+2. Original FLAC soundtracks: implemented in 0.12.4 for preserved channel layouts, with separate stereo and 5.1 Apple TV checks. See [FLAC validation](Docs/FLAC_AUDIO.md).
 
 Each addition needs a representative sample, copy-only audio/video verification, the relevant automated and audiovisual checks, clear rejection messages and a separate release decision. Add support only after the AirPlay receiver accepts it; FFmpeg being able to read a format is not enough.
 
-Part 1 is implemented in 0.12.3. The [validation record](Docs/TRANSPORT_STREAMS.md) covers eight copy-only preparation checks, four Apple TV output cases and two subsequent embedded-PGS cases after fixing timing, canvas lookup and missing-language metadata. HDR without subtitles is assessed separately. FLAC remains the next separate investigation.
+Part 1 is implemented in 0.12.3. The [validation record](Docs/TRANSPORT_STREAMS.md) covers eight copy-only preparation checks, four Apple TV output cases and two subsequent embedded-PGS cases after fixing timing, canvas lookup and missing-language metadata. HDR without subtitles is assessed separately.
+
+Follow up on FLAC channel-mask overrides that fMP4 does not currently preserve. Keep those cases behind explicit conversion approval until their original layout can be retained and verified. Do not reinterpret surround channels to make a test pass.
 
 The first capture attempt supplied no initial frame until a separate known-good playback diagnostic restored capture output. The later format batch passed unchanged. Investigate this inactive-receiver startup condition separately; do not weaken source verification or treat a ready session as proof of visible output.
 
@@ -58,6 +60,8 @@ AV1 passthrough remains research only. A device decoder does not establish suppo
 ## Distribution
 
 Playback engines stay pinned and bundled with the app. Dependency updates require a regenerated lock, import and packaging checks, and applicable hardware tests. Proposals that only change `requirements.in` are incomplete.
+
+Builds now report component sizes and enforce a 165 MB logical-file budget. Review unused Python development and GUI components before considering a smaller runtime, with measured savings and complete runtime checks. No trimming has been applied to the tested engine.
 
 Developer ID and notarization are blocked until an Apple Developer Program membership is available. Sparkle signatures do not replace notarization.
 
