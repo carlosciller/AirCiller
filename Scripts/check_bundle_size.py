@@ -1,4 +1,8 @@
 """Read-only logical bundle size report and release budget. No symlink traversal."""
+import sys
+
+sys.dont_write_bytecode = True
+
 import argparse
 import json
 import os

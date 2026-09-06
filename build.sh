@@ -156,7 +156,7 @@ printf '%s\n' "Engine/airplay/python/bin/python3" \
 
 codesign --force --sign "$signing_identity" "${local_signing_options[@]}" "$staged_app_path"
 codesign --verify --deep --strict "$staged_app_path"
-"$engine_path/airplay/python/bin/python3" "$project_dir/Scripts/check_bundle_size.py" "$staged_app_path"
+"$engine_path/airplay/python/bin/python3" -B "$project_dir/Scripts/check_bundle_size.py" "$staged_app_path"
 
 if [[ -e "$app_path" ]]; then
   mv "$app_path" "$previous_app_path"
