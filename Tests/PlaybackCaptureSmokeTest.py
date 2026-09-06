@@ -65,6 +65,53 @@ class CaptureWorkflowTests(unittest.TestCase):
             capture.save_json(target, {"first": False})
         self.assertEqual(json.loads(target.read_text()), {"first": True})
 
+    def test_hdr_hls_requires_its_route_pattern_and_no_subtitles(self):
+        samples, frames, control = self.evidence("hlsHDRNoSubtitles")
+        for row in frames:
+            row["testPattern"] = False
+        self.assertIn("expectedPictureNotObserved",
+                      capture.assess_samples(samples, frames, control, "hlsHDRNoSubtitles")["gaps"])
+        samples, frames, control = self.evidence("hlsHDRNoSubtitles")
+        control["results"][0]["route"] = "hls"
+        with self.assertRaisesRegex(capture.CaptureError, "wrongControlCase"):
+            capture.assess_samples(samples, frames, control, "hlsHDRNoSubtitles")
+        samples, frames, control = self.evidence("hlsHDRNoSubtitles")
+        for row in frames:
+            row["anyCue"] = True
+        self.assertIn("unexpectedSubtitles",
+                      capture.assess_samples(samples, frames, control, "hlsHDRNoSubtitles")["gaps"])
+
+    def test_transport_override_validation_and_preparation(self):
+        fixtures = {}
+        for case, ext in zip(capture.CONTROL_CASES, ("m2ts", "ts", "MTS", "m2ts")):
+            path = self.root / f"{case}.{ext}"
+            path.write_bytes(b"fixture")
+            fixtures[case] = str(path)
+        config = dict(self.config, cases=list(capture.CONTROL_CASES), fixtureOverrides=fixtures)
+        del config["hdrFixture"]
+        self.assertEqual(capture.validate_config(config), list(capture.CONTROL_CASES))
+        with mock.patch.object(capture, "probe_fixture", return_value={"checked": True}) as probe:
+            prepared = capture.prepare_fixtures(config, config["cases"], self.root, self.root)
+            self.assertEqual(set(prepared), set(capture.CONTROL_CASES))
+            self.assertEqual(probe.call_count, 4)
+            self.assertEqual(prepared["hlsNoSubtitles"][0], Path(fixtures["hlsNoSubtitles"]).resolve())
+        for overrides in ({"camera": self.fixture}, {"directHDR": "relative.ts"},
+                          {"directHDR": "https://example.invalid/live.ts"}, [], {"directHDR": str(self.root)}):
+            with self.subTest(overrides=overrides), self.assertRaises(capture.CaptureError):
+                capture.validate_config(dict(config, fixtureOverrides=overrides))
+
+    def test_probe_rejects_multiple_programs_before_audio_checks(self):
+        def probe_output(command):
+            self.assertEqual(command[0], "ffprobe")
+            self.assertIn("program=program_id", command)
+            return json.dumps({"format": {"format_name": "mpegts", "duration": "60"},
+                               "programs": [{"program_id": 1}, {"program_id": 2}]}).encode()
+
+        with mock.patch.object(capture, "bounded_command", side_effect=probe_output) as command:
+            with self.assertRaisesRegex(capture.CaptureError, "unsupportedFixturePrograms"):
+                capture.probe_fixture(self.fixture, "ffmpeg", "ffprobe", hdr=False)
+            self.assertEqual(command.call_count, 1)
+
     def test_bounded_process_and_timeout(self):
         self.assertEqual(capture.bounded_command([sys.executable, "-c", "print('ok')"]), b"ok\n")
         with self.assertRaisesRegex(capture.CaptureError, "processOutputLimit"):
@@ -114,21 +161,22 @@ class CaptureWorkflowTests(unittest.TestCase):
 
     def evidence(self, case="hlsSubtitles"):
         rows, frames = [], []
+        subtitles = case not in {"hlsNoSubtitles", "hlsHDRNoSubtitles"}
         for index in range(18):
             uptime = 102 + index * .5
             name = f"frame-{index + 1:03d}.png"
             rows.extend([{"kind": "video", "uptime": uptime, "frame": name},
                          {"kind": "audio", "uptime": uptime, "rmsDBFS": -25}])
-            frames.append({"frame": name, "anyCue": case != "hlsNoSubtitles", "expectedCue": case != "hlsNoSubtitles",
+            frames.append({"frame": name, "anyCue": subtitles, "expectedCue": subtitles,
                            "centralDifference": 5, "testPattern": True})
         samples = {"schemaVersion": 1, "sourceVerified": True, "complete": True, "rows": rows}
         control = {"outcome": capture.CONTROL_PASS, "results": [{"cleanupConfirmed": True,
-            "route": "directHDR" if case == "directHDR" else "hls", "subtitlesRequested": case != "hlsNoSubtitles",
+            "route": capture.CASE_INFO[case][1], "subtitlesRequested": subtitles,
             "startedAtUptime": 100, "elapsedSeconds": 11, "events": [{"kind": "playing", "origin": "receiver", "seconds": 1}]}]}
         return samples, frames, control
 
     def test_evidence_for_each_case(self):
-        for case in capture.BASIC_CASES:
+        for case in capture.CONTROL_CASES:
             result = capture.assess_samples(*self.evidence(case), case)
             self.assertEqual(result["outcome"], capture.OUTPUT_PASS)
 

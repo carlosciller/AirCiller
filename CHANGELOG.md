@@ -2,6 +2,13 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.12.3 (6 September 2026)
+
+- Open TS, MTS and M2TS files with compatible H.264 or HEVC video, including HDR. Original video and compatible audio are preserved.
+- Fixed AAC audio preventing some TS files from playing.
+- Fixed Blu-ray subtitles failing to load or appearing early in M2TS files.
+- Added clearer messages for transport-stream files with multiple programs or an unreadable duration.
+
 ## 0.12.2 (6 September 2026)
 
 - Fixed missing or cropped Blu-ray subtitles when their resolution differs from the video.

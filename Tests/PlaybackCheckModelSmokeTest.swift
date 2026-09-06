@@ -3,6 +3,24 @@ import Foundation
 @main
 struct PlaybackCheckModelSmokeTest {
     static func main() throws {
+        for ext in ["ts", "MTS", "m2ts"] {
+            _ = try PlaybackCheckPlan.decode(
+                Data(
+                    """
+                    {"version":1,"deviceID":"fixture","clips":[{"path":"/clip.\(ext)","route":"hls"}]}
+                    """.utf8))
+        }
+        let hdrHLS = #"{"version":1,"deviceID":"fixture","clips":[{"path":"/clip.m2ts","route":"hlsHDR"}]}"#
+        _ = try PlaybackCheckPlan.decode(Data(hdrHLS.utf8))
+        try expectRejected(
+            Data(
+                hdrHLS.replacingOccurrences(of: #""route":"hlsHDR""#, with: #""route":"hlsHDR","subtitleIndex":2"#).utf8
+            ))
+        try expectRejected(
+            Data(
+                hdrHLS.replacingOccurrences(
+                    of: #""deviceID":"fixture""#, with: #""deviceID":"fixture","profile":"cancelBitmap""#
+                ).utf8))
         // Hardware trace: HLS reported paused immediately after playing. The
         // former toggle sent resume while the test was waiting for pause.
         for initiallyPlaying in [false, true] {

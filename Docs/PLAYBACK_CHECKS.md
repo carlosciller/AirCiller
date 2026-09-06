@@ -45,7 +45,7 @@ After the one-time source and credential approval, with the TV reserved for test
 python3 Scripts/playback_checks.py /absolute/path/to/capture-config.json --capture --run --tv-is-idle
 ```
 
-Without `--run`, this command only validates the configuration and local file bounds; it opens no process or device. Add `--prepare` to probe the HDR input and generate and validate the synthetic fixture without discovery, Keychain access or television playback. `cases` can select a subset of the three cases. An unavailable credential or capture source stops a live batch before any clip starts; it does not trigger pairing or fall back to an unwatched control-only pass.
+Without `--run`, this command only validates the configuration and local file bounds; it opens no process or device. Add `--prepare` to probe the HDR input and generate and validate the synthetic fixture without discovery, Keychain access or television playback. `cases` selects from the basic cases and optional scenarios below. An unavailable credential or capture source stops a live batch before any clip starts; it does not trigger pairing or fall back to an unwatched control-only pass.
 
 Each case has its own capture gate. Authorization finishes first, then the verified screen source supplies its first video frame, and only then does playback start. Capture uses one muxed Apple TV input with video and audio sample outputs. The exact source ID, name, model, transport and media types are checked before input creation and monitored during capture. No camera or microphone is opened, and there is no preview or movie-file writer.
 
@@ -59,7 +59,7 @@ These are sampled digital-output checks. They do not certify physical speakers, 
 
 ## Optional scenarios
 
-Keep the same command and select the desired names in the capture configuration's `cases` array. The default remains the three basic cases. A configuration accepts up to nine distinct cases:
+Keep the same command and select the desired names in the capture configuration's `cases` array. The default remains the three basic cases. A configuration accepts up to ten distinct cases:
 
 | Case | Actions and required evidence |
 | --- | --- |
@@ -68,6 +68,7 @@ Keep the same command and select the desired names in the capture configuration'
 | `cancelPreparation` | Observe AirCiller's actual preparation FFmpeg process running, press Stop through the coordinator, verify cleanup and watch for delayed playback. No audiovisual capture is started for this case. |
 | `playlistTransition` | Open two items through the normal Playlist action. Observe the first, seek into its final six seconds, wait for the receiver's natural-end event, and require exactly one automatic load of the second item. |
 | `directLongPause`, `hlsLongPause` | Observe the clip, obtain a receiver-confirmed pause, seek to second 15 while paused, retain the same session for six minutes, then require the receiver to resume at that target without loading again. Require separate captured picture, audio and subtitle evidence after resuming. |
+| `hlsHDRNoSubtitles` | Exercise HDR through multiplexed HLS without subtitles. Require the generated HDR color pattern, motion, digital audio and receiver controls. See [transport-stream validation](TRANSPORT_STREAMS.md) for the bounded fixture override. |
 
 The long-pause supervisor suspends frame and audio-measurement persistence during the hold. The explicitly approved Apple TV input stays active and its identity remains guarded. Persistence resumes before the post-pause observation window. This bounds stored evidence without relaxing camera exclusions or inventing output samples for the paused interval. The commands originate in AirCiller, so this does not validate a physical remote or prove how the receiver behaves without a capture connection.
 

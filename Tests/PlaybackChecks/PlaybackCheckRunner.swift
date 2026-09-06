@@ -120,7 +120,7 @@ final class PlaybackCheckRunner {
             guard let probe = coordinator.probeInfo, (45...180).contains(probe.duration),
                 ["h264", "hevc"].contains(probe.videoCodec.lowercased()),
                 coordinator.selectedAudio?.canPassThrough == true,
-                clip.route == .directHDR ? probe.isHDR : !probe.isHDR
+                clip.route == .hls ? !probe.isHDR : probe.isHDR
             else { throw PlaybackCheckFailure.unsupportedFixture }
 
             coordinator.selectedSubtitleID = nil
@@ -149,7 +149,12 @@ final class PlaybackCheckRunner {
             }
             preparedDirectory = coordinator.activePreparedDirectory
             guard let directory = preparedDirectory else { throw PlaybackCheckFailure.applicationError }
-            let expectedFile = clip.route == .directHDR ? "movie.mp4" : "master.m3u8"
+            let expectedFile: String
+            switch clip.route {
+            case .directHDR: expectedFile = "movie.mp4"
+            case .hls: expectedFile = "master.m3u8"
+            case .hlsHDR: expectedFile = "video.m3u8"
+            }
             guard FileManager.default.fileExists(atPath: directory.appendingPathComponent(expectedFile).path) else {
                 throw PlaybackCheckFailure.unsupportedFixture
             }

@@ -14,12 +14,14 @@ import time
 from playback_checks import finish_process_group
 
 BASIC_CASES = ("directHDR", "hlsSubtitles", "hlsNoSubtitles")
+CONTROL_CASES = (*BASIC_CASES, "hlsHDRNoSubtitles")
 CASE_INFO = {
     "directHDR": ("controls", "directHDR"), "hlsSubtitles": ("controls", "hls"),
     "hlsNoSubtitles": ("controls", "hls"), "directTrackChanges": ("trackChanges", "directHDR"),
     "hlsTrackChanges": ("trackChanges", "hls"), "cancelPreparation": ("cancelPreparation", "hls"),
     "playlistTransition": ("playlistTransition", "directHDR"),
     "directLongPause": ("longPause", "directHDR"), "hlsLongPause": ("longPause", "hls"),
+    "hlsHDRNoSubtitles": ("controls", "hlsHDR"),
 }
 CASES = tuple(CASE_INFO)
 CONTROL_PASS = "automated_checks_passed_output_unverified"
@@ -27,6 +29,7 @@ OUTPUT_PASS = "sampled_output_observed"
 CANCELLATION_PASS = "preparation_cancellation_observed"
 LIMITS = ["Physical speakers and Atmos layout", "Physical HDR rendering", "Whole-movie reliability",
           "Frame-accurate subtitle timing", "Physical remote operation"]
+MOVIE_EXTENSIONS = {".mp4", ".m4v", ".mov", ".mkv", ".ts", ".mts", ".m2ts"}
 
 
 class CaptureError(Exception):
@@ -67,7 +70,7 @@ def fingerprint(path):
 
 
 def validate_config(config):
-    allowed = {"version", "deviceID", "captureSource", "hdrFixture", "fixtureEncoder", "cases"}
+    allowed = {"version", "deviceID", "captureSource", "hdrFixture", "fixtureEncoder", "cases", "fixtureOverrides"}
     if not isinstance(config, dict) or set(config) - allowed or type(config.get("version")) is not int or config["version"] != 1:
         raise CaptureError("invalidCaptureConfiguration")
     source = config.get("captureSource")
@@ -80,22 +83,34 @@ def validate_config(config):
     if (not isinstance(cases, list) or not 1 <= len(cases) <= len(CASES)
             or any(not isinstance(case, str) or case not in CASES for case in cases) or len(set(cases)) != len(cases)):
         raise CaptureError("invalidCaptureCases")
-    for key, needed in [("hdrFixture", needs_hdr(cases)), ("fixtureEncoder", needs_hls(cases))]:
+    overrides = config.get("fixtureOverrides", {})
+    if not isinstance(overrides, dict) or any(c not in CONTROL_CASES or c not in cases for c in overrides):
+        raise CaptureError("invalidFixtureOverrides")
+    for value in overrides.values():
+        validate_movie_path(value)
+    generated_cases = [case for case in cases if case not in overrides]
+    for key, needed in [("hdrFixture", needs_hdr(generated_cases)), ("fixtureEncoder", needs_hls(generated_cases))]:
         value = config.get(key)
         if not needed and value is None:
             continue
         if not label(value, 4096) or not Path(value).is_absolute() or not Path(value).is_file():
             raise CaptureError("missingFixtureInput")
-        if key == "hdrFixture" and (Path(value).suffix.lower() not in {".mp4", ".m4v", ".mov", ".mkv"}
-                                    or not 0 < Path(value).stat().st_size <= 2 * 1024**3):
-            raise CaptureError("fixtureSizeLimit")
+        if key == "hdrFixture":
+            validate_movie_path(value)
         if key == "fixtureEncoder" and not os.access(value, os.X_OK):
             raise CaptureError("fixtureEncoderUnavailable")
     return cases
 
 
+def validate_movie_path(value):
+    if (not label(value, 4096) or not Path(value).is_absolute() or Path(value).is_symlink()
+            or not Path(value).is_file() or Path(value).suffix.lower() not in MOVIE_EXTENSIONS
+            or not 0 < Path(value).stat().st_size <= 2 * 1024**3):
+        raise CaptureError("invalidFixtureInput")
+
+
 def needs_hdr(cases):
-    return any(CASE_INFO[c][1] == "directHDR" for c in cases)
+    return any(CASE_INFO[c][1] in {"directHDR", "hlsHDR"} for c in cases)
 
 
 def needs_hls(cases):
@@ -160,9 +175,12 @@ def bounded_command(command, timeout=30, limit=1_000_000):
 
 def probe_fixture(path, ffmpeg, ffprobe, hdr):
     try:
-        local_input = ["-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska"]
-        probe = json.loads(bounded_command([ffprobe, "-v", "error", *local_input, "-show_streams", "-show_format", "-of", "json", path]))
+        local_input = ["-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,mpegts"]
+        probe = json.loads(bounded_command([ffprobe, "-v", "error", *local_input, "-show_streams", "-show_format",
+                                           "-show_entries", "program=program_id", "-of", "json", path]))
         duration = float(probe["format"]["duration"])
+        if probe["format"].get("format_name") == "mpegts" and len(probe.get("programs", [])) > 1:
+            raise CaptureError("unsupportedFixturePrograms")
         videos = [s for s in probe["streams"] if s.get("codec_type") == "video" and not s.get("disposition", {}).get("attached_pic")]
         audio = [s for s in probe["streams"] if s.get("codec_type") == "audio"]
         video = videos[0]
@@ -192,9 +210,16 @@ def prepare_fixtures(config, cases, project, directory):
     engine = project / ".build/AirCiller Playback Checks.app/Contents/Resources/Engine/ffmpeg/bin"
     ffmpeg, ffprobe = engine / "ffmpeg", engine / "ffprobe"
     fixtures = {}
+    overrides = config.get("fixtureOverrides", {})
+    cases = [case for case in cases if case not in overrides]
+    for name, value in overrides.items():
+        path = Path(value).resolve()
+        fixtures[name] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=CASE_INFO[name][1] != "hls"))
     if needs_hdr(cases):
         path = Path(config["hdrFixture"]).resolve()
         fixtures["directHDR"] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=True))
+        if "hlsHDRNoSubtitles" in cases:
+            fixtures["hlsHDR"] = fixtures["directHDR"]
     if needs_hls(cases):
         # Explicit development encoder only generates a synthetic fixture. The
         # application and all probes continue to use the pinned bundled engine.
@@ -271,7 +296,7 @@ def supervise_case(app_command, capture_command, ready, stop, timeout=180, ready
 
 def assess_samples(samples, analysis, control, case_name):
     try:
-        if (not isinstance(samples, dict) or not isinstance(control, dict) or case_name not in BASIC_CASES
+        if (not isinstance(samples, dict) or not isinstance(control, dict) or case_name not in CONTROL_CASES
                 or type(samples.get("schemaVersion")) is not int or samples["schemaVersion"] != 1
                 or samples.get("sourceVerified") is not True
                 or samples.get("complete") is not True or control.get("outcome") != CONTROL_PASS):
@@ -281,8 +306,9 @@ def assess_samples(samples, analysis, control, case_name):
                 or results[0].get("cleanupConfirmed") is not True or results[0].get("unverifiedChecks")):
             raise CaptureError("incompleteControlEvidence")
         result = results[0]
-        if (result.get("route") != ("directHDR" if case_name == "directHDR" else "hls")
-                or result.get("subtitlesRequested") is not (case_name != "hlsNoSubtitles")):
+        subtitles_expected = case_name not in {"hlsNoSubtitles", "hlsHDRNoSubtitles"}
+        if (result.get("route") != CASE_INFO[case_name][1]
+                or result.get("subtitlesRequested") is not subtitles_expected):
             raise CaptureError("wrongControlCase")
         began = result["startedAtUptime"]
         duration = result["elapsedSeconds"]
@@ -329,7 +355,7 @@ def assess_samples(samples, analysis, control, case_name):
         elif audio[0]["uptime"] > start + 1.5 or audio[-1]["uptime"] < end - 1.5:
             gaps.append("audioDoesNotCoverPlayback")
         if case_name != "directHDR" and patterns < 3: gaps.append("expectedPictureNotObserved")
-        if case_name == "hlsNoSubtitles":
+        if not subtitles_expected:
             if any_cues: gaps.append("unexpectedSubtitles")
         elif cues < 3:
             gaps.append("expectedSubtitleCueNotObserved")
@@ -347,8 +373,8 @@ def run_case(name, config, fixture, project, directory, candidate_hash):
     capture_dir.mkdir(mode=0o700)
     ready, stop = directory / "capture.ready", directory / "capture.stop"
     token = f"{secrets.randbelow(1_000_000):06d}"
-    clip = {"path": str(fixture[0]), "route": "directHDR" if name == "directHDR" else "hls"}
-    if name != "hlsNoSubtitles":
+    clip = {"path": str(fixture[0]), "route": CASE_INFO[name][1]}
+    if name not in {"hlsNoSubtitles", "hlsHDRNoSubtitles"}:
         subtitle = directory / "cue.eng.srt"
         write_cues(subtitle, token)
         clip["externalSubtitle"] = str(subtitle)
@@ -414,8 +440,9 @@ def run_workflow(config_path, project, *, run=False, prepare=False):
         else:
             for index, name in enumerate(cases, 1):
                 print(f"Case {index}/{len(cases)}: {name}", flush=True)
-                if name in BASIC_CASES:
-                    result = run_case(name, config, fixtures[CASE_INFO[name][1]],
+                if name in CONTROL_CASES:
+                    fixture = fixtures[name] if name in config.get("fixtureOverrides", {}) else fixtures[CASE_INFO[name][1]]
+                    result = run_case(name, config, fixture,
                                       project, directory / f"case-{index:02d}", report["candidateSHA256"])
                 else:
                     from playback_scenarios import run_scenario
