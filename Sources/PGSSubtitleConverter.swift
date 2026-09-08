@@ -40,9 +40,29 @@ enum PGSSubtitleConverter {
             )
         }
 
+        let inputURL = track.externalPath.map(URL.init(fileURLWithPath:)) ?? videoURL
+        var bitmapCompanion: URL?
+        if track.externalPath != nil {
+            if codec == "dvd_subtitle" {
+                let pair = try ExternalVobSub(url: inputURL)
+                guard pair.indexURL.path == inputURL.path,
+                    pair.tracks.contains(where: { $0.streamIndex == streamIndex })
+                else { throw AirCillerError.unsupportedSubtitle("La pista VobSub seleccionada ya no está disponible.") }
+                bitmapCompanion = pair.bitmapURL
+            } else {
+                guard inputURL.pathExtension.lowercased() == "sup", streamIndex == 0 else {
+                    throw AirCillerError.unsupportedSubtitle("El archivo externo debe ser un subtítulo PGS (.sup).")
+                }
+                let file = try FileHandle(forReadingFrom: inputURL)
+                defer { try? file.close() }
+                guard try file.read(upToCount: 2) == Data([0x50, 0x47]) else {
+                    throw AirCillerError.unsupportedSubtitle("El archivo externo debe ser un subtítulo PGS (.sup).")
+                }
+            }
+        }
         let cacheDirectory = try explicitCacheDirectory ?? defaultCacheDirectory()
         let cacheURL = cacheDirectory.appendingPathComponent(
-            cacheFileName(track: track, videoURL: videoURL)
+            cacheFileName(track: track, videoURL: videoURL, videoDuration: videoDuration)
         )
         if maximumRenderedFrames == nil,
             let cached = try? String(contentsOf: cacheURL, encoding: .utf8),
@@ -71,11 +91,13 @@ enum PGSSubtitleConverter {
         #endif
 
         let frameBounds = try await renderFrames(
-            videoURL: videoURL,
+            videoURL: inputURL,
             streamIndex: streamIndex,
             codec: codec,
             outputDirectory: workingDirectory,
-            maximumFrames: maximumRenderedFrames
+            maximumFrames: maximumRenderedFrames,
+            preserveTimestamps: track.externalPath != nil,
+            bitmapCompanion: bitmapCompanion
         )
         try Task.checkCancellation()
 
@@ -171,7 +193,9 @@ enum PGSSubtitleConverter {
         streamIndex: Int,
         codec: String,
         outputDirectory: URL,
-        maximumFrames: Int?
+        maximumFrames: Int?,
+        preserveTimestamps: Bool = false,
+        bitmapCompanion: URL? = nil
     ) async throws -> [Int64: CGRect] {
         guard let ffmpegURL = Executables.find("ffmpeg") else {
             throw AirCillerError.ffmpegMissing
@@ -182,7 +206,11 @@ enum PGSSubtitleConverter {
         process.executableURL = ffmpegURL
         var arguments = ["-hide_banner", "-nostdin", "-loglevel", "info"]
         var timelineFilter = ""
-        if let origin = try await transportTimeOrigin(videoURL: videoURL) {
+        if preserveTimestamps {
+            // Raw PGS timestamps belong to the movie timeline. Do not shift
+            // a delayed first caption to zero or apply the movie's TS origin.
+            arguments += ["-copyts"]
+        } else if let origin = try await transportTimeOrigin(videoURL: videoURL) {
             // Keep the subtitle's absolute clock until the filter. FFmpeg's
             // automatic TS offset can otherwise move the first bitmap to zero.
             arguments += ["-copyts"]
@@ -196,6 +224,10 @@ enum PGSSubtitleConverter {
                 streamIndex: streamIndex
             )
             arguments += ["-canvas_size", "\(canvasSize.width)x\(canvasSize.height)"]
+        }
+        if let bitmapCompanion {
+            // Explicit companion avoids the demuxer's case-sensitive extension guess.
+            arguments += ["-f", "vobsub", "-sub_name", bitmapCompanion.path]
         }
         arguments += [
             "-i", videoURL.path,
@@ -689,19 +721,34 @@ enum PGSSubtitleConverter {
         try AirCillerStorage.subtitleCacheDirectory()
     }
 
-    private static func cacheFileName(track: SubtitleTrack, videoURL: URL) -> String {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: videoURL.path)
+    static func cacheFileName(track: SubtitleTrack, videoURL: URL, videoDuration: Double) -> String {
+        let inputURL = track.externalPath.map(URL.init(fileURLWithPath:)) ?? videoURL
+        let attributes = try? FileManager.default.attributesOfItem(atPath: inputURL.path)
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
         let modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        let identity = [
+        var identityParts = [
             track.codec.lowercased() == "dvd_subtitle" ? "v2" : "v\(cacheVersion)",
-            videoURL.standardizedFileURL.path,
+            inputURL.standardizedFileURL.path,
             String(size),
             String(format: "%.3f", modified),
             String(track.streamIndex ?? -1),
             track.codec.lowercased(),
             track.language ?? "und",
-        ].joined(separator: "|")
+        ]
+        if track.externalPath != nil {
+            // The final bitmap can remain visible until the movie ends.
+            // Reusing a sidecar with a different duration must not reuse that end.
+            identityParts += ["external-pgs-v1", String(videoDuration)]
+            if track.codec.lowercased() == "dvd_subtitle", let pair = try? ExternalVobSub(url: inputURL) {
+                let bitmapAttributes = try? FileManager.default.attributesOfItem(atPath: pair.bitmapURL.path)
+                identityParts += [
+                    "external-vobsub-v1", pair.bitmapURL.path,
+                    String((bitmapAttributes?[.size] as? NSNumber)?.int64Value ?? 0),
+                    String((bitmapAttributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0),
+                ]
+            }
+        }
+        let identity = identityParts.joined(separator: "|")
         return String(format: "%016llx.vtt", fnv1a64(identity))
     }
 

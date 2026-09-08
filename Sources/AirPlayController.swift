@@ -151,6 +151,9 @@ final class AirPlayController {
     @ObservationIgnored private var timelineIsPlaying = false
     @ObservationIgnored private var timelineReferenceDate = Date()
     @ObservationIgnored private var seekReconciliation = AirPlaySeekReconciliation()
+    @ObservationIgnored private lazy var seekCommands = AirPlaySeekCoalescer { [weak self] request in
+        self?.send(["command": "seek", "position": request.position, "requestID": request.id]) ?? false
+    }
     @ObservationIgnored private var pairingProcess: Process?
     @ObservationIgnored private var pairingSessionID: UUID?
     @ObservationIgnored private var pairingDeviceID: String?
@@ -635,21 +638,21 @@ final class AirPlayController {
 
     @discardableResult
     func pause() -> Bool {
-        send(["command": "pause"])
+        seekCommands.flush() && send(["command": "pause"])
     }
 
     @discardableResult
     func resume() -> Bool {
-        send(["command": "resume"])
+        seekCommands.flush() && send(["command": "resume"])
     }
 
     @discardableResult
     func seek(to position: Double) -> Bool {
-        guard position.isFinite else { return false }
+        guard position.isFinite, inputPipe != nil, !stopping else { return false }
         let target = min(max(0, position), timelineDuration > 0 ? timelineDuration : max(0, position))
         let requestID = UUID().uuidString
-        guard send(["command": "seek", "position": target, "requestID": requestID]) else { return false }
         seekReconciliation.begin(id: requestID, position: target, now: ProcessInfo.processInfo.systemUptime)
+        seekCommands.enqueue(id: requestID, position: target)
         timelinePosition = target
         timelineReferenceDate = Date()
         publishTimeline()
@@ -1048,6 +1051,7 @@ final class AirPlayController {
     }
 
     private func stopTimeline() {
+        seekCommands.cancel()
         seekReconciliation.reset()
         updateTimelineClock()
         timelineIsPlaying = false

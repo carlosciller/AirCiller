@@ -94,7 +94,10 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
     let externalPath: String?
 
     var id: String {
-        if let externalPath { return "external-\(externalPath)" }
+        if let externalPath {
+            if codec.lowercased() == "dvd_subtitle" { return "external-\(externalPath)-\(streamIndex ?? -1)" }
+            return "external-\(externalPath)"
+        }
         return "subtitle-\(streamIndex ?? -1)"
     }
 
@@ -144,6 +147,7 @@ struct SubtitleTrack: Identifiable, Hashable, Sendable {
 
     var originalName: String {
         if let externalPath {
+            if codec.lowercased() == "dvd_subtitle", let title = TrackNames.cleaned(title) { return title }
             return URL(fileURLWithPath: externalPath).deletingPathExtension().lastPathComponent
         }
         return TrackNames.original(

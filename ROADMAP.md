@@ -43,7 +43,8 @@ The first capture attempt supplied no initial frame until a separate known-good 
 
 ## After that: subtitle additions
 
-- External PGS and VobSub files through local OCR, including paired files, timing and palettes.
+- External PGS `.sup`: [candidate implemented, tested and installed locally](Docs/EXTERNAL_PGS.md), with local timing and captured Apple TV output. Coalescing rapid Mac-originated seeks restored long-cue recovery in separate HLS SRT/PGS checks; direct HDR passed too. A brief HLS visibility gap immediately after seeking remains. Publication is pending.
+- External VobSub `.idx`/`.sub`: [implemented and locally validated](Docs/EXTERNAL_VOBSUB.md), including paired files, multiple tracks, timing, palettes and cache invalidation. Physical output validation is pending because the approved capture source is not delivering frames. Do not publish or install this candidate before that gate passes.
 - Additional text subtitle formats. Check timing and styling individually; evaluate TTML/IMSC1 separately.
 
 OCR and conversion to selectable text are separate from original audio/video passthrough. Never burn subtitles into the picture, upload them for recognition or modify the source files.
