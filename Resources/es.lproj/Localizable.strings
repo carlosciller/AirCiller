@@ -104,7 +104,7 @@
 "No activar automáticamente" = "No activar automáticamente";
 "Al abrir una película se elegirá una pista compatible de ese idioma. Se prefiere la pista normal y se usa SDH si es la única disponible." = "Al abrir una película se elegirá una pista compatible de ese idioma. Se prefiere la pista normal y se usa SDH si es la única disponible.";
 "Desactivados" = "Desactivados";
-"Añadir SRT, ASS o VTT…" = "Añadir SRT, ASS o VTT…";
+"Añadir archivo de subtítulos…" = "Añadir archivo de subtítulos…";
 "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones." = "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones.";
 "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS." = "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS.";
 "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad." = "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad.";
@@ -266,6 +266,7 @@
 "Abrir" = "Abrir";
 "Añadir a la playlist" = "Añadir a la playlist";
 "Añadir subtítulos" = "Añadir subtítulos";
+"El archivo externo debe ser un subtítulo PGS (.sup)." = "El archivo externo debe ser un subtítulo PGS (.sup).";
 "No hay ninguna película compatible" = "No hay ninguna película compatible";
 "Arrastra o abre un archivo MKV, MP4, M4V, MOV, TS, MTS o M2TS." = "Arrastra o abre un archivo MKV, MP4, M4V, MOV, TS, MTS o M2TS.";
 "Este TS contiene varios programas. Abre un archivo con un solo programa; AirCiller todavía no permite elegir entre ellos." = "Este TS contiene varios programas. Abre un archivo con un solo programa; AirCiller todavía no permite elegir entre ellos.";
@@ -625,3 +626,8 @@
 "Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película." = "Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película.";
 "La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original." = "La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original.";
 "Desconocido" = "Desconocido";
+"VobSub necesita un único archivo .idx y su .sub con el mismo nombre, en la misma carpeta." = "VobSub necesita un único archivo .idx y su .sub con el mismo nombre, en la misma carpeta.";
+"El par VobSub está vacío o supera el límite de lectura segura." = "El par VobSub está vacío o supera el límite de lectura segura.";
+"El par VobSub no tiene un índice, una paleta o datos de subtítulos válidos." = "El par VobSub no tiene un índice, una paleta o datos de subtítulos válidos.";
+"La pista VobSub seleccionada ya no está disponible." = "La pista VobSub seleccionada ya no está disponible.";
+"No se pudieron añadir los subtítulos" = "No se pudieron añadir los subtítulos";

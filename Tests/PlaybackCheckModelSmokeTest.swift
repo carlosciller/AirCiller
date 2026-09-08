@@ -3,6 +3,11 @@ import Foundation
 @main
 struct PlaybackCheckModelSmokeTest {
     static func main() throws {
+        let seekPlan =
+            #"{"version":1,"deviceID":"fixture","profile":"subtitleSeek","clips":[{"path":"/clip.m2ts","route":"hls","externalSubtitle":"/cue.srt"}]}"#
+        _ = try PlaybackCheckPlan.decode(Data(seekPlan.utf8))
+        try expectRejected(Data(seekPlan.replacingOccurrences(of: "\"hls\"", with: "\"directHDR\"").utf8))
+        try expectRejected(Data(seekPlan.replacingOccurrences(of: ",\"externalSubtitle\":\"/cue.srt\"", with: "").utf8))
         for ext in ["ts", "MTS", "m2ts"] {
             _ = try PlaybackCheckPlan.decode(
                 Data(
@@ -159,6 +164,18 @@ struct PlaybackCheckModelSmokeTest {
         let plan = try PlaybackCheckPlan.decode(valid)
         try expect(plan.clips.count == 1, "Minimal plan")
         try expect(plan.selectedProfile == .controls, "Existing plans retain the basic control profile")
+        let externalPGS = try PlaybackCheckPlan.decode(
+            Data(
+                #"{"version":1,"deviceID":"test","clips":[{"path":"/a.mp4","route":"directHDR","externalSubtitle":"/a.sup"}]}"#
+                    .utf8))
+        try expect(externalPGS.clips[0].externalSubtitle == "/a.sup", "External PGS uses the normal attachment action")
+        for ext in ["idx", "sub", "IDX"] {
+            let vobsub = try PlaybackCheckPlan.decode(
+                Data(
+                    "{\"version\":1,\"deviceID\":\"test\",\"clips\":[{\"path\":\"/a.mp4\",\"route\":\"hls\",\"externalSubtitle\":\"/a.\(ext)\"}]}"
+                        .utf8))
+            try expect(vobsub.clips[0].externalSubtitle == "/a.\(ext)", "Either VobSub half is accepted by the plan")
+        }
         let changes = try PlaybackCheckPlan.decode(
             Data(
                 #"{"version":1,"deviceID":"test","profile":"trackChanges","clips":[{"path":"/a.mp4","route":"directHDR","externalSubtitle":"/a.srt","alternateSubtitle":"/b.srt"}]}"#
@@ -194,7 +211,7 @@ struct PlaybackCheckModelSmokeTest {
             #"{"version":1,"deviceID":"test","captureReadyFile":"/fixtures/session.mp4","clips":[{"path":"/a.mp4","route":"hls"}]}"#,
             #"{"version":1,"deviceID":"test","clips":[{"path":"/a.mp4","route":"directHDR"}]}"#,
             #"{"version":1,"deviceID":"test","clips":[{"path":"/a.mp4","route":"hls","subtitleIndex":-1}]}"#,
-            #"{"version":1,"deviceID":"test","clips":[{"path":"/a.mp4","route":"hls","externalSubtitle":"/a.sub"}]}"#,
+            #"{"version":1,"deviceID":"test","clips":[{"path":"/a.mp4","route":"hls","externalSubtitle":"/a.exe"}]}"#,
             #"{"version":1,"deviceID":"test","clips":[{"path":"/a.mp4","route":"hls","subtitleIndex":2,"externalSubtitle":"/a.srt"}]}"#,
             #"{"version":1,"deviceID":"test","profile":"trackChanges","clips":[{"path":"/a.mp4","route":"hls","externalSubtitle":"/a.srt"}]}"#,
             #"{"version":1,"deviceID":"test","profile":"cancelPreparation","captureReadyFile":"/a.ready","clips":[{"path":"/a.mp4","route":"hls"}]}"#,

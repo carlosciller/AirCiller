@@ -43,7 +43,7 @@ The first capture attempt supplied no initial frame until a separate known-good 
 
 ## After that: subtitle additions
 
-- External PGS and VobSub files through local OCR, including paired files, timing and palettes.
+- External PGS `.sup` and VobSub `.idx`/`.sub` are complete for 0.12.5. [PGS](Docs/EXTERNAL_PGS.md) and [VobSub](Docs/EXTERNAL_VOBSUB.md) have separate local and captured Apple TV evidence. The VobSub record distinguishes automatic results from the visual review that confirmed a subtitle missed by the classifier. A brief HLS visibility gap immediately after seeking remains.
 - Additional text subtitle formats. Check timing and styling individually; evaluate TTML/IMSC1 separately.
 
 OCR and conversion to selectable text are separate from original audio/video passthrough. Never burn subtitles into the picture, upload them for recognition or modify the source files.

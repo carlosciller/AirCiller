@@ -22,6 +22,7 @@ xcrun swiftc -parse-as-library -swift-version 6 -warn-concurrency \
   "$project_dir/Sources/MediaFileTypes.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Sources/VODCommandBuilder.swift" \
   "$project_dir/Sources/HDRConfigurationInjector.swift" \
   "$project_dir/Tests/TransportStreamPackagingSmokeTest.swift" \

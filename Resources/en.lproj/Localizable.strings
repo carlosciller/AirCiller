@@ -102,7 +102,7 @@
 "No activar automáticamente" = "Do Not Enable Automatically";
 "Al abrir una película se elegirá una pista compatible de ese idioma. Se prefiere la pista normal y se usa SDH si es la única disponible." = "When you open a movie, AirCiller selects a compatible track in that language. It prefers a standard track and uses SDH only when it is the sole option.";
 "Desactivados" = "Off";
-"Añadir SRT, ASS o VTT…" = "Add SRT, ASS, or VTT…";
+"Añadir archivo de subtítulos…" = "Add Subtitle File…";
 "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones." = "The first use may take a while while the full track is recognized. The result is stored in a local cache for later playback.";
 "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS." = "With HDR, the track remains selectable, but Apple TV simplifies ASS styling.";
 "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad." = "ASS positioning is preserved. Apple TV retains final control over size and accessibility.";
@@ -264,6 +264,7 @@
 "Abrir" = "Open";
 "Añadir a la playlist" = "Add to Playlist";
 "Añadir subtítulos" = "Add Subtitles";
+"El archivo externo debe ser un subtítulo PGS (.sup)." = "The external file must be a PGS subtitle (.sup).";
 "No hay ninguna película compatible" = "No Compatible Movie Found";
 "Arrastra o abre un archivo MKV, MP4, M4V, MOV, TS, MTS o M2TS." = "Drag or open an MKV, MP4, M4V, MOV, TS, MTS, or M2TS file.";
 "Este TS contiene varios programas. Abre un archivo con un solo programa; AirCiller todavía no permite elegir entre ellos." = "This TS contains multiple programs. Open a file with a single program; AirCiller cannot select between them yet.";
@@ -625,3 +626,8 @@
 "Las actualizaciones se aplazan mientras AirCiller prepara o reproduce una película." = "Updates are postponed while AirCiller prepares or plays a movie.";
 "La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original." = "The current packaging cannot preserve this FLAC channel layout (%@). Choose another track or allow audio-only conversion to E-AC-3. The video and original file will not be changed.";
 "Desconocido" = "Unknown";
+"VobSub necesita un único archivo .idx y su .sub con el mismo nombre, en la misma carpeta." = "VobSub needs one .idx file and its matching .sub file, with the same name in the same folder.";
+"El par VobSub está vacío o supera el límite de lectura segura." = "The VobSub pair is empty or exceeds the safe reading limit.";
+"El par VobSub no tiene un índice, una paleta o datos de subtítulos válidos." = "The VobSub pair has an invalid index, palette or subtitle data.";
+"La pista VobSub seleccionada ya no está disponible." = "The selected VobSub track is no longer available.";
+"No se pudieron añadir los subtítulos" = "Could not add subtitles";

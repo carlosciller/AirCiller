@@ -4,7 +4,7 @@ import Foundation
 struct PlaybackCheckPlan: Decodable {
     enum Route: String, Codable { case directHDR, hls, hlsHDR }
     enum Profile: String, Codable {
-        case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap
+        case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap, subtitleSeek
     }
 
     struct NextClip: Decodable {
@@ -30,7 +30,7 @@ struct PlaybackCheckPlan: Decodable {
             else { throw PlaybackCheckFailure.invalidPlan }
             if let externalSubtitle {
                 guard externalSubtitle.hasPrefix("/"),
-                    ["srt", "ass", "ssa", "vtt"].contains(
+                    ["srt", "ass", "ssa", "vtt", "sup", "idx", "sub"].contains(
                         URL(fileURLWithPath: externalSubtitle).pathExtension.lowercased())
                 else { throw PlaybackCheckFailure.invalidPlan }
             }
@@ -77,6 +77,11 @@ struct PlaybackCheckPlan: Decodable {
             else { throw PlaybackCheckFailure.invalidPlan }
         }
         for clip in plan.clips {
+            if plan.selectedProfile == .subtitleSeek {
+                guard clip.route == .hls, clip.externalSubtitle != nil else {
+                    throw PlaybackCheckFailure.invalidPlan
+                }
+            }
             guard clip.route != .hlsHDR || plan.selectedProfile == .controls else {
                 throw PlaybackCheckFailure.invalidPlan
             }

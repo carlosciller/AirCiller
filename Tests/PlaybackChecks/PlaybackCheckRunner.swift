@@ -82,8 +82,8 @@ final class PlaybackCheckRunner {
 
         for (index, clip) in plan.clips.enumerated() {
             let result: PlaybackCheckResult
-            if plan.selectedProfile == .controls {
-                result = await runClip(clip, number: index + 1)
+            if plan.selectedProfile == .controls || plan.selectedProfile == .subtitleSeek {
+                result = await runClip(clip, number: index + 1, subtitleSeek: plan.selectedProfile == .subtitleSeek)
             } else {
                 result = await PlaybackCheckScenarioRunner(coordinator: coordinator).run(
                     clip, profile: plan.selectedProfile)
@@ -101,7 +101,7 @@ final class PlaybackCheckRunner {
         return report
     }
 
-    private func runClip(_ clip: PlaybackCheckPlan.Clip, number: Int) async -> PlaybackCheckResult {
+    private func runClip(_ clip: PlaybackCheckPlan.Clip, number: Int, subtitleSeek: Bool) async -> PlaybackCheckResult {
         began = now
         events.removeAll(keepingCapacity: true)
         overflowed = false
@@ -110,6 +110,7 @@ final class PlaybackCheckRunner {
             subtitlesRequested: clip.subtitleIndex != nil || clip.externalSubtitle != nil
         )
         result.startedAtUptime = began
+        if subtitleSeek { result.profile = .subtitleSeek }
         var preparedDirectory: URL?
         do {
             step = "analysis"
@@ -118,6 +119,7 @@ final class PlaybackCheckRunner {
             coordinator.loadVideo(URL(fileURLWithPath: clip.path), autoStart: false, startingAt: 0)
             try await wait(seconds: 40) { self.coordinator.probeInfo != nil && self.coordinator.network.isReady }
             guard let probe = coordinator.probeInfo, (45...180).contains(probe.duration),
+                !subtitleSeek || probe.duration >= 100,
                 ["h264", "hevc"].contains(probe.videoCodec.lowercased()),
                 coordinator.selectedAudio?.canPassThrough == true,
                 clip.route == .hls ? !probe.isHDR : probe.isHDR
@@ -160,62 +162,68 @@ final class PlaybackCheckRunner {
             }
             result.completedSteps.append(step)
 
-            // Some receivers report state without positions, even after commands.
-            // Preserve that distinction instead of treating the UI clock as evidence.
-            step = "pause"
-            try await Task.sleep(for: .seconds(3))
-            var marker = events.count
-            try requestPlayback(playing: false)
-            try await wait(seconds: 15) {
-                PlaybackCheckEvidence.paused(self.events[marker...]) && !self.coordinator.isPlaying
-            }
-            result.completedSteps.append(step)
+            if subtitleSeek {
+                try await checkSubtitleSeeks(result: &result)
+            } else {
+                // Some receivers report state without positions, even after commands.
+                // Preserve that distinction instead of treating the UI clock as evidence.
+                step = "pause"
+                try await Task.sleep(for: .seconds(3))
+                var marker = events.count
+                try requestPlayback(playing: false)
+                try await wait(seconds: 15) {
+                    PlaybackCheckEvidence.paused(self.events[marker...]) && !self.coordinator.isPlaying
+                }
+                result.completedSteps.append(step)
 
-            step = "resume"
-            marker = events.count
-            try requestPlayback(playing: true)
-            try await wait(seconds: 15) {
-                self.events[marker...].contains { $0.receiverIsPlaying == true }
-                    && self.coordinator.isPlaying
-            }
-            // A receiver may omit the paused position and supply it on resume.
-            // Evaluate this interval before issuing any seek commands.
-            try record(PlaybackCheckEvidence.progressVerdict(events[...]), as: "receiver_progress", in: &result)
-            try await Task.sleep(for: .seconds(3))
-            try requestPlayback(playing: false)
-            try await wait(seconds: 15) {
-                PlaybackCheckEvidence.paused(self.events[marker...]) && !self.coordinator.isPlaying
-            }
-            result.completedSteps.append(step)
+                step = "resume"
+                marker = events.count
+                try requestPlayback(playing: true)
+                try await wait(seconds: 15) {
+                    self.events[marker...].contains { $0.receiverIsPlaying == true }
+                        && self.coordinator.isPlaying
+                }
+                // A receiver may omit the paused position and supply it on resume.
+                // Evaluate this interval before issuing any seek commands.
+                try record(PlaybackCheckEvidence.progressVerdict(events[...]), as: "receiver_progress", in: &result)
+                try await Task.sleep(for: .seconds(3))
+                try requestPlayback(playing: false)
+                try await wait(seconds: 15) {
+                    PlaybackCheckEvidence.paused(self.events[marker...]) && !self.coordinator.isPlaying
+                }
+                result.completedSteps.append(step)
 
-            step = "seek_commands_acknowledged"
-            marker = events.count
-            coordinator.seek(to: 15)
-            try await wait(seconds: 15) {
-                PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[marker...], target: 15, count: 1)
-            }
-            marker = events.count
-            for offset in [10.0, 10.0, -10.0, -10.0] {
-                coordinator.skip(by: offset)
-                try await Task.sleep(for: .milliseconds(120))
-            }
-            try await wait(seconds: 15) {
-                PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[marker...], target: 15, count: 4)
-            }
-            result.completedSteps.append(step)
+                step = "seek_commands_acknowledged"
+                marker = events.count
+                coordinator.seek(to: 15)
+                try await wait(seconds: 15) {
+                    PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[marker...], target: 15, count: 1)
+                }
+                marker = events.count
+                for offset in [10.0, 10.0, -10.0, -10.0] {
+                    coordinator.skip(by: offset)
+                    try await Task.sleep(for: .milliseconds(120))
+                }
+                try await wait(seconds: 15) {
+                    PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[marker...], target: 15, count: 1)
+                }
+                result.completedSteps.append(step)
 
-            step = "resume_after_seeks"
-            let resumeMarker = events.count
-            try requestPlayback(playing: true)
-            try await wait(seconds: 20) {
-                self.events[resumeMarker...].contains { $0.receiverIsPlaying == true } && self.coordinator.isPlaying
+                step = "resume_after_seeks"
+                let resumeMarker = events.count
+                try requestPlayback(playing: true)
+                try await wait(seconds: 20) {
+                    self.events[resumeMarker...].contains { $0.receiverIsPlaying == true } && self.coordinator.isPlaying
+                }
+                result.completedSteps.append(step)
+                try record(
+                    PlaybackCheckEvidence.seekVerdict(events[marker...], target: 15, count: 1),
+                    as: "receiver_seek_destination", in: &result
+                )
+                // Keep observing after the receiver's transport overlay has
+                // had time to dismiss. Its playing event is not output proof.
+                try await Task.sleep(for: .seconds(8))
             }
-            result.completedSteps.append(step)
-            try record(
-                PlaybackCheckEvidence.seekVerdict(events[marker...], target: 15, count: 4),
-                as: "receiver_seek_destination", in: &result
-            )
-            try await Task.sleep(for: .seconds(3))
         } catch {
             result.failure = (error as? PlaybackCheckFailure) ?? (Task.isCancelled ? .interrupted : .applicationError)
             result.failedStep = step
@@ -245,6 +253,31 @@ final class PlaybackCheckRunner {
         print("Clip \(number): \(outcome); audiovisual check pending")
         fflush(nil)
         return result
+    }
+
+    private func checkSubtitleSeeks(result: inout PlaybackCheckResult) async throws {
+        try await Task.sleep(for: .seconds(4))
+        for target in [15.0, 2.0, 88.0] {
+            step = "subtitle_single_seek_\(Int(target))"
+            var marker = events.count
+            try requestPlayback(playing: false)
+            try await wait(seconds: 15) {
+                PlaybackCheckEvidence.paused(self.events[marker...]) && !self.coordinator.isPlaying
+            }
+            marker = events.count
+            coordinator.seek(to: target)
+            try await wait(seconds: 15) {
+                PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[marker...], target: target, count: 1)
+            }
+            try requestPlayback(playing: true)
+            try await wait(seconds: 15) {
+                self.events[marker...].contains { $0.receiverIsPlaying == true } && self.coordinator.isPlaying
+            }
+            try record(
+                PlaybackCheckEvidence.seekVerdict(events[marker...], target: target, count: 1),
+                as: step, in: &result)
+            try await Task.sleep(for: .seconds(target == 15 ? 12 : 8))
+        }
     }
 
     private func requestPlayback(playing: Bool) throws {
@@ -323,7 +356,15 @@ enum PlaybackCheckMain {
             let plan = try PlaybackCheckPlan.decode(handle.read(upToCount: 65_537) ?? Data())
             for clip in plan.clips {
                 try checkFile(clip.path, maximumSize: 2_147_483_648)
-                if let path = clip.externalSubtitle { try checkFile(path, maximumSize: 4_194_304) }
+                if let path = clip.externalSubtitle {
+                    if ["idx", "sub"].contains(URL(fileURLWithPath: path).pathExtension.lowercased()) {
+                        let pair = try ExternalVobSub(url: URL(fileURLWithPath: path))
+                        try checkFile(pair.indexURL.path, maximumSize: 4_194_304)
+                        try checkFile(pair.bitmapURL.path, maximumSize: 268_435_456)
+                    } else {
+                        try checkFile(path, maximumSize: 4_194_304)
+                    }
+                }
                 if let path = clip.alternateSubtitle { try checkFile(path, maximumSize: 4_194_304) }
                 if let next = clip.nextClip { try checkFile(next.path, maximumSize: 2_147_483_648) }
             }
