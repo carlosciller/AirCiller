@@ -2,6 +2,12 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.12.5 (9 September 2026)
+
+- Add Blu-ray `.sup` subtitles and DVD `.idx`/`.sub` pairs from the tracks panel.
+- Choose between the languages and tracks included in a VobSub pair.
+- Fixed subtitles staying hidden after rapid forward and backward skips from the Mac. A brief delay can still occur immediately after seeking.
+
 ## 0.12.4 (6 September 2026)
 
 - Play compatible FLAC soundtracks without converting the audio, including supported surround layouts.

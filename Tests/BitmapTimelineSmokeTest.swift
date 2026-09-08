@@ -120,8 +120,8 @@ struct BitmapTimelineSmokeTest {
         let tracks = try MediaProbeService.externalTracks(url: idx)
         guard pair.indexURL.resolvingSymlinksInPath() == idx.resolvingSymlinksInPath(),
             pair.bitmapURL.resolvingSymlinksInPath() == sub.resolvingSymlinksInPath(), tracks.count == 2,
-            tracks[0].streamIndex == 0, tracks[0].language == "en", tracks[0].originalName == "English SDH",
-            tracks[1].streamIndex == 1, tracks[1].language == "es", tracks[1].isDefault,
+            tracks[0].streamIndex == 0, tracks[0].language == "eng", tracks[0].originalName == "English SDH",
+            tracks[1].streamIndex == 1, tracks[1].language == "spa", tracks[1].isDefault,
             tracks[0].id != tracks[1].id, tracks.allSatisfy(\.usesBitmapOCR),
             pair.tracks.map(\.id) == tracks.map(\.id),
             MediaProbeService.discoverExternalSubtitles(for: movie).map(\.id) == tracks.map(\.id)

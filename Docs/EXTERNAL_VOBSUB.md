@@ -1,4 +1,4 @@
-# External VobSub candidate
+# External VobSub subtitles
 
 ## Scope
 
@@ -18,12 +18,29 @@ The cache identity includes the index, bitmap companion, selected stream, langua
 - A separate private pair contains two populated tracks with DVD IDs 7 and 2. FFprobe confirms stream indexes 0 and 1 with the expected metadata. Full local OCR returns the distinct expected phrase for each track, and reading the resulting cache returns byte-identical text.
 - The normal signed candidate measures 153,969,055 logical bytes, below the existing 165,000,000-byte limit. Its executable SHA-256 is `e8a9b3a955ec06f6c6701ca0268011b1b7bf15450a27734dbc9a590c641d3e76`.
 
-## Physical validation is pending
+## Physical validation
 
 Two receiver attempts stopped because the approved Apple TV capture source produced no ready marker. Neither attempt produced a sampled video frame, so neither is a physical playback pass. The supervisor terminated its test processes and preserved incomplete reports.
 
 A separate bounded diagnostic verified the exact approved input, created the capture session and returned from `startRunning`, but received no first frame within 25 seconds. This establishes a capture-evidence gap; it does not establish a VobSub playback defect or successful television output. No alternate input, camera, microphone, permission reset or pairing reset was used.
 
-Before release, complete separate HLS and direct HDR captured-output checks with the two VobSub tracks, including late recovery after rapid Mac skips. Retain the prior external PGS/control results in [their own record](EXTERNAL_PGS.md). The remaining short HLS visibility gap immediately after seeking is not claimed fixed.
+The prior external PGS/control results remain in [their own record](EXTERNAL_PGS.md). The remaining short HLS visibility gap immediately after seeking is not claimed fixed.
 
-This candidate has not been published or installed. Version metadata remains 0.12.4/build 57. The installed local PGS candidate and its rollback are unchanged. Private fixtures, captures and the maintainer's audit stay outside the publication set.
+The maintainer subsequently reported that the television had been off and switched it on. The next two batches captured motion and digital audio on both routes. The HLS subtitle was visible after the seek burst; the direct HDR run had no visible expected subtitle. Those initial direct runs are failures, not passes.
+
+A local MP4 comparison isolated a metadata problem: the pinned muxer drops the language tag for `en` and retains it for `eng`. VobSub supplies two-letter language IDs. The reader now normalizes those IDs to their equivalent three-letter code before either materializer receives the track. The regression test covers English and Spanish. The video packagers and text-segment writer remain unchanged.
+
+The corrected check executable (`bdbc0100363417faad6352a74e0379c9d479736c9846e2aba58d8f120350c1d8`) completed four independent receiver-control cases. Captured subtitle evidence is recorded separately:
+
+| Track and route | Video samples | Moving samples | Non-silent audio / audio samples | Expected subtitle in late seek window |
+| --- | ---: | ---: | ---: | ---: |
+| First track, HLS | 30 | 29 | 67 / 76 | 3 / 3 |
+| First track, direct HDR | 29 | 27 | 44 / 74 | 4 / 4 |
+| Second track, HLS | 29 | 28 | 65 / 74 | 4 / 4 |
+| Second track, direct HDR | 30 | 28 | 42 / 74 | 2 / 3 automatic; 3 / 3 visual review |
+
+The second direct run's automatic assessment remains `incomplete`: its OCR classifier missed one frame. Independent inspection of all three late-window images confirms the expected subtitle visibly present in each, matching the source bitmap. That visual review supplies the missing output evidence; the automatic report was not overwritten and is not described as a pass. No further receiver run was needed to observe those already-captured frames.
+
+Each case confirmed receiver playback, pause/resume, the intended final position after a four-command Mac seek burst and cleanup. The two expected subtitle phrases were checked independently against source bitmaps, captured output and local OCR results. Index and bitmap fingerprints were unchanged after playback. These are sampled digital-output checks, not certification of physical speakers, HDR rendering, remote-originated command bursts or whole-movie reliability.
+
+The full strict suite passed again after the language correction. Release metadata advances to 0.12.5/build 58; packaging, CI and installation are separate distribution steps. Private fixtures, captures and the maintainer's audit stay outside the publication set.

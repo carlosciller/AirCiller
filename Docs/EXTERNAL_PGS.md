@@ -1,4 +1,4 @@
-# External PGS subtitle candidate
+# External PGS subtitles
 
 The candidate accepts Blu-ray PGS `.sup` files through Add Subtitle File and sidecar discovery. A sidecar shares the movie's base name, optionally followed by a language or other suffix. PGS contains one subtitle stream; the original filename, inferred language, forced and SDH labels remain available in the track picker.
 
@@ -74,3 +74,5 @@ These results validate recovery after Mac-originated seek bursts, not uninterrup
 ## Local installation
 
 The maintainer authorized installation on 8 September 2026 after reviewing those results and limits. The exact normal candidate produced by the passing strict suite replaced the closed daily-use app. Its local signature and unchanged credential-service executable were verified before and after the move. The previous app remains the active rollback copy; the older rollback was preserved in the local archive. The candidate was opened without starting playback. No GitHub release or appcast was published; the development candidate retains version 0.12.4 (build 57).
+
+This work is included in the 0.12.5 release candidate together with [external VobSub](EXTERNAL_VOBSUB.md). The installation above records the earlier local PGS build; it is not the 0.12.5 distribution record.

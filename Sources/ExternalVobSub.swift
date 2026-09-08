@@ -102,7 +102,10 @@ struct ExternalVobSub {
         let indexPath = indexURL.path
         tracks = metadata.enumerated().map { offset, info in
             SubtitleTrack(
-                streamIndex: offset, codec: "dvd_subtitle", language: info.language,
+                // MP4's language field needs ISO 639-2. The IDX demuxer exposes
+                // two-letter codes; passing those through drops the MP4 language.
+                streamIndex: offset, codec: "dvd_subtitle",
+                language: Locale.LanguageCode(info.language).identifier(.alpha3) ?? "und",
                 title: info.title, isDefault: offset == defaultIndex,
                 isForced: stem.localizedCaseInsensitiveContains("forced"),
                 isHearingImpaired: stem.localizedCaseInsensitiveContains("sdh"), externalPath: indexPath)

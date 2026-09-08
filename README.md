@@ -25,7 +25,7 @@ The playback engines are included. There is nothing else to install. Future upda
 
 - **Original picture.** Compatible H.264 and HEVC video, including HDR and Dolby Vision, is sent without video encoding.
 - **Original audio first.** Choose a track by name and language. If audio needs conversion, AirCiller explains the change and asks before starting.
-- **Selectable subtitles.** Embedded and external text tracks, timing adjustments, and local text recognition for embedded Blu-ray PGS and DVD VobSub subtitles.
+- **Selectable subtitles.** Embedded and external text tracks, timing adjustments, and local text recognition for Blu-ray PGS and DVD VobSub subtitles, including `.sup` and `.idx`/`.sub` files.
 - **Language preferences.** Set preferred audio and subtitle languages, including standard, forced or SDH subtitles.
 - **A small library.** Reorder your Playlist, browse recent movies and pick up where you left off. Chapters and keyboard controls are included.
 - **Optional subtitle search.** Search OpenSubtitles.com, review the matches and choose a download. Your own API key is required; service limits apply.
