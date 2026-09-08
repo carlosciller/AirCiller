@@ -26,6 +26,10 @@ __pycache__/
 *.ass
 *.ssa
 *.vtt
+*.sup
+*.idx
+*.sub
+/AirCiller-auditoria.md
 *.log
 *.diagnostic.*
 .env

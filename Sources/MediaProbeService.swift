@@ -170,8 +170,8 @@ enum MediaProbeService {
         let extensionName = url.pathExtension.lowercased()
         let language = inferredLanguage(from: url.deletingPathExtension().lastPathComponent)
         return SubtitleTrack(
-            streamIndex: nil,
-            codec: extensionName == "srt" ? "subrip" : extensionName,
+            streamIndex: extensionName == "sup" ? 0 : nil,
+            codec: extensionName == "sup" ? "hdmv_pgs_subtitle" : (extensionName == "srt" ? "subrip" : extensionName),
             language: language,
             title: url.deletingPathExtension().lastPathComponent,
             isDefault: false,
@@ -181,7 +181,14 @@ enum MediaProbeService {
         )
     }
 
-    private static func discoverExternalSubtitles(for videoURL: URL) -> [SubtitleTrack] {
+    static func externalTracks(url: URL) throws -> [SubtitleTrack] {
+        if ["idx", "sub"].contains(url.pathExtension.lowercased()) {
+            return try ExternalVobSub(url: url).tracks
+        }
+        return [externalTrack(url: url)]
+    }
+
+    static func discoverExternalSubtitles(for videoURL: URL) -> [SubtitleTrack] {
         let directory = videoURL.deletingLastPathComponent()
         let base = videoURL.deletingPathExtension().lastPathComponent
         guard
@@ -192,7 +199,8 @@ enum MediaProbeService {
             )
         else { return [] }
 
-        let allowed = Set(["srt", "ass", "ssa", "vtt"])
+        // Only discover the index; choosing either half manually resolves the pair.
+        let allowed = Set(["srt", "ass", "ssa", "vtt", "sup", "idx"])
         return
             files
             .filter { candidate in
@@ -202,7 +210,7 @@ enum MediaProbeService {
                         || candidate.deletingPathExtension().lastPathComponent.hasPrefix(base + " "))
             }
             .sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
-            .map(externalTrack)
+            .flatMap { (try? externalTracks(url: $0)) ?? [] }
     }
 
     private static func inferredLanguage(from name: String) -> String? {

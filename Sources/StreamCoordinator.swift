@@ -507,7 +507,7 @@ final class StreamCoordinator {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = ["srt", "ass", "ssa", "vtt"].compactMap { extensionName in
+        panel.allowedContentTypes = ["srt", "ass", "ssa", "vtt", "sup", "idx", "sub"].compactMap { extensionName in
             UTType(filenameExtension: extensionName)
         }
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
@@ -516,11 +516,18 @@ final class StreamCoordinator {
 
     func registerExternalSubtitle(_ url: URL) -> SubtitleTrack? {
         guard selectedURL != nil else { return nil }
-        let track = MediaProbeService.externalTrack(url: url)
-        if !subtitleTracks.contains(where: { $0.id == track.id }) {
-            subtitleTracks.append(track)
+        do {
+            let tracks = try MediaProbeService.externalTracks(url: url)
+            for track in tracks where !subtitleTracks.contains(where: { $0.id == track.id }) {
+                subtitleTracks.append(track)
+            }
+            return tracks.first(where: \.isDefault) ?? tracks.first
+        } catch {
+            hasError = true
+            status = "No se pudieron añadir los subtítulos"
+            detail = error.localizedDescription
+            return nil
         }
-        return track
     }
 
     func playRecent(_ item: RecentMediaItem) {

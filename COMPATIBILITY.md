@@ -12,7 +12,7 @@ This is the supported scope, not every format the bundled FFmpeg build can read.
 | Atmos carried by compatible E-AC-3 | Preserves the original stream; the playback chain determines Atmos output |
 | DTS, TrueHD and other unsupported original audio | Requires an explicitly approved audio conversion; TrueHD Atmos metadata is not preserved by that conversion |
 | SRT, WebVTT, ASS/SSA and embedded MP4 text | Selectable text with adjustable timing |
-| Embedded Blu-ray PGS and DVD VobSub | Local Apple Vision OCR produces selectable text; preparation takes longer and recognition can be imperfect |
+| Embedded Blu-ray PGS and DVD VobSub, external `.sup` and `.idx`/`.sub` pairs | Local Apple Vision OCR produces selectable text; preparation takes longer and recognition can be imperfect |
 
 FLAC is supported as a movie soundtrack, not as a standalone music-file player. The current packager cannot retain some channel-mask overrides, such as a rear-channel `5.1` layout that becomes `5.1(side)` in fMP4. AirCiller explains the limitation and requires another track or explicit conversion approval. The [FLAC validation record](Docs/FLAC_AUDIO.md) lists tested cases and remaining limits.
 
@@ -24,7 +24,7 @@ OCR preserves timing and approximate position, but does not reproduce the origin
 
 Missing bitmap-subtitle language labels can be identified locally from the recognized text. Declared languages are preserved. Short or uncertain text stays undetermined and may not enable automatically on Apple TV.
 
-Add external text files from the tracks panel, or place matching files beside the movie. External bitmap pairs such as `.idx`/`.sub` and standalone `.sup` files are not supported yet.
+Add external text or bitmap files from the tracks panel, or place matching files beside the movie. VobSub needs both files with the same base name in the same folder; choose either half to add all populated tracks. The supported index is VobSub v7 with a valid canvas and palette, up to 4 MiB for the index and 256 MiB for its bitmap companion. A text-format `.sub` file is not a VobSub bitmap. See the [external VobSub validation](Docs/EXTERNAL_VOBSUB.md).
 
 ## Other limits
 

@@ -74,6 +74,9 @@ compile_and_run authorization-preflight \
 compile_and_run seek-reconciliation \
   "$project_dir/Sources/AirPlaySeekReconciliation.swift" \
   "$project_dir/Tests/AirPlaySeekReconciliationSmokeTest.swift"
+compile_and_run seek-coalescer \
+  "$project_dir/Sources/AirPlaySeekCoalescer.swift" \
+  "$project_dir/Tests/AirPlaySeekCoalescerSmokeTest.swift"
 compile_and_run helper-command-writer \
   "$project_dir/Sources/HelperCommandWriter.swift" \
   "$project_dir/Tests/HelperCommandWriterSmokeTest.swift"
@@ -191,6 +194,7 @@ compile_and_run attached-artwork-probe \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Tests/AttachedArtworkProbeSmokeTest.swift"
 compile_and_run diagnostics-report \
   "$project_dir/Sources/DiagnosticsReport.swift" \
@@ -203,6 +207,7 @@ compile_and_run media-probe-validation \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Tests/MediaProbeValidationSmokeTest.swift"
 export AIRCILLER_TEST_FFPROBE="$engine_path/ffmpeg/bin/ffprobe"
 compile_and_run media-probe-cancellation \
@@ -214,6 +219,7 @@ compile_and_run media-probe-cancellation \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaAnalysisTasks.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Tests/MediaProbeCancellationSmokeTest.swift"
 unset AIRCILLER_TEST_FFPROBE
 compile_and_run subtitle-ocr-cancellation \
@@ -228,6 +234,7 @@ compile_and_run stream-diagnostics \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Sources/VODBuildProcess.swift" \
   "$project_dir/Sources/StreamDiagnostics.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
@@ -254,6 +261,7 @@ compile_and_run bitmap-timeline \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Sources/PGSSubtitleConverter.swift" \
@@ -270,6 +278,7 @@ compile_and_run flac-manifest \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Sources/PGSSubtitleConverter.swift" \

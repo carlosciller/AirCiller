@@ -1135,7 +1135,7 @@ struct TrackSettingsView: View {
                             draft.subtitleID = track.id
                         }
                     } label: {
-                        Label("Añadir SRT, ASS o VTT…", systemImage: "plus")
+                        Label("Añadir archivo de subtítulos…", systemImage: "plus")
                     }
                     .buttonStyle(.link)
 

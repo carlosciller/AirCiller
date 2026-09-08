@@ -4,6 +4,8 @@ AirCiller separates three levels of validation so that a successful build is nev
 
 ## 1. Deterministic checks
 
+The [0.12.5 external bitmap record](Docs/EXTERNAL_VOBSUB.md) covers paired VobSub discovery, languages, damaged input, cache invalidation, local timing and corrected Apple TV output checks. It retains incomplete assessments, initial capture failures and the MP4 language-tag failure separately. [External PGS and rapid Mac seeks](Docs/EXTERNAL_PGS.md) have their own preceding validation record.
+
 The [0.12.4 FLAC record](Docs/FLAC_AUDIO.md) covers original-frame comparisons, channel-layout rejection, HLS codec declarations, bundle-size checks and seven captured receiver cases. It preserves the failed capture-start attempt separately.
 
 `./Scripts/check.sh` validates formatting, compiles the code in strict Swift 6 mode, runs tests without private media, and checks the Python bridge through a simulation.
