@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import secrets
 import subprocess
 import tempfile
@@ -173,6 +174,43 @@ def bounded_command(command, timeout=30, limit=1_000_000):
         finish_process_group(process)
 
 
+def capture_startup_diagnostic(output, process, ready):
+    allowed = {"captureSourceVerified", "captureSourceRejected", "captureSessionConfigured",
+               "captureStarting", "captureRunning", "captureNotRunning", "captureStopping",
+               "captureReady", "captureComplete", "captureFailed"}
+    lines = output.snapshot().decode("utf-8", errors="replace").splitlines()
+    stages = [line for line in lines if line in allowed]
+    result = {"stages": stages, "processExitCode": process.returncode, "readyMarkerObserved": ready.is_file()}
+    for line in lines:
+        match = re.fullmatch(r"captureEnablementFailed (screen|wireless) (-?[0-9]{1,10})", line)
+        if match and -(2 ** 31) <= int(match[2]) < 2 ** 31:
+            result["enablementFailure"] = {"property": match[1], "status": int(match[2])}
+            break
+    return result
+
+
+def capture_readiness_guidance(diagnostic):
+    stages = diagnostic.get("stages", [])
+    if diagnostic.get("processExitCode") == 4:
+        failure = diagnostic.get("enablementFailure", {})
+        if failure.get("status") == 268435459:
+            reason = "macOS returned an invalid IPC destination while enabling screen sources for the capture process. "
+        else:
+            reason = "macOS could not enable screen sources for the capture process. "
+        return (reason + "The source was not opened. This is a capture-initialization failure, not evidence of a permission denial or an incompatible movie. "
+                "No fixture preparation or playback was started. No pairing or permission reset was attempted.")
+    elif diagnostic.get("processExitCode") == 6:
+        reason = "The capture tool rejected its output directory before opening the source. Check the local test setup. "
+    elif "captureRunning" in stages:
+        reason = "macOS started the approved capture session, but no usable initial frame arrived. "
+    elif "captureStarting" in stages:
+        reason = "macOS did not finish starting the approved capture session within the deadline. "
+    else:
+        reason = "The approved Apple TV screen did not supply a usable initial frame. "
+    return (reason + "Check that the television and Apple TV are awake and the approved screen source is available, then retry. "
+            "No fixture preparation or playback was started. This does not identify a movie-format failure.")
+
+
 def probe_fixture(path, ffmpeg, ffprobe, hdr):
     try:
         local_input = ["-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,mpegts"]
@@ -247,6 +285,58 @@ def write_cues(path, token):
         cues.append(f"{i}\n{timestamp(start)} --> {timestamp(end)}\nAirCiller subtitle check: {token}-{i}\n")
     with path.open("x") as output:
         output.write("\n".join(cues))
+
+
+def preflight_capture(command, directory, ready_timeout=20):
+    """Require a frame from the approved source before fixtures or playback start."""
+    ready, stop = directory / "capture.ready", directory / "capture.stop"
+    process, output = start_process(command, 4096)
+    deadline = time.monotonic() + ready_timeout
+    try:
+        while not ready.is_file():
+            if process.poll() is not None or output.overflow.is_set():
+                raise CaptureError("captureReadinessFailed")
+            if time.monotonic() >= deadline:
+                raise CaptureError("captureNoInitialFrame")
+            time.sleep(0.03)
+        if process.poll() is not None:
+            raise CaptureError("captureReadinessFailed")
+        stop.touch(exist_ok=False)
+        try:
+            process.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            raise CaptureError("captureCleanupTimeout") from None
+        if process.returncode != 0 or output.overflow.is_set():
+            raise CaptureError("captureReadinessFailed")
+        if finish_process_group(process):
+            raise CaptureError("leftoverProcesses")
+        samples = read_json(directory / "capture" / "samples.json")
+        if (not isinstance(samples, dict) or type(samples.get("schemaVersion")) is not int
+                or samples["schemaVersion"] != 1 or samples.get("sourceVerified") is not True
+                or samples.get("complete") is not True or not isinstance(samples.get("rows"), list)):
+            raise CaptureError("captureReadinessFailed")
+        frames = sum(isinstance(row, dict) and row.get("kind") == "video" for row in samples["rows"])
+        audio = sum(isinstance(row, dict) and row.get("kind") == "audio" for row in samples["rows"])
+        if not frames:
+            raise CaptureError("captureNoInitialFrame")
+        # An idle receiver can be silent. Audible output is checked with the actual clips.
+        return {"outcome": "initial_frame_received", "videoSamples": frames, "audioSamples": audio,
+                "sampleManifestSHA256": fingerprint(directory / "capture" / "samples.json")}
+    finally:
+        try:
+            if process.poll() is None:
+                # Let an already-running session detach its input even when no frame arrived.
+                # A stalled startRunning still falls back to bounded process-group cleanup.
+                if not stop.exists():
+                    stop.touch(mode=0o600, exist_ok=False)
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
+        finally:
+            finish_process_group(process)
+            output.thread.join(timeout=1)
+            save_json(directory / "startup-diagnostic.json", capture_startup_diagnostic(output, process, ready))
 
 
 def supervise_case(app_command, capture_command, ready, stop, timeout=180, ready_timeout=20):
@@ -417,22 +507,35 @@ def run_workflow(config_path, project, *, run=False, prepare=False):
         if not binary.is_file(): raise CaptureError("checkAppNotBuilt")
         report["candidateSHA256"] = fingerprint(binary)
         if run:
-            print("Checking noninteractive credential access...", flush=True)
-            try:
-                bounded_command([binary, "--check-keychain", config["deviceID"]], timeout=15)
-            except CaptureError:
-                raise CaptureError("credentialAccessUnavailable") from None
             bounded_command(["/bin/zsh", project / "Scripts/build_playback_capture.sh"], timeout=90)
             report["captureToolsSHA256"] = {
                 name: fingerprint(project / ".build/playback-capture-tools" / name)
                 for name in ("capture-samples", "analyze-frames")
             }
             source = config["captureSource"]
+            if any(name != "cancelPreparation" for name in cases):
+                # The probe validates the exact source before opening its only input.
+                # A separate metadata process here redundantly starts/stops CMIO first.
+                print("Checking for an initial frame from the approved Apple TV screen...", flush=True)
+                preflight = directory / "capture-preflight"
+                preflight.mkdir(mode=0o700)
+                (preflight / "capture").mkdir(mode=0o700)
+                report["captureReadiness"] = preflight_capture(
+                    [project / ".build/playback-capture-tools/capture-samples", "--capture",
+                     source["uniqueID"], source["name"], preflight / "capture",
+                     preflight / "capture.ready", preflight / "capture.stop"], preflight)
+            else:
+                # Cancellation-only checks retain metadata inspection without capture.
+                try:
+                    bounded_command([project / ".build/playback-capture-tools/capture-samples", "--inspect-source",
+                                     source["uniqueID"], source["name"]], timeout=15)
+                except CaptureError:
+                    raise CaptureError("captureSourceUnavailable") from None
+            print("Checking noninteractive credential access...", flush=True)
             try:
-                bounded_command([project / ".build/playback-capture-tools/capture-samples", "--inspect-source",
-                                 source["uniqueID"], source["name"]], timeout=15)
+                bounded_command([binary, "--check-keychain", config["deviceID"]], timeout=15)
             except CaptureError:
-                raise CaptureError("captureSourceUnavailable") from None
+                raise CaptureError("credentialAccessUnavailable") from None
         print("Preparing and validating audible fixtures...", flush=True)
         fixtures = prepare_fixtures(config, cases, project, directory)
         if not run:
@@ -455,6 +558,12 @@ def run_workflow(config_path, project, *, run=False, prepare=False):
             report["outcome"] = ("selected_checks_passed" if "cancelPreparation" in cases else OUTPUT_PASS) if passed else "inconclusive"
     except CaptureError as error:
         report.update(outcome="blocked", failure=str(error))
+        if str(error) in {"captureNoInitialFrame", "captureReadinessFailed", "captureSourceUnavailable"}:
+            diagnostic_path = directory / "capture-preflight/startup-diagnostic.json"
+            diagnostic = read_json(diagnostic_path) if diagnostic_path.is_file() else {}
+            report["captureStartup"] = diagnostic
+            report["guidance"] = capture_readiness_guidance(diagnostic)
+            print(report["guidance"], flush=True)
     except KeyboardInterrupt:
         report.update(outcome="incomplete", failure="interrupted")
     except (OSError, ValueError, TypeError):

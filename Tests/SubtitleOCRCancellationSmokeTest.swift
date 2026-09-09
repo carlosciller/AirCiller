@@ -3,8 +3,20 @@ import AppKit
 @main
 @MainActor
 struct SubtitleOCRCancellationSmokeTest {
-    static func main() async throws {
-        DispatchQueue.global().asyncAfter(deadline: .now() + 30) { _exit(2) }
+    static func main() async {
+        DispatchQueue.global().asyncAfter(deadline: .now() + 30) {
+            print("Vision cancellation check: watchdog expired before completion")
+            fflush(nil)
+            _exit(2)
+        }
+        do { try await run() } catch {
+            print("Vision cancellation check failed: \(error)")
+            fflush(nil)
+            exit(1)
+        }
+    }
+
+    private static func run() async throws {
         let image = NSImage(size: NSSize(width: 1280, height: 360))
         image.lockFocus()
         NSColor.black.setFill()
@@ -19,6 +31,9 @@ struct SubtitleOCRCancellationSmokeTest {
         let progress = AsyncStream<Int>.makeStream()
         var completed = 0
         let task = Task {
+            // If Vision fails before its first result, wake the consumer and report
+            // that error instead of waiting silently until the watchdog expires.
+            defer { progress.continuation.finish() }
             for index in 0..<100 {
                 let result = try await SubtitleOCRService.recognize(in: bitmap, preferredLanguages: ["en-US"])
                 guard result.text.uppercased().contains("AIRCILLER") else { throw Failure.recognition }
@@ -26,8 +41,13 @@ struct SubtitleOCRCancellationSmokeTest {
                 progress.continuation.yield(index)
             }
         }
+        defer { task.cancel() }
         var iterator = progress.stream.makeAsyncIterator()
-        guard await iterator.next() != nil, completed > 0, completed < 100 else { throw Failure.notStarted }
+        guard await iterator.next() != nil else {
+            try await task.value
+            throw Failure.notStarted
+        }
+        guard completed > 0, completed < 100 else { throw Failure.notStarted }
         let countAtStop = completed
         let began = ContinuousClock.now
         task.cancel()

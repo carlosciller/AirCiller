@@ -2,23 +2,75 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.12.6 (9 September 2026)
+
+Keep your place when a movie moves or its drive is disconnected. Playlist and Recents now retain unavailable movies and their saved progress.
+
+- If a movie cannot be opened, reconnect its drive and try again. Its entry stays in the library with an unavailable indicator.
+- To find a moved file, right-click its entry in Playlist or Recents and choose **Locate File…**. Select the same movie at its new location; its Playlist position and saved progress are kept. Locating a file does not start playback.
+- Trying to open an unavailable movie leaves the current playback alone. If the next Playlist movie is unavailable when playback ends, AirCiller stops with an explanation instead of removing it or skipping ahead.
+- Choosing a file already listed in the library will not merge or overwrite either entry. Stop a movie before relocating it if it is currently preparing or streaming.
+
+Entries removed by earlier versions cannot be recovered automatically. The existing 30-item Recents limit still applies.
+
+[Library behavior and validation](https://github.com/carlosciller/AirCiller/blob/v0.12.6/Docs/LIBRARY_RECOVERY.md)
+
 ## 0.12.5 (9 September 2026)
 
-- Add Blu-ray `.sup` subtitles and DVD `.idx`/`.sub` pairs from the tracks panel.
-- Choose between the languages and tracks included in a VobSub pair.
-- Fixed subtitles staying hidden after rapid forward and backward skips from the Mac. A brief delay can still occur immediately after seeking.
+Add subtitle files from Blu-ray and DVD alongside your movie. Previously, PGS and VobSub support covered tracks embedded in the movie; this release also accepts separate files.
+
+### New
+
+- Attach a Blu-ray PGS `.sup` file from the tracks panel.
+- Attach a DVD VobSub `.idx`/`.sub` pair by choosing either file. Keep both files together with the same base name.
+- Choose among the languages and populated tracks in a VobSub pair.
+- Discover matching subtitle files beside the movie without adding the VobSub companion twice.
+
+The selected image-based subtitle is read locally and turned into selectable text. Its first preparation can take time; recognition is cached for reuse. Original files are unchanged. Recognition may make mistakes and does not preserve the original bitmap's styling.
+
+### Fixed
+
+- Subtitles no longer stay hidden after the tested rapid forward/backward skip sequences from the Mac.
+
+### Still limited
+
+A brief subtitle gap can remain immediately after seeking over HLS. This release does not establish the same fix for rapid commands sent directly from the Apple TV or iPhone remote.
+
+[PGS scope and checks](https://github.com/carlosciller/AirCiller/blob/v0.12.5/Docs/EXTERNAL_PGS.md) · [VobSub scope and checks](https://github.com/carlosciller/AirCiller/blob/v0.12.5/Docs/EXTERNAL_VOBSUB.md)
 
 ## 0.12.4 (6 September 2026)
 
-- Play compatible FLAC soundtracks without converting the audio, including supported surround layouts.
-- Get a clear explanation when a FLAC channel layout cannot be preserved.
+Movies with supported FLAC soundtracks can now keep their original audio when sent to Apple TV. Leave audio output set to Original; no separate codec download is needed.
+
+### New
+
+- Play FLAC soundtracks whose channel count and speaker layout can be preserved during preparation.
+- Use these soundtracks with or without selectable subtitles, including the existing HDR playback routes.
+
+### Compatibility
+
+Stereo and 5.1(side) were checked with captured Apple TV output. That verifies picture, digital audio and subtitle samples, not the routing of every physical speaker.
+
+Some FLAC files carry a custom channel layout that the streaming container cannot retain. AirCiller explains the limitation and does not silently convert the audio or relabel its channels. Original video and audio remain unchanged in supported cases.
+
+[Supported layouts and validation](https://github.com/carlosciller/AirCiller/blob/v0.12.4/Docs/FLAC_AUDIO.md)
 
 ## 0.12.3 (6 September 2026)
 
-- Open TS, MTS and M2TS files with compatible H.264 or HEVC video, including HDR. Original video and compatible audio are preserved.
-- Fixed AAC audio preventing some TS files from playing.
-- Fixed Blu-ray subtitles failing to load or appearing early in M2TS files.
-- Added clearer messages for transport-stream files with multiple programs or an unreadable duration.
+Open individual TS, MTS and M2TS video files from the file picker or Playlist. Compatible H.264 and HEVC video, including the tested HDR cases, is sent without re-encoding; original compatible audio remains the default.
+
+### Fixed
+
+- AAC audio could prevent some transport-stream files from playing.
+- Blu-ray PGS subtitles could fail to load or appear too early in M2TS files.
+
+### Compatibility
+
+Use complete, unencrypted files containing one program. Files with several programs or an unreadable duration now produce a clearer explanation.
+
+This does not add Blu-ray disc menus or playlists, joining split recordings, live TV streams, MPEG-2 video, or support for every audio codec found on a disc. Unsupported audio still requires explicit approval for conversion. General Dolby Vision support in transport-stream files is not established by the HDR tests.
+
+[Format boundaries and validation](https://github.com/carlosciller/AirCiller/blob/v0.12.3/Docs/TRANSPORT_STREAMS.md)
 
 ## 0.12.2 (6 September 2026)
 
