@@ -16,7 +16,7 @@ Optional scenarios cover changing tracks during playback, stopping an active pre
 
 ## One command with captured output
 
-The capture workflow prepares its fixtures, checks noninteractive credential access, verifies the approved Apple TV screen source, runs the actual check app, and writes a single summary. It does not ask anyone to watch the television. Build the isolated candidate after changing application code:
+The capture workflow verifies the approved Apple TV screen source and requires an initial frame before checking noninteractive credentials or preparing fixtures. It then runs the actual check app and writes a single summary. It does not ask anyone to watch the television. Build the isolated candidate after changing application code:
 
 ```sh
 ./build.sh --playback-checks
@@ -52,6 +52,36 @@ python3 Scripts/playback_checks.py /absolute/path/to/capture-config.json --captu
 Without `--run`, this command only validates the configuration and local file bounds; it opens no process or device. Add `--prepare` to probe the HDR input and generate and validate the synthetic fixture without discovery, Keychain access or television playback. `cases` selects from the basic cases and optional scenarios below. An unavailable credential or capture source stops a live batch before any clip starts; it does not trigger pairing or fall back to an unwatched control-only pass.
 
 Each case has its own capture gate. Authorization finishes first, then the verified screen source supplies its first video frame, and only then does playback start. Capture uses one muxed Apple TV input with video and audio sample outputs. The exact source ID, name, model, transport and media types are checked before input creation and monitored during capture. No camera or microphone is opened, and there is no preview or movie-file writer.
+
+### Initial capture readiness
+
+Before a live audiovisual batch, a capture probe waits at most 20 seconds for its first frame, then requests shutdown with an eight-second cleanup deadline. It retains its private sample manifest under the run's `capture-preflight` directory. That same process checks the exact source before creating its only input; there is no preceding metadata-only process for audiovisual batches and no fallback to another input. Each later case still needs its own fresh capture gate; this probe is not playback evidence.
+
+No frame, a failed source or an invalid completion report blocks the batch before fixture preparation, credential access or playback. On failure, a running sampler receives a stop request and up to three seconds to close before bounded process-group termination. A private startup diagnostic retains fixed stage markers, the exit code, whether readiness was observed and, when available, a fixed screen-property label and numeric OSStatus. Raw process output is excluded. The summary distinguishes screen-source enablement failure, a rejected output directory, a stalled capture start and a running session without frames. An enablement error is not reported as proof of missing permissions, a sleeping television or an incompatible movie. No automatic wake, pairing or permission reset is attempted.
+
+An idle receiver can be silent. Readiness requires a video sample, not an audible signal; audio measurements are reported without a playback claim. Actual clips must still pass the existing non-silent audio checks. A cancellation-only run skips the new capture probe and retains its no-capture behavior.
+
+The 29-test capture supervisor suite passes. Process-simulation tests cover a received frame, silence, a missing frame deadline, a failed source, an empty manifest, readiness before credentials/preparation, stopping before those stages on failure and a cancellation-only run with metadata inspection but no capture. Additional cases check diagnostic filtering, numeric status bounds, startup-stage guidance, orderly shutdown after a no-frame timeout and the absence of a redundant metadata process before the audiovisual probe.
+
+On 9 September 2026, the maintainer authorized a capture-only check with the receiver free. Source metadata was accepted, but the first probe ended before readiness and subsequent diagnostics received no initial frame within 20 seconds. Stage markers confirmed that one failed session had started running. The supervisor stopped the samplers and preserved the blocked reports.
+
+A later capture-only probe received one video frame and one silent audio measurement from the approved source, wrote a complete manifest and closed with exit code zero. This establishes successful readiness and cleanup for that probe, not movie playback or audible sound. The cause of the earlier intermittent failures remains unestablished; the later pass does not prove the cleanup change fixed them. No playback, fixture preparation or Keychain access was started during these probes, and no alternate input was used. At that point, handoff from the new readiness gate to an audiovisual playback batch was still unverified.
+
+The maintainer then authorized the three basic playback cases. A freshly built isolated candidate passed its build and bundle checks, but the integrated command and one bounded retry both stopped during preflight. The capture executable exited with code 4, before source selection, at the CoreMediaIO screen-source enablement step. Metadata inspection had succeeded earlier in each invocation. Neither attempt reached credential access, fixture preparation or playback. Both blocked reports remain preserved. The installed 0.12.5 app was unchanged, and no permissions or pairing settings were reset.
+
+Two subsequent metadata-only invocations reproduced a successful first inspection followed by `268435459` while enabling wireless screen sources in the second process. The Apple SDK's `mach/message.h` identifies that status as `MACH_SEND_INVALID_DEST`; it is an IPC destination failure, not a permission-denied code. Removing the redundant metadata invocation avoids that immediate process teardown/restart boundary. Exact-source validation still occurs before input creation in both the probe and every playback case. The report now identifies exit 4 separately and preserves its bounded numeric diagnostic. This narrows the observed failure mechanism without claiming that all macOS capture failures have the same cause.
+
+#### Integrated preflight validation, 9 September 2026
+
+After that correction, the integrated command passed readiness, noninteractive credential access and all three basic playback cases. Each case passed receiver controls and sampled digital output separately, with no reported gaps and completed cleanup:
+
+| Case | Assessed frames | Frames with expected subtitle | Non-silent audio measurements |
+| --- | ---: | ---: | ---: |
+| Direct HDR, HEVC/E-AC-3 | 30 | 30 | 43 |
+| HLS with WebVTT, H.264/E-AC-3 | 26 | 25 | 62 |
+| HLS without subtitles, H.264/E-AC-3 | 29 | 0 | 65 |
+
+These counts refer to the aligned observation windows, not every captured sample. HLS without subtitles had no detected subtitle cues. Pause, resume and the seek burst passed through the isolated app; this is not a physical-remote test. The candidate executable was `8d42679538239610df6f550c020d89f12b6cc41e1deb23f06198fbef4783da48`; the sampler was `c331ca461c428cf1eefff4f5489d7dc2ecab7ea184380fdd08ef14d7b34e1e17`. The complete strict local suite, including all 29 capture supervisor tests, passed after the correction. No release or installation was performed. This establishes the previously missing preflight-to-playback handoff for this batch, not immunity to future capture failures or whole-movie reliability.
 
 Ordinary capture cases are bounded to 120 seconds, 240 reduced frames, 1,024 measurements and a 128 MiB frame budget. The explicit long-pause cases allow at most 480 seconds but retain the same frame, measurement and byte limits. A separate watchdog also bounds stalled capture calls. Audio is measured in memory; raw audio is not saved. Process groups belong to the invocation, and disconnects, missing readiness, timeouts, interruptions or process leftovers cannot pass. Captures stop when their case finishes; the workflow starts no permanent service.
 

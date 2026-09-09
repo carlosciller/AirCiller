@@ -631,3 +631,12 @@
 "El par VobSub no tiene un índice, una paleta o datos de subtítulos válidos." = "El par VobSub no tiene un índice, una paleta o datos de subtítulos válidos.";
 "La pista VobSub seleccionada ya no está disponible." = "La pista VobSub seleccionada ya no está disponible.";
 "No se pudieron añadir los subtítulos" = "No se pudieron añadir los subtítulos";
+"Archivo no disponible" = "Archivo no disponible";
+"No se puede abrir %@. Conecta el disco o localiza el archivo. Se conservan su lugar en la biblioteca y el progreso guardado." = "No se puede abrir %@. Conecta el disco o localiza el archivo. Se conservan su lugar en la biblioteca y el progreso guardado.";
+"Localizar archivo…" = "Localizar archivo…";
+"Localizar" = "Localizar";
+"La siguiente película no está disponible. Conecta el disco o localiza el archivo desde la biblioteca." = "La siguiente película no está disponible. Conecta el disco o localiza el archivo desde la biblioteca.";
+"Detén esta película antes de localizar su archivo" = "Detén esta película antes de localizar su archivo";
+"Elige la misma película. Se conservarán el orden y el progreso; no empezará a reproducirse." = "Elige la misma película. Se conservarán el orden y el progreso; no empezará a reproducirse.";
+"No se ha cambiado la biblioteca" = "No se ha cambiado la biblioteca";
+"El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada." = "El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada.";

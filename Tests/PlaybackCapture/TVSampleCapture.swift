@@ -5,6 +5,11 @@ import Foundation
 
 @main
 struct TVSampleCapture {
+    private static func stage(_ value: String) {
+        print(value)
+        fflush(nil)
+    }
+
     static func main() {
         do { try run() } catch {
             print("captureFailed")
@@ -30,14 +35,18 @@ struct TVSampleCapture {
         else { exit(2) }
         // Independent watchdog also bounds discovery and a stalled startRunning.
         DispatchQueue.global().asyncAfter(deadline: .now() + (longPause ? 490 : 130)) { _exit(3) }
-        for selector in [
-            kCMIOHardwarePropertyAllowScreenCaptureDevices, kCMIOHardwarePropertyAllowWirelessScreenCaptureDevices,
+        for (label, selector) in [
+            ("screen", kCMIOHardwarePropertyAllowScreenCaptureDevices),
+            ("wireless", kCMIOHardwarePropertyAllowWirelessScreenCaptureDevices),
         ] {
             var key = CMIOObjectPropertyAddress(
                 mSelector: UInt32(selector), mScope: UInt32(kCMIOObjectPropertyScopeGlobal), mElement: 0)
             var enabled: UInt32 = 1
-            guard CMIOObjectSetPropertyData(CMIOObjectID(kCMIOObjectSystemObject), &key, 0, nil, 4, &enabled) == 0
-            else { exit(4) }
+            let status = CMIOObjectSetPropertyData(CMIOObjectID(kCMIOObjectSystemObject), &key, 0, nil, 4, &enabled)
+            guard status == 0 else {
+                stage("captureEnablementFailed \(label) \(status)")
+                exit(4)
+            }
         }
         RunLoop.current.run(until: Date(timeIntervalSinceNow: 3))
         guard let device = AVCaptureDevice(uniqueID: args[2]),
@@ -50,6 +59,7 @@ struct TVSampleCapture {
             print("verifiedScreenMetadataOnly")
             return
         }
+        stage("captureSourceVerified")
 
         let directory = URL(fileURLWithPath: args[4], isDirectory: true)
         let readyURL = URL(fileURLWithPath: args[5])
@@ -93,7 +103,10 @@ struct TVSampleCapture {
         video.setSampleBufferDelegate(samples, queue: samples.queue)
         audio.setSampleBufferDelegate(samples, queue: samples.queue)
         let parent = getppid()
+        stage("captureSessionConfigured")
+        stage("captureStarting")
         capture.startRunning()
+        stage(capture.isRunning ? "captureRunning" : "captureNotRunning")
         let deadline = ProcessInfo.processInfo.systemUptime + (longPause ? 480 : CapturePolicy.maximumSeconds)
         while identity(device).matches(approvedID: args[2], approvedName: args[3]), capture.isRunning,
             getppid() == parent, !samples.hasFailed,
@@ -105,6 +118,7 @@ struct TVSampleCapture {
         let requestedStop =
             FileManager.default.fileExists(atPath: stopURL.path) && getppid() == parent
             && identity(device).matches(approvedID: args[2], approvedName: args[3])
+        stage("captureStopping")
         capture.stopRunning()
         video.setSampleBufferDelegate(nil, queue: nil)
         audio.setSampleBufferDelegate(nil, queue: nil)
