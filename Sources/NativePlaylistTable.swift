@@ -73,6 +73,7 @@ struct NativePlaylistTable: NSViewRepresentable {
         private var renderedItems: [QueueMediaItem] = []
         private var renderedCurrentMediaPath: String?
         private var renderedFocusedItemID: String?
+        private var renderedUnavailablePaths: Set<String> = []
         private var contextualItemID: String?
         private var isSynchronizingSelection = false
         let contextMenu: NSMenu
@@ -115,7 +116,8 @@ struct NativePlaylistTable: NSViewRepresentable {
                         index: row,
                         item: item,
                         isCurrentMedia: renderedCurrentMediaPath == item.path,
-                        isSelected: renderedFocusedItemID == item.id
+                        isSelected: renderedFocusedItemID == item.id,
+                        isUnavailable: renderedUnavailablePaths.contains(item.path)
                     )
                     .padding(.horizontal, 9)
                     .padding(.vertical, 4)
@@ -154,6 +156,8 @@ struct NativePlaylistTable: NSViewRepresentable {
             contextMenu.addItem(menuItem(L10n.text("Reproducir"), action: #selector(playContextualItem)))
             contextMenu.addItem(
                 menuItem(L10n.text("Reproducir desde el inicio"), action: #selector(restartContextualItem)))
+            contextMenu.addItem(
+                menuItem(L10n.text("Localizar archivo…"), action: #selector(locateContextualItem)))
             contextMenu.addItem(.separator())
             let moveUp = menuItem(L10n.text("Mover arriba"), action: #selector(moveContextualItemUp))
             moveUp.isEnabled = row > 0
@@ -183,6 +187,12 @@ struct NativePlaylistTable: NSViewRepresentable {
         @objc private func restartContextualItem() {
             guard let item = contextualItem else { return }
             streamCoordinator.playQueueItemFromBeginning(item)
+        }
+
+        @objc private func locateContextualItem() {
+            guard let item = contextualItem else { return }
+            streamCoordinator.locateLibraryFile(item.url)
+            refreshAfterAction()
         }
 
         @objc private func moveContextualItemToBeginning() {
@@ -309,15 +319,18 @@ struct NativePlaylistTable: NSViewRepresentable {
             let currentItems = streamCoordinator.queueItems
             let currentMediaPath = streamCoordinator.selectedURL?.path
             let currentFocusedItemID = streamCoordinator.focusedQueueItemID
+            let unavailablePaths = streamCoordinator.unavailableLibraryPaths
             guard
                 force || currentItems != renderedItems || currentMediaPath != renderedCurrentMediaPath
                     || currentFocusedItemID != renderedFocusedItemID
+                    || unavailablePaths != renderedUnavailablePaths
             else {
                 return
             }
             renderedItems = currentItems
             renderedCurrentMediaPath = currentMediaPath
             renderedFocusedItemID = currentFocusedItemID
+            renderedUnavailablePaths = unavailablePaths
             tableView.reloadData()
             isSynchronizingSelection = true
             if let currentFocusedItemID,

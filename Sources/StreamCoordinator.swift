@@ -44,6 +44,7 @@ final class StreamCoordinator {
     private(set) var recentItems: [RecentMediaItem] = HistoryStore.loadRecent()
     private(set) var queueItems: [QueueMediaItem] = HistoryStore.loadQueue()
     private(set) var focusedQueueItemID: String?
+    private(set) var unavailableLibraryPaths: Set<String> = []
     var showConversionAlert = false
     private(set) var conversionReason = ""
 
@@ -531,13 +532,7 @@ final class StreamCoordinator {
     }
 
     func playRecent(_ item: RecentMediaItem) {
-        guard FileManager.default.fileExists(atPath: item.path) else {
-            removeRecent(item)
-            hasError = true
-            status = "El archivo ya no está ahí"
-            detail = "Se ha retirado del historial."
-            return
-        }
+        guard libraryFileExists(item.url) else { return }
         loadVideo(item.url, autoStart: true)
     }
 
@@ -879,21 +874,17 @@ final class StreamCoordinator {
     }
 
     func playQueueItem(_ item: QueueMediaItem) {
-        guard queueFileExists(item) else { return }
+        guard libraryFileExists(item.url) else { return }
         loadVideo(item.url, autoStart: true)
     }
 
     func playQueueItemFromBeginning(_ item: QueueMediaItem) {
-        guard queueFileExists(item) else { return }
+        guard libraryFileExists(item.url) else { return }
         loadVideo(item.url, autoStart: true, startingAt: 0)
     }
 
     func playRecentFromBeginning(_ item: RecentMediaItem) {
-        guard FileManager.default.fileExists(atPath: item.path) else {
-            removeRecent(item)
-            presentError(title: "El archivo ya no está ahí", detail: "Se ha retirado del historial.")
-            return
-        }
+        guard libraryFileExists(item.url) else { return }
         loadVideo(item.url, autoStart: true, startingAt: 0)
     }
 
@@ -979,13 +970,74 @@ final class StreamCoordinator {
         HistoryStore.saveRecent(recentItems)
     }
 
-    private func queueFileExists(_ item: QueueMediaItem) -> Bool {
-        guard FileManager.default.fileExists(atPath: item.path) else {
-            removeQueueItem(item)
-            presentError(title: "El archivo ya no está ahí", detail: "Se ha retirado de la playlist.")
+    private func libraryFileExists(_ url: URL, offerToLocate: Bool = true) -> Bool {
+        guard HistoryStore.isAvailable(url) else {
+            unavailableLibraryPaths.insert(url.path)
+            if offerToLocate {
+                let alert = NSAlert()
+                alert.messageText = L10n.text("Archivo no disponible")
+                alert.informativeText = L10n.format(
+                    "No se puede abrir %@. Conecta el disco o localiza el archivo. Se conservan su lugar en la biblioteca y el progreso guardado.",
+                    url.lastPathComponent)
+                alert.addButton(withTitle: L10n.text("Cancelar"))
+                alert.addButton(withTitle: L10n.text("Localizar archivo…"))
+                if alert.runModal() == .alertSecondButtonReturn { locateLibraryFile(url) }
+            } else {
+                presentError(
+                    title: "Archivo no disponible",
+                    detail:
+                        "La siguiente película no está disponible. Conecta el disco o localiza el archivo desde la biblioteca."
+                )
+            }
             return false
         }
+        unavailableLibraryPaths.remove(url.path)
         return true
+    }
+
+    func locateLibraryFile(_ oldURL: URL) {
+        guard !(selectedURL?.path == oldURL.path && (isPreparing || isStreaming)) else {
+            let alert = NSAlert()
+            alert.messageText = L10n.text("Detén esta película antes de localizar su archivo")
+            alert.runModal()
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.title = L10n.text("Localizar archivo…")
+        panel.message = L10n.text(
+            "Elige la misma película. Se conservarán el orden y el progreso; no empezará a reproducirse.")
+        panel.prompt = L10n.text("Localizar")
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = MediaFileTypes.contentTypes
+        guard panel.runModal() == .OK, let newURL = panel.url,
+            MediaFileTypes.accepts(newURL),
+            HistoryStore.isAvailable(newURL),
+            !(selectedURL?.path == oldURL.path && (isPreparing || isStreaming))
+        else { return }
+        guard let relocated = HistoryStore.relocating(from: oldURL, to: newURL, recent: recentItems, queue: queueItems)
+        else {
+            let alert = NSAlert()
+            alert.messageText = L10n.text("No se ha cambiado la biblioteca")
+            alert.informativeText = L10n.text(
+                "El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada."
+            )
+            alert.runModal()
+            return
+        }
+        recentItems = relocated.recent
+        queueItems = relocated.queue
+        if focusedQueueItemID == oldURL.path { focusedQueueItemID = newURL.path }
+        unavailableLibraryPaths.remove(oldURL.path)
+        unavailableLibraryPaths.remove(newURL.path)
+        HistoryStore.saveRecent(recentItems)
+        HistoryStore.saveQueue(queueItems)
+        if selectedURL?.path == oldURL.path {
+            // Re-probe the explicit replacement without saving the old path back into history.
+            selectedURL = newURL
+            loadVideo(newURL, autoStart: false)
+        }
     }
 
     private func reportOCRProgress(
@@ -1597,6 +1649,7 @@ final class StreamCoordinator {
             queueItems.indices.contains(currentIndex + 1)
         {
             let next = queueItems[currentIndex + 1]
+            guard libraryFileExists(next.url, offerToLocate: false) else { return }
             loadVideo(next.url, autoStart: true)
         } else {
             status = "Reproducción terminada"

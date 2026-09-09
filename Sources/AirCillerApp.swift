@@ -921,12 +921,20 @@ struct LibrarySidebar: View {
                 List(selection: $selectedRecentID) {
                     ForEach(coordinator.recentItems) { item in
                         VStack(alignment: .leading, spacing: 5) {
-                            Text(item.title.softWrappedFilename)
-                                .font(.callout.weight(.medium))
-                                .lineLimit(2)
-                                .truncationMode(.tail)
-                                .frame(minHeight: 34, alignment: .topLeading)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            HStack(alignment: .top) {
+                                Text(item.title.softWrappedFilename)
+                                    .font(.callout.weight(.medium))
+                                    .lineLimit(2)
+                                    .truncationMode(.tail)
+                                    .frame(minHeight: 34, alignment: .topLeading)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                if coordinator.unavailableLibraryPaths.contains(item.path) {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .foregroundStyle(.secondary)
+                                        .help(L10n.text("Archivo no disponible"))
+                                        .accessibilityLabel(L10n.text("Archivo no disponible"))
+                                }
+                            }
                             if item.duration > 0 {
                                 ProgressView(value: item.progress)
                                 Text(
@@ -952,6 +960,7 @@ struct LibrarySidebar: View {
                         Button("Reproducir desde el inicio") {
                             coordinator.playRecentFromBeginning(item)
                         }
+                        Button("Localizar archivo…") { coordinator.locateLibraryFile(item.url) }
                         Divider()
                         Button("Quitar de Recientes", role: .destructive) { coordinator.removeRecent(item) }
                     }
@@ -1002,12 +1011,20 @@ struct PlaylistMediaRow: View {
     let item: QueueMediaItem
     let isCurrentMedia: Bool
     let isSelected: Bool
+    var isUnavailable = false
 
     var body: some View {
         HStack(spacing: 6) {
             HStack(alignment: .center, spacing: 9) {
                 Group {
-                    if isCurrentMedia {
+                    if isUnavailable {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(
+                                isSelected ? Color(nsColor: .alternateSelectedControlTextColor) : Color.secondary
+                            )
+                            .help(L10n.text("Archivo no disponible"))
+                            .accessibilityLabel(L10n.text("Archivo no disponible"))
+                    } else if isCurrentMedia {
                         Image(systemName: "play.fill")
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(

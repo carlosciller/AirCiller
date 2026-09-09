@@ -631,3 +631,12 @@
 "El par VobSub no tiene un índice, una paleta o datos de subtítulos válidos." = "The VobSub pair has an invalid index, palette or subtitle data.";
 "La pista VobSub seleccionada ya no está disponible." = "The selected VobSub track is no longer available.";
 "No se pudieron añadir los subtítulos" = "Could not add subtitles";
+"Archivo no disponible" = "File unavailable";
+"No se puede abrir %@. Conecta el disco o localiza el archivo. Se conservan su lugar en la biblioteca y el progreso guardado." = "Cannot open %@. Connect the drive or locate the file. Its place in your library and saved progress are preserved.";
+"Localizar archivo…" = "Locate File…";
+"Localizar" = "Locate";
+"La siguiente película no está disponible. Conecta el disco o localiza el archivo desde la biblioteca." = "The next movie is unavailable. Connect the drive or locate the file in the library.";
+"Detén esta película antes de localizar su archivo" = "Stop this movie before locating its file";
+"Elige la misma película. Se conservarán el orden y el progreso; no empezará a reproducirse." = "Choose the same movie. Its order and progress will be kept; playback will not start.";
+"No se ha cambiado la biblioteca" = "The library has not been changed";
+"El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada." = "The destination is already in the library or the original entry has changed. No entries were merged or removed.";

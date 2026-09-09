@@ -99,7 +99,7 @@ Sparkle's `generate_appcast` tool should create the published XML. It signs the 
 Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidate and complete the applicable physical matrix in [TESTING.md](TESTING.md). Shared session or server changes affect both playback paths. Record failures and untested cases explicitly; a successful build alone does not pass this gate.
 
 1. Increase `CFBundleShortVersionString` and the numeric `CFBundleVersion`.
-2. Update `CHANGELOG.md` and write concise, user-facing notes in `Distribution/ReleaseNotes/<version>.md`. Use `TEMPLATE.md` as the starting point, describe visible outcomes, and omit implementation details.
+2. Update `CHANGELOG.md` and write user-facing notes in `Distribution/ReleaseNotes/<version>.md`. Complete the editorial checklist in [TEMPLATE.md](Distribution/ReleaseNotes/TEMPLATE.md): reconcile the release diff, explain usage and compatibility limits, and link the supporting record. Concise notes must still explain the feature; implementation details belong in that record. Update compatibility and roadmap status where affected.
 3. Prepare the pinned engine, build AirCiller, and verify its ad hoc signature:
 
    ```sh
@@ -137,7 +137,7 @@ Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidat
      .build/releases/appcast.xml
    ```
 
-8. Upload the ZIP, release notes, and appcast to their final HTTPS locations.
+8. Upload the ZIP, release notes, and appcast to their final HTTPS locations. Set the GitHub Release body from the reviewed versioned notes and verify that its content and links agree with the changelog and packaged update notes. Historical prose corrections must be identified separately; do not replace an already-published signed feed or archive just to edit wording.
 9. Confirm that every URL in the appcast returns the expected file without authentication or redirects to an untrusted host.
 10. Use an older AirCiller build to run **Check for Updates…**, download the new archive, install it, relaunch, and confirm the new version.
 11. Replace the daily-use copy only after the candidate is accepted and installation is authorized. Keep a rollback copy. The physical matrix must already be complete before publication.

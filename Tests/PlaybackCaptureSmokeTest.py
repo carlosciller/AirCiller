@@ -34,6 +34,168 @@ class CaptureWorkflowTests(unittest.TestCase):
         with mock.patch.object(capture, "start_process", side_effect=AssertionError("No device or process")):
             self.assertEqual(capture.run_workflow(config_path, self.root), 0)
 
+    def preflight_command(self, rows=None, body=None):
+        directory = self.root / "preflight"
+        directory.mkdir()
+        (directory / "capture").mkdir()
+        rows = [{"kind": "video", "frame": "frame-001.png"}] if rows is None else rows
+        code = (
+            "import json, pathlib, sys, time\n"
+            "root = pathlib.Path(sys.argv[1])\n"
+            "(root / 'capture.ready').touch()\n"
+            "while not (root / 'capture.stop').exists(): time.sleep(.01)\n"
+            f"samples = {{'schemaVersion': 1, 'sourceVerified': True, 'complete': True, 'rows': {rows!r}}}\n"
+            "(root / 'capture' / 'samples.json').write_text(json.dumps(samples))\n"
+        ) if body is None else body
+        return [sys.executable, "-c", code, directory], directory
+
+    def test_preflight_accepts_initial_frame_without_claiming_audio_or_playback(self):
+        command, directory = self.preflight_command()
+        result = capture.preflight_capture(command, directory, ready_timeout=2)
+        self.assertEqual(result["outcome"], "initial_frame_received")
+        self.assertEqual(result["videoSamples"], 1)
+        self.assertEqual(result["audioSamples"], 0)
+        self.assertTrue((directory / "capture.stop").exists())
+
+    def test_preflight_no_frame_is_bounded_and_reaps_process(self):
+        command, directory = self.preflight_command(body="import time; time.sleep(20)")
+        launched = []
+        start = capture.start_process
+        def track(*args, **kwargs):
+            value = start(*args, **kwargs)
+            launched.append(value[0])
+            return value
+        began = time.monotonic()
+        with mock.patch.object(capture, "start_process", side_effect=track):
+            with self.assertRaisesRegex(capture.CaptureError, "captureNoInitialFrame"):
+                capture.preflight_capture(command, directory, ready_timeout=.1)
+        self.assertLess(time.monotonic() - began, 5)
+        self.assertIsNotNone(launched[0].poll())
+
+    def test_preflight_ready_marker_without_frame_does_not_pass(self):
+        command, directory = self.preflight_command(rows=[])
+        with self.assertRaisesRegex(capture.CaptureError, "captureNoInitialFrame"):
+            capture.preflight_capture(command, directory, ready_timeout=2)
+
+    def test_preflight_no_frame_requests_orderly_session_shutdown(self):
+        command, directory = self.preflight_command(body=(
+            "import pathlib, sys, time\n"
+            "root = pathlib.Path(sys.argv[1])\n"
+            "print('captureRunning', flush=True)\n"
+            "while not (root / 'capture.stop').exists(): time.sleep(.01)\n"
+            "print('captureStopping', flush=True)\n"
+            "(root / 'orderly-stop').touch()\n"
+            "raise SystemExit(10)\n"))
+        with self.assertRaisesRegex(capture.CaptureError, "captureNoInitialFrame"):
+            capture.preflight_capture(command, directory, ready_timeout=.2)
+        self.assertTrue((directory / "orderly-stop").exists())
+        diagnostic = json.loads((directory / "startup-diagnostic.json").read_text())
+        self.assertEqual(diagnostic["processExitCode"], 10)
+        self.assertEqual(diagnostic["stages"], ["captureRunning", "captureStopping"])
+
+    def test_preflight_failed_source_does_not_pass(self):
+        command, directory = self.preflight_command(body="raise SystemExit(5)")
+        with self.assertRaisesRegex(capture.CaptureError, "captureReadinessFailed"):
+            capture.preflight_capture(command, directory, ready_timeout=2)
+
+    def test_startup_diagnostic_retains_only_allowed_stages(self):
+        command, directory = self.preflight_command(body=(
+            "print('captureSourceVerified', flush=True)\n"
+            "print('private-device-label-must-not-be-recorded', flush=True)\n"
+            "print('captureStarting', flush=True)\n"
+            "raise SystemExit(6)\n"))
+        with self.assertRaisesRegex(capture.CaptureError, "captureReadinessFailed"):
+            capture.preflight_capture(command, directory, ready_timeout=2)
+        diagnostic = json.loads((directory / "startup-diagnostic.json").read_text())
+        self.assertEqual(diagnostic["stages"], ["captureSourceVerified", "captureStarting"])
+        self.assertEqual(diagnostic["processExitCode"], 6)
+        self.assertFalse(diagnostic["readyMarkerObserved"])
+        self.assertNotIn("private-device-label", json.dumps(diagnostic))
+        self.assertIn("output directory", capture.capture_readiness_guidance(diagnostic))
+
+    def test_guidance_distinguishes_startup_from_no_frames(self):
+        self.assertIn("did not finish starting", capture.capture_readiness_guidance({"stages": ["captureStarting"]}))
+        self.assertIn("no usable initial frame", capture.capture_readiness_guidance({"stages": ["captureStarting", "captureRunning"]}))
+
+    def test_enablement_diagnostic_filters_payload_and_preserves_status(self):
+        output = mock.Mock()
+        output.snapshot.return_value = (
+            b"captureEnablementFailed private-device 268435459\n"
+            b"captureEnablementFailed wireless 9999999999999999\n"
+            b"captureEnablementFailed wireless 2147483648\n"
+            b"captureEnablementFailed wireless 268435459 private\n"
+            b"captureEnablementFailed wireless 268435459\n")
+        diagnostic = capture.capture_startup_diagnostic(output, mock.Mock(returncode=4), self.root / "absent")
+        self.assertEqual(diagnostic["enablementFailure"], {"property": "wireless", "status": 268435459})
+        self.assertNotIn("private", json.dumps(diagnostic))
+        guidance = capture.capture_readiness_guidance(diagnostic)
+        self.assertIn("invalid IPC destination", guidance)
+        self.assertIn("source was not opened", guidance)
+        self.assertNotIn("television and Apple TV are awake", guidance)
+        self.assertIn("could not enable screen sources", capture.capture_readiness_guidance({"processExitCode": 4}))
+
+    def workflow_files(self, cases=None):
+        binary = self.root / ".build/AirCiller Playback Checks.app/Contents/MacOS/AirCiller"
+        binary.parent.mkdir(parents=True)
+        binary.write_bytes(b"fake-app")
+        tools = self.root / ".build/playback-capture-tools"
+        tools.mkdir()
+        for name in ("capture-samples", "analyze-frames"):
+            (tools / name).write_bytes(b"fake-tool")
+        config_path = self.root / "config.json"
+        config = dict(self.config)
+        if cases is not None:
+            config.update(cases=cases, fixtureEncoder=sys.executable)
+        capture.save_json(config_path, config)
+        return config_path
+
+    def test_failed_readiness_prevents_credentials_preparation_and_playback(self):
+        config_path = self.workflow_files()
+        with mock.patch.object(capture, "bounded_command", return_value=b"") as command, \
+                mock.patch.object(capture, "preflight_capture", side_effect=capture.CaptureError("captureNoInitialFrame")), \
+                mock.patch.object(capture, "prepare_fixtures") as prepare, \
+                mock.patch.object(capture, "run_case") as run:
+            self.assertEqual(capture.run_workflow(config_path, self.root, run=True), 1)
+            prepare.assert_not_called()
+            run.assert_not_called()
+            self.assertFalse(any("--check-keychain" in call.args[0] for call in command.call_args_list))
+        reports = list((self.root / ".build/playback-checks").glob("*/report.json"))
+        self.assertEqual(len(reports), 1)
+        report = json.loads(reports[0].read_text())
+        self.assertEqual(report["outcome"], "blocked")
+        self.assertEqual(report["cases"], [])
+        self.assertIn("No fixture preparation or playback", report["guidance"])
+
+    def test_successful_readiness_precedes_credentials_and_preparation(self):
+        config_path = self.workflow_files()
+        events = []
+        def command(args, **kwargs):
+            self.assertNotIn("--inspect-source", args, "Preflight already checks identity before opening")
+            if "--check-keychain" in args: events.append("credentials")
+            return b""
+        def ready(*args, **kwargs):
+            events.append("frame")
+            return {"outcome": "initial_frame_received"}
+        def prepare(*args, **kwargs):
+            events.append("fixtures")
+            return {"directHDR": (self.fixture, {})}
+        with mock.patch.object(capture, "bounded_command", side_effect=command), \
+                mock.patch.object(capture, "preflight_capture", side_effect=ready), \
+                mock.patch.object(capture, "prepare_fixtures", side_effect=prepare), \
+                mock.patch.object(capture, "run_case", return_value={"outcome": capture.OUTPUT_PASS}):
+            self.assertEqual(capture.run_workflow(config_path, self.root, run=True), 0)
+        self.assertEqual(events, ["frame", "credentials", "fixtures"])
+
+    def test_cancellation_only_workflow_does_not_capture(self):
+        config_path = self.workflow_files(["cancelPreparation"])
+        with mock.patch.object(capture, "bounded_command", return_value=b"") as command, \
+                mock.patch.object(capture, "preflight_capture") as preflight, \
+                mock.patch.object(capture, "prepare_fixtures", return_value={}), \
+                mock.patch("playback_scenarios.run_scenario", return_value={"outcome": capture.CANCELLATION_PASS}):
+            self.assertEqual(capture.run_workflow(config_path, self.root, run=True), 0)
+            preflight.assert_not_called()
+            self.assertEqual(sum("--inspect-source" in call.args[0] for call in command.call_args_list), 1)
+
     def test_documented_command_leaves_source_clean(self):
         scripts = self.root / "Scripts"
         scripts.mkdir()

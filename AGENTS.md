@@ -37,6 +37,8 @@
 - Prepare and validate a concrete candidate within the authorized task. Publish or replace the daily-use installed app only when the conversation authorizes that action; retain a rollback copy when replacing it.
 - Follow `DISTRIBUTION.md` for current signing, packaging, release, and update procedures. Preserve signed third-party bundles and never claim notarization from an ad hoc signature.
 - Derive versions and release status from current files and verified results, not previous task notes. Dependency locking follows `CONTRIBUTING.md`; do not hand-edit `requirements.lock`.
+- Release documentation is part of completion, not a final summary from memory. Follow `Distribution/ReleaseNotes/TEMPLATE.md`: reconcile the release diff with visible changes, explain usage and compatibility boundaries, link validation, and keep changelog and versioned notes consistent. Avoid generic improvement claims and preserve unresolved limitations. Distinguish local prose edits from published GitHub notes and signed update assets.
+- Before starting the dedicated playback-startup optimization phase in `ROADMAP.md`, notify the maintainer and pause for confirmation so they can select Astra with ultra reasoning. Do not change models or start that phase silently. This checkpoint does not block unrelated maintenance.
 
 ## Review references
 
