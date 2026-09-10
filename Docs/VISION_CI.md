@@ -19,6 +19,8 @@ After publication, the release procedure requires inspection of the tag-triggere
 
 ## Validation
 
-The full local `./Scripts/check.sh` passed on 10 September, including the real Vision cancellation check, strict Swift 6 compilation, smoke tests, public-content audit and bundled-app checks. The workflow YAML parsed successfully and `git diff --check` passed. The corrected stable-host workflow still needs validation on GitHub. Do not describe its outcome as passed based on local results.
+The full local `./Scripts/check.sh` passed on 10 September, including the real Vision cancellation check, strict Swift 6 compilation, smoke tests, public-content audit and bundled-app checks. The workflow YAML parsed successfully and `git diff --check` passed.
+
+[Stable-host run 34474530698](https://github.com/carlosciller/AirCiller/actions/runs/34474530698) passed the complete suite on macOS 26.6.2 (25G83), Xcode 26.6, including real text recognition and cancellation. It tested commit `d9a2fc7b679f9b91d8226934bce6a170e3a0e6bf`; production sources, tests and dependencies are identical to 0.12.6. Subsequent checks for the documentation update and integration are linked from [PR 14](https://github.com/carlosciller/AirCiller/pull/14).
 
 The installed 0.12.6 (59) app passed strict code-signature verification and its executable matches the published archive. Neither it nor the signed release assets were modified by this investigation.
