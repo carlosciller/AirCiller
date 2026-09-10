@@ -138,7 +138,7 @@ Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidat
    ```
 
 8. Upload the ZIP, release notes, and appcast to their final HTTPS locations. Set the GitHub Release body from the reviewed versioned notes and verify that its content and links agree with the changelog and packaged update notes. Historical prose corrections must be identified separately; do not replace an already-published signed feed or archive just to edit wording.
-9. Confirm that every URL in the appcast returns the expected file without authentication or redirects to an untrusted host.
+9. Confirm that every URL in the appcast returns the expected file without authentication or redirects to an untrusted host. Wait for the CI run triggered by the pushed release tag and verify its exact commit and final result. A green pull request or main-branch run does not establish that this later run passed. Inspect failed jobs before reporting completion; preserve the failed attempt when recording a diagnostic rerun. Do not close a release while its required checks are pending or failing.
 10. Use an older AirCiller build to run **Check for Updates…**, download the new archive, install it, relaunch, and confirm the new version.
 11. Replace the daily-use copy only after the candidate is accepted and installation is authorized. Keep a rollback copy. The physical matrix must already be complete before publication.
 

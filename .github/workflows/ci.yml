@@ -3,18 +3,35 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: macOS test environment (preview failures remain failures)
+        type: choice
+        default: macos-26
+        options:
+          - macos-26
+          - xcode-27
 
 permissions:
   contents: read
 
 jobs:
   build-and-test:
-    runs-on: xcode-27
+    # Keep release gates on a released OS. The preview label can change its
+    # underlying OS during rollout; use the manual input to investigate it.
+    runs-on: ${{ inputs.runner || 'macos-26' }}
     timeout-minutes: 25
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Record compiler and operating system
+        run: |
+          sw_vers
+          xcodebuild -version
+          xcrun swiftc --version
 
       - name: Python 3.13
         uses: actions/setup-python@v7
