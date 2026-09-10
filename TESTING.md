@@ -10,6 +10,8 @@ The [0.12.4 FLAC record](Docs/FLAC_AUDIO.md) covers original-frame comparisons, 
 
 `./Scripts/check.sh` validates formatting, compiles the code in strict Swift 6 mode, runs tests without private media, and checks the Python bridge through a simulation.
 
+Push, pull-request and release-tag CI use the released `macos-26` runner. The CI workflow can also be started manually with `xcode-27` to investigate preview compatibility; this runs the same full suite and does not ignore failures. Compiler and OS versions are recorded in each run. See [the Vision CI investigation](Docs/VISION_CI.md) for the reason these environments are separate.
+
 ## 2. Local tests with media
 
 Executables in `Tests/` that require a real file receive its path through an argument or environment variable. Media remains outside the repository. These tests validate containers, OCR, AVPlayer, and VOD playlists, but they do not prove that tvOS will accept the session.
