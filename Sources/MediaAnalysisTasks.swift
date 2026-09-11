@@ -19,8 +19,12 @@ final class MediaAnalysisTasks {
 
     func cancelAll() {
         primary?.cancel()
-        demand?.cancel()
+        cancelDemand()
         primary = nil
+    }
+
+    func cancelDemand() {
+        demand?.cancel()
         demand = nil
     }
 }

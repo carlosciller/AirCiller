@@ -22,6 +22,12 @@ struct MediaAnalysisTasksSmokeTest {
             try? await Task.sleep(for: .seconds(30))
         }
         tasks.replacePrimary(with: primary)
+        tasks.cancelDemand()
+        guard replacementDemand.isCancelled, tasks.demand == nil,
+            !primary.isCancelled, tasks.primary != nil
+        else {
+            throw NSError(domain: "MediaAnalysisTasksSmokeTest.HLS", code: 3)
+        }
         tasks.cancelAll()
 
         guard primary.isCancelled,

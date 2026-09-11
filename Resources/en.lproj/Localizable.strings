@@ -483,6 +483,15 @@
 "Guarda los WebVTT creados por Apple Vision y los subtítulos que descargas expresamente. Las imágenes temporales se borran y la película original nunca se modifica." = "Stores WebVTT files created by Apple Vision and subtitles you explicitly download. Temporary images are deleted, and the original movie is never modified.";
 "Vaciar caché de subtítulos" = "Clear Subtitle Cache";
 "Preparación de películas" = "Movie Preparation";
+"Películas en caché" = "Cached Movies";
+"Desactivada" = "Off";
+"Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda." = "Reuses prepared video and audio when you play again or change subtitles. HLS only; HDR MP4 files with subtitles are not cached.";
+"Los paquetes que superen el límite no se guardan. Al reducirlo, se eliminan primero los menos recientes." = "Packages larger than the limit are not saved. Reducing the limit removes the least recently used packages first.";
+"Vaciar caché de películas" = "Clear Movie Cache";
+"La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado." = "Playback session files are removed when you stop. You can clear remnants from an unexpected quit here; the movie cache is managed separately.";
+"No se pudo leer el tamaño de la caché de películas." = "The movie cache size could not be read.";
+"El límite se ha guardado, pero no se pudo completar la limpieza de la caché." = "The limit was saved, but cache cleanup could not be completed.";
+"No se pudo vaciar la caché de películas. Vuelve a intentarlo." = "The movie cache could not be cleared. Try again.";
 "Restos temporales" = "Temporary Remnants";
 "AirCiller conserva el paquete preparado solo mientras se reproduce y lo elimina al detener. Aquí puedes borrar restos de un cierre inesperado." = "AirCiller keeps the prepared package only during playback and deletes it when you stop. You can clear remnants from an unexpected quit here.";
 "Eliminar restos temporales" = "Remove Temporary Remnants";

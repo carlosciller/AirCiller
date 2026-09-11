@@ -2,6 +2,13 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## Unreleased
+
+- HLS playback can reuse previously prepared video and audio when replaying a movie or changing subtitles. Settings > Storage shows the retained size, lets you change the limit and can clear the movie cache. The default limit is 16 GiB; larger packages are prepared normally without being retained. Direct HDR MP4 with subtitles is not included.
+- Text subtitles can be extracted while the HLS movie is being prepared. Blu-ray and DVD subtitle recognition keeps its current scheduling.
+
+Local preparation and validation are complete. Apple TV validation and publication are pending; no end-to-end startup improvement is claimed yet. [Scope and measurement record](Docs/STARTUP_OPTIMIZATION.md).
+
 ## 0.12.6 (9 September 2026)
 
 Keep your place when a movie moves or its drive is disconnected. Playlist and Recents now retain unavailable movies and their saved progress.

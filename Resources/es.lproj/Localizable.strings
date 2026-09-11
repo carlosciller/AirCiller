@@ -485,6 +485,15 @@
 "Guarda los WebVTT creados por Apple Vision y los subtítulos que descargas expresamente. Las imágenes temporales se borran y la película original nunca se modifica." = "Guarda los WebVTT creados por Apple Vision y los subtítulos que descargas expresamente. Las imágenes temporales se borran y la película original nunca se modifica.";
 "Vaciar caché de subtítulos" = "Vaciar caché de subtítulos";
 "Preparación de películas" = "Preparación de películas";
+"Películas en caché" = "Películas en caché";
+"Desactivada" = "Desactivada";
+"Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda." = "Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda.";
+"Los paquetes que superen el límite no se guardan. Al reducirlo, se eliminan primero los menos recientes." = "Los paquetes que superen el límite no se guardan. Al reducirlo, se eliminan primero los menos recientes.";
+"Vaciar caché de películas" = "Vaciar caché de películas";
+"La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado." = "La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado.";
+"No se pudo leer el tamaño de la caché de películas." = "No se pudo leer el tamaño de la caché de películas.";
+"El límite se ha guardado, pero no se pudo completar la limpieza de la caché." = "El límite se ha guardado, pero no se pudo completar la limpieza de la caché.";
+"No se pudo vaciar la caché de películas. Vuelve a intentarlo." = "No se pudo vaciar la caché de películas. Vuelve a intentarlo.";
 "Restos temporales" = "Restos temporales";
 "AirCiller conserva el paquete preparado solo mientras se reproduce y lo elimina al detener. Aquí puedes borrar restos de un cierre inesperado." = "AirCiller conserva el paquete preparado solo mientras se reproduce y lo elimina al detener. Aquí puedes borrar restos de un cierre inesperado.";
 "Eliminar restos temporales" = "Eliminar restos temporales";

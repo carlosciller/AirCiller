@@ -270,6 +270,58 @@ compile_and_run bitmap-timeline \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Tests/BitmapTimelineSmokeTest.swift"
 
+compile_and_run startup-trace \
+  "$project_dir/Sources/PlaybackStartupTrace.swift" \
+  "$project_dir/Tests/PlaybackStartupTraceSmokeTest.swift"
+compile_and_run prepared-media-cache \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/PreparedMediaCache.swift" \
+  "$project_dir/Tests/PreparedMediaCacheSmokeTest.swift"
+export AIRCILLER_TEST_FFMPEG="$engine_path/ffmpeg/bin/ffmpeg"
+compile_and_run hls-subtitle-preparation \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
+  "$project_dir/Sources/SubtitleService.swift" \
+  "$project_dir/Sources/ASSSubtitleConverter.swift" \
+  "$project_dir/Sources/PGSSubtitleConverter.swift" \
+  "$project_dir/Sources/SubtitleOCRService.swift" \
+  "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Tests/HLSSubtitlePreparationSmokeTest.swift"
+unset AIRCILLER_TEST_FFMPEG
+
+compile_and_run hls-preparation-service \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/MediaProbeService.swift" \
+  "$project_dir/Sources/ExternalVobSub.swift" \
+  "$project_dir/Sources/VODBuildProcess.swift" \
+  "$project_dir/Sources/VODCommandBuilder.swift" \
+  "$project_dir/Sources/StreamDiagnostics.swift" \
+  "$project_dir/Sources/SubtitleService.swift" \
+  "$project_dir/Sources/ASSSubtitleConverter.swift" \
+  "$project_dir/Sources/PGSSubtitleConverter.swift" \
+  "$project_dir/Sources/SubtitleOCRService.swift" \
+  "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Sources/HDRConfigurationInjector.swift" \
+  "$project_dir/Sources/PreparedMediaCache.swift" \
+  "$project_dir/Sources/PlaybackStartupTrace.swift" \
+  "$project_dir/Sources/HLSPreparationService.swift" \
+  "$project_dir/Tests/HLSPreparationServiceSmokeTest.swift"
+
+
 compile_and_run flac-manifest \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
