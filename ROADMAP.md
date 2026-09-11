@@ -64,9 +64,11 @@ OCR and conversion to selectable text are separate from original audio/video pas
 
 AV1 passthrough remains research only. A device decoder does not establish support in its AirPlay video receiver.
 
-## Next dedicated update: faster playback startup
+## In progress: faster playback startup
 
-Planned after 0.12.6. This is a separate, measured engineering phase; implementation has not started. Notify the maintainer before beginning and wait for their readiness confirmation, as required by `AGENTS.md`.
+Authorized on 11 September 2026, after the maintainer readiness checkpoint. Delivery is split into two phases: local implementation and preparation first, then Apple TV tests and publication. The [candidate record](Docs/STARTUP_OPTIMIZATION.md) tracks the baseline, changes, measurements and remaining checks. No version or installed app changes in phase 1.
+
+Phase 1 is locally complete. The first candidate changes only HLS preparation: bounded reuse of finalized video/audio, parallel text extraction, event-driven process completion and cancellation of a redundant source-demand scan. The strict gate passed, and 40 short-fixture preparations preserve baseline output byte for byte. The measured saving is about 0.2 seconds on that fixture, largely the removed polling wait; Apple TV startup gains are not established. Direct MP4 and bitmap OCR scheduling remain unchanged. Phase 2 still needs the receiver matrix, large-file measurements and publication acceptance. Larger engine and streaming changes follow measurements, not this initial scope.
 
 The goal is to reduce the time from pressing Play to the first visible picture and audible content on Apple TV, while preserving original quality, selectable subtitles and reliable playback through the movie. Set numeric targets after measuring a baseline; do not promise a speed ranking without comparable evidence.
 

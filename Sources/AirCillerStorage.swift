@@ -9,8 +9,42 @@ struct AirCillerStorageSnapshot: Equatable, Sendable {
 enum AirCillerStorage {
     static let subtitleCacheLimitOptionsMB = [128, 256, 512, 1_024, 2_048]
     static let defaultSubtitleCacheLimitMB = 512
+    static let preparedMediaCacheLimitOptionsGiB = [0, 4, 16, 32, 64]
+    static let defaultPreparedMediaCacheLimitGiB = 16
 
     private static let subtitleCacheLimitKey = "subtitleOCRCacheLimitMB"
+    private static let preparedMediaCacheLimitKey = "preparedHLSCacheLimitGiB"
+
+    static var preparedMediaCacheLimitGiB: Int {
+        preparedMediaCacheLimitGiB(in: .standard)
+    }
+
+    static var preparedMediaCacheLimitBytes: Int64 {
+        Int64(preparedMediaCacheLimitGiB) * 1_024 * 1_024 * 1_024
+    }
+
+    static func preparedMediaCacheLimitGiB(in defaults: UserDefaults) -> Int {
+        // Zero is an explicit Off choice, not the default for a missing key.
+        guard let saved = defaults.object(forKey: preparedMediaCacheLimitKey) as? Int,
+            preparedMediaCacheLimitOptionsGiB.contains(saved)
+        else { return defaultPreparedMediaCacheLimitGiB }
+        return saved
+    }
+
+    @discardableResult
+    static func savePreparedMediaCacheLimitGiB(_ value: Int, in defaults: UserDefaults = .standard) -> Int {
+        let safeValue =
+            preparedMediaCacheLimitOptionsGiB.contains(value)
+            ? value : defaultPreparedMediaCacheLimitGiB
+        defaults.set(safeValue, forKey: preparedMediaCacheLimitKey)
+        return safeValue
+    }
+
+    static func preparedMediaCacheDirectory() -> URL {
+        URL.cachesDirectory
+            .appendingPathComponent("local.carlosciller.AirCiller", isDirectory: true)
+            .appendingPathComponent("PreparedHLS", isDirectory: true)
+    }
 
     static var subtitleCacheLimitMB: Int {
         let saved = UserDefaults.standard.integer(forKey: subtitleCacheLimitKey)

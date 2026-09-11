@@ -3,6 +3,7 @@ import Foundation
 @main
 struct AirCillerStorageSmokeTest {
     static func main() throws {
+        try verifyPreparedMediaPreferences()
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("AirCiller-Storage-Test-\(UUID().uuidString)", isDirectory: true)
         let cache = root.appendingPathComponent("cache", isDirectory: true)
@@ -49,5 +50,34 @@ struct AirCillerStorageSmokeTest {
             )
         }
         print("Bounded subtitle cache and removable prepared-media storage: OK")
+    }
+
+    private static func verifyPreparedMediaPreferences() throws {
+        let name = "AirCiller-Storage-Preferences-\(UUID())"
+        guard let defaults = UserDefaults(suiteName: name) else {
+            throw NSError(domain: "AirCillerStorageSmokeTest.Preferences", code: 1)
+        }
+        defer { defaults.removePersistentDomain(forName: name) }
+        guard AirCillerStorage.preparedMediaCacheLimitGiB(in: defaults) == 16 else {
+            throw NSError(domain: "AirCillerStorageSmokeTest.Default", code: 2)
+        }
+        for limit in [0, 4, 16, 32, 64] {
+            guard AirCillerStorage.savePreparedMediaCacheLimitGiB(limit, in: defaults) == limit,
+                AirCillerStorage.preparedMediaCacheLimitGiB(in: defaults) == limit
+            else { throw NSError(domain: "AirCillerStorageSmokeTest.ValidLimit", code: 3) }
+        }
+        for limit in [-1, 1, 65, Int.max] {
+            guard AirCillerStorage.savePreparedMediaCacheLimitGiB(limit, in: defaults) == 16,
+                AirCillerStorage.preparedMediaCacheLimitGiB(in: defaults) == 16
+            else { throw NSError(domain: "AirCillerStorageSmokeTest.InvalidLimit", code: 4) }
+        }
+        defaults.set("damaged", forKey: "preparedHLSCacheLimitGiB")
+        guard AirCillerStorage.preparedMediaCacheLimitGiB(in: defaults) == 16,
+            defaults.object(forKey: "subtitleOCRCacheLimitMB") == nil,
+            AirCillerStorage.preparedMediaCacheDirectory().lastPathComponent == "PreparedHLS",
+            AirCillerStorage.preparedMediaCacheDirectory().deletingLastPathComponent().lastPathComponent
+                == "local.carlosciller.AirCiller"
+        else { throw NSError(domain: "AirCillerStorageSmokeTest.Isolation", code: 5) }
+        print("HLS cache preferences: default 16 GiB, explicit Off, valid limits and isolated OCR setting: OK")
     }
 }
