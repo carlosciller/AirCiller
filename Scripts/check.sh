@@ -355,6 +355,8 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackScenariosSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/PlaybackStartupSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/SigningIdentitySmokeTest.py"
 
 # Typecheck the opt-in credential client without contacting XPC or Keychain.
