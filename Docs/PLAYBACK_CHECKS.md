@@ -91,9 +91,24 @@ The final `report.json` is in a new private `.build/playback-checks/capture-run-
 
 These are sampled digital-output checks. They do not certify physical speakers, Atmos channel layout, television HDR rendering, frame-accurate subtitle timing, physical remote use or whole-movie reliability. The control-only mode below retains its deliberately different `automated_checks_passed_output_unverified` result.
 
+## Startup timing from saved captures
+
+`Scripts/playback_startup.py` analyzes an existing basic HLS-with-subtitles case without opening a device or starting playback:
+
+```sh
+python3 Scripts/playback_startup.py /absolute/path/to/case-02 \
+  --cue-token 123456 --output /absolute/path/to/new-timing-report.json
+```
+
+Use the actual fresh six-digit token from that case's generated subtitle, not the documentation value. The evaluator reads the saved sample manifest, frame analysis and controls. The candidate must supply its explicit initial Play timestamp; the instrumented baseline uses `playRequestedAtUptime`. The analysis-start timestamp and receiver confirmation cannot substitute for that anchor. Input files and existing output reports are never overwritten. Reports record input and evaluator hashes.
+
+This narrow measurement requires passing playback output, a recent clean video sample before Play, measured silence before Play, two consecutive moving test-pattern frames with the new subtitle identifier, and three consecutive 880 Hz audio measurements. Samples after the first pause, seek or terminal event cannot establish startup. Missing prior audio is unknown, not silence. Old cues, missing anchors, sampling gaps or insufficient attribution produce `inconclusive` with no latency numbers.
+
+The reported times identify the first qualifying captured output and the later sample that confirmed it. They include callback scheduling, capture transport and image persistence overhead. Recognizing the fresh picture also depends on subtitle display and text recognition. Observed sample spacing is not an error bound on physical screen or speaker latency. This is not a decoder-first-frame measurement and cannot be applied to repeated-cue cache scenarios. Capture timing and playback acceptance remain separate results.
+
 ## Optional scenarios
 
-Keep the same command and select the desired names in the capture configuration's `cases` array. The default remains the three basic cases. A configuration accepts up to ten distinct cases:
+Keep the same command and select the desired names in the capture configuration's `cases` array. The default remains the three basic cases. A configuration accepts up to eleven distinct cases:
 
 | Case | Actions and required evidence |
 | --- | --- |
