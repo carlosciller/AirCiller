@@ -23,6 +23,7 @@ CASE_INFO = {
     "playlistTransition": ("playlistTransition", "directHDR"),
     "directLongPause": ("longPause", "directHDR"), "hlsLongPause": ("longPause", "hls"),
     "hlsHDRNoSubtitles": ("controls", "hlsHDR"),
+    "hlsCacheReuse": ("hlsCacheReuse", "hls"),
 }
 CASES = tuple(CASE_INFO)
 CONTROL_PASS = "automated_checks_passed_output_unverified"
@@ -263,7 +264,7 @@ def prepare_fixtures(config, cases, project, directory):
         # application and all probes continue to use the pinned bundled engine.
         encoder = Path(config["fixtureEncoder"]).resolve()
         path = directory / "synthetic-av.mkv"
-        dual_audio = "hlsTrackChanges" in cases
+        dual_audio = any(case in cases for case in ("hlsTrackChanges", "hlsCacheReuse"))
         extra_input = ["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000"] if dual_audio else []
         extra_map = ["-map", "2:a:0"] if dual_audio else []
         extra_metadata = ["-disposition:a:0", "default", "-disposition:a:1", "0", "-metadata:s:a:1", "language=spa"] if dual_audio else []

@@ -366,6 +366,7 @@
 "%lld %% · %@ · quedan aprox. %@ · vídeo intacto." = "%lld %% · %@ · quedan aprox. %@ · vídeo intacto.";
 "%lld %% · sin recodificar el vídeo." = "%lld %% · sin recodificar el vídeo.";
 "Para conservar el vídeo sin recodificar hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no borrará ni reducirá nada silenciosamente." = "Para conservar el vídeo sin recodificar hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no borrará ni reducirá nada silenciosamente.";
+"Para preparar esta película hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no modificará ni recodificará el archivo original." = "Para preparar esta película hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no modificará ni recodificará el archivo original.";
 "No se encuentra FFmpeg. Instálalo con Homebrew para usar AirCiller." = "No se encuentra FFmpeg. Instálalo con Homebrew para usar AirCiller.";
 "No se encuentra ffprobe. Se instala junto con FFmpeg." = "No se encuentra ffprobe. Se instala junto con FFmpeg.";
 "No se pudo leer el archivo: %@" = "No se pudo leer el archivo: %@";
@@ -488,7 +489,7 @@
 "Películas en caché" = "Películas en caché";
 "Desactivada" = "Desactivada";
 "Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda." = "Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda.";
-"Los paquetes que superen el límite no se guardan. Al reducirlo, se eliminan primero los menos recientes." = "Los paquetes que superen el límite no se guardan. Al reducirlo, se eliminan primero los menos recientes.";
+"Los paquetes que superen el límite no se guardan. Los menos recientes se eliminan al reducirlo o si hace falta espacio para otra película." = "Los paquetes que superen el límite no se guardan. Los menos recientes se eliminan al reducirlo o si hace falta espacio para otra película.";
 "Vaciar caché de películas" = "Vaciar caché de películas";
 "La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado." = "La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado.";
 "No se pudo leer el tamaño de la caché de películas." = "No se pudo leer el tamaño de la caché de películas.";

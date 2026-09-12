@@ -85,6 +85,8 @@ compile_and_run launch-options \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
 compile_and_run playback-check-model \
   "$project_dir/Sources/MediaFileTypes.swift" \
+  "$project_dir/Sources/PlaybackStartupTrace.swift" \
+  "$project_dir/Tests/PlaybackChecks/PlaybackCheckCacheEvidence.swift" \
   "$project_dir/Tests/PlaybackChecks/PlaybackCheckModel.swift" \
   "$project_dir/Tests/PlaybackCheckModelSmokeTest.swift"
 compile_and_run media-file-types \
@@ -377,6 +379,7 @@ compile_and_run playback-keychain-ui \
   "$project_dir"/Sources/*.swift \
   "$project_dir/Tests/PlaybackChecks/PlaybackCheckModel.swift" \
   "$project_dir/Tests/PlaybackChecks/PlaybackCheckRunner.swift" \
+  "$project_dir/Tests/PlaybackChecks/PlaybackCheckCacheEvidence.swift" \
   "$project_dir/Tests/PlaybackChecks/PlaybackCheckScenarios.swift" \
   "$project_dir/Tests/PlaybackChecks/BitmapCancellationCheck.swift"
 

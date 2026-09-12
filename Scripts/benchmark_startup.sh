@@ -3,8 +3,9 @@ set -euo pipefail
 
 project_dir="${0:A:h:h}"
 repetitions="${1:-5}"
-if [[ "$repetitions" != [1-9] ]]; then
-  echo "Usage: $0 [repetitions: 1-9, default 5]" >&2
+profile="${2:-small}"
+if [[ "$repetitions" != [1-9] || ( "$profile" != small && "$profile" != large ) ]]; then
+  echo "Usage: $0 [repetitions: 1-9, default 5] [small|large, default small]" >&2
   exit 2
 fi
 baseline_revision="558b2350cec9414cfb1d8aca72a693f5412497ef"
@@ -73,8 +74,10 @@ xcrun swiftc "${common_arguments[@]}" \
   -o "$run_dir/current.app/Contents/MacOS/benchmark"
 baseline="$run_dir/baseline.app/Contents/MacOS/benchmark"
 current="$run_dir/current.app/Contents/MacOS/benchmark"
-xcrun swiftc --version > "$run_dir/compiler.txt"
+"$current" resource-self-test "$run_dir/resource-monitor-check.json"
+xcrun swiftc --version > "$run_dir/compiler.txt" 2>&1
 sw_vers > "$run_dir/system.txt"
+df -P "$run_dir" > "$run_dir/storage-location.txt"
 "$ffmpeg" -version > "$run_dir/ffmpeg.txt"
 git -C "$project_dir" rev-parse HEAD > "$run_dir/current-revision.txt"
 shasum -a 256 "${current_sources[@]}" \
@@ -82,6 +85,18 @@ shasum -a 256 "${current_sources[@]}" \
   "$project_dir/Sources/HLSPreparationService.swift" "$project_dir/Tests/HLSPreparationPerformanceBenchmark.swift" \
   "$ffmpeg" "$ffprobe" "$fixture_encoder" > "$run_dir/source-and-engine-sha256.txt"
 "$current" fixture "$run_dir/fixture" "$ffmpeg" "$fixture_encoder"
+fixture="$run_dir/fixture/fixture.mkv"
+if [[ "$profile" == large ]]; then
+  available_kib="$(df -Pk "$run_dir" | awk 'END { print $4 }')"
+  if (( available_kib < 24 * 1024 * 1024 )); then
+    echo "Large fixture/parity representatives require at least 24 GiB available; no user files will be removed." >&2
+    exit 2
+  fi
+  # Copy-loop only: 160 x 18 seconds, about 2.2 GB. Never encode private media.
+  "$ffmpeg" -hide_banner -loglevel error -nostdin -n -stream_loop 159 \
+    -i "$fixture" -map 0 -c copy -fflags +bitexact "$run_dir/fixture/large.mkv"
+  fixture="$run_dir/fixture/large.mkv"
+fi
 modes=(baseline noCache emptyAppCache warmAppCache)
 # Rotate mode order each repetition. Warm app-cache fills are separate,
 # unmeasured preparations; system file caches are neither purged nor called cold.
@@ -93,7 +108,13 @@ for ((repeat_index=0; repeat_index<repetitions; repeat_index++)); do
       executable="$current"
       if [[ "$mode" == baseline ]]; then executable="$baseline"; fi
       "$executable" run "$run_dir/samples/$codec/$mode/$repeat_index" \
-        "$run_dir/fixture/fixture.mkv" "$codec" "$mode" "$repeat_index" "$ffmpeg" "$ffprobe"
+        "$fixture" "$codec" "$mode" "$repeat_index" "$ffmpeg" "$ffprobe"
+      "$current" verify "$run_dir/samples/$codec/baseline/0" "$run_dir/samples/$codec/$mode/$repeat_index"
+      if [[ "$profile" == large && ( "$repeat_index" != 0 || ( "$mode" != baseline && "$mode" != noCache ) ) ]]; then
+        # Only freshly generated, byte-verified sample packages are discarded.
+        # Keep all JSON/inventories plus first baseline/candidate representatives.
+        "$current" discard-generated-packages "$run_dir/samples/$codec/$mode/$repeat_index"
+      fi
     done
   done
 done

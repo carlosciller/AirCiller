@@ -93,6 +93,10 @@ final class StreamCoordinator {
         }
 
         @ObservationIgnored var onPlaybackCheckLoad: ((URL) -> Void)?
+        // Only the opt-in runner owns this disposable cache. Nil keeps checks cold.
+        @ObservationIgnored var playbackCheckPreparedMediaCache: PreparedMediaCache?
+        var playbackCheckStartupSnapshot: PlaybackStartupTrace.Snapshot? { startupTrace?.snapshot() }
+        var playbackCheckUsedPreparedMediaCache: Bool { startupUsedCache }
         var playbackCheckPreparationProcessIsRunning: Bool { ffmpegProcess?.isRunning == true }
         var playbackCheckRuntimeIsIdle: Bool {
             server == nil && ffmpegProcess == nil && streamTask == nil && activeSessionID == nil
@@ -1355,7 +1359,7 @@ final class StreamCoordinator {
                 self.preparingHLSDirectory = directory
                 guard let ffmpegURL = Executables.find("ffmpeg") else { throw AirCillerError.ffmpegMissing }
                 #if AIRCILLER_PLAYBACK_CHECKS
-                    let cache: PreparedMediaCache? = nil
+                    let cache: PreparedMediaCache? = self.playbackCheckPreparedMediaCache
                 #else
                     let cache: PreparedMediaCache? = AirCillerStorage.preparedMediaCache
                     _ = try? await cache?.setLimitBytes(AirCillerStorage.preparedMediaCacheLimitBytes)
@@ -1363,10 +1367,11 @@ final class StreamCoordinator {
                 let prepared = try await HLSPreparationService.prepare(
                     input: url, probe: info, audio: audio, outputMode: outputMode,
                     audioDelay: chosenAudioDelay, subtitle: subtitle, subtitleDelay: chosenSubtitleDelay,
-                    outputDirectory: directory, ffmpegURL: ffmpegURL, cache: cache
-                ) { [weak self] event in
-                    self?.handleHLSPreparation(event, sessionID: sessionID, expectedDuration: info.duration)
-                }
+                    outputDirectory: directory, ffmpegURL: ffmpegURL, cache: cache,
+                    observer: { [weak self] event in
+                        self?.handleHLSPreparation(event, sessionID: sessionID, expectedDuration: info.duration)
+                    }
+                )
                 try Task.checkCancellation()
                 guard self.activeSessionID == sessionID else { throw CancellationError() }
                 self.preparingHLSDirectory = nil

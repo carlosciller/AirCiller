@@ -6,6 +6,8 @@ import Foundation
 /// master playlists never enter this cache. Media is immutable after admission;
 /// session playlists are independent copies because subtitle alignment edits them.
 actor PreparedMediaCache {
+    typealias CapacityReader = @Sendable (URL) -> Int64?
+
     struct Key: Sendable {
         let digest: String
         fileprivate let source: SourceIdentity
@@ -296,6 +298,45 @@ actor PreparedMediaCache {
             guard entry.bytes <= Int64.max - total else { throw CacheError.invalidManifest }
             return total + entry.bytes
         }
+    }
+
+    /// Reclaim only completed cache entries on the preparation's filesystem.
+    /// Removing a cached hard link may free no payload bytes while an active
+    /// session owns another link, so actual capacity is re-read after each entry.
+    @discardableResult
+    func reclaimSpace(
+        requiredFreeBytes: Int64,
+        forDirectory directory: URL,
+        capacityReader: CapacityReader = PreparedMediaCache.availableCapacity
+    ) throws -> Int64? {
+        try Task.checkCancellation()
+        guard requiredFreeBytes > 0, var available = capacityReader(directory), available >= 0 else {
+            return nil
+        }
+        guard available < requiredFreeBytes, Self.itemExists(rootDirectory) else { return available }
+        try ensureRoot(create: false)
+        guard try Self.requireDirectory(directory).st_dev == Self.requireDirectory(rootDirectory).st_dev else {
+            return available
+        }
+        let candidates = try entries().sorted {
+            $0.modified == $1.modified ? $0.url.lastPathComponent < $1.url.lastPathComponent : $0.modified < $1.modified
+        }
+        for entry in candidates {
+            try Task.checkCancellation()
+            guard available < requiredFreeBytes else { break }
+            try removeEntry(entry.url)
+            guard let current = capacityReader(directory), current >= 0 else { return nil }
+            available = current
+        }
+        return available
+    }
+
+    nonisolated static func availableCapacity(_ directory: URL) -> Int64? {
+        guard let values = try? FileManager.default.attributesOfFileSystem(forPath: directory.path),
+            let free = (values[.systemFreeSize] as? NSNumber)?.int64Value,
+            free >= 0
+        else { return nil }
+        return free
     }
 
     private func prune(to budget: Int64) throws -> Int64 {

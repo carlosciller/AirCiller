@@ -3,6 +3,7 @@ import Foundation
 @main
 struct PlaybackCheckModelSmokeTest {
     static func main() throws {
+        try checkCachePlansAndEvidence()
         let seekPlan =
             #"{"version":1,"deviceID":"fixture","profile":"subtitleSeek","clips":[{"path":"/clip.m2ts","route":"hls","externalSubtitle":"/cue.srt"}]}"#
         _ = try PlaybackCheckPlan.decode(Data(seekPlan.utf8))
@@ -229,6 +230,98 @@ struct PlaybackCheckModelSmokeTest {
         try expect(object["outputVerification"] as? String == "not_observed", "Automation cannot mark audiovisual pass")
         try expect(!String(decoding: encoded, as: UTF8.self).contains(plan.deviceID), "Device excluded from report")
         print("Playback check evidence and plan safeguards: OK")
+    }
+
+    private static func checkCachePlansAndEvidence() throws {
+        let controls = #"{"version":1,"deviceID":"fixture","clips":[{"path":"/clip.mkv","route":"hls"}]}"#
+        try expect(
+            try PlaybackCheckPlan.decode(Data(controls.utf8)).selectedHLSCacheMode == .disabled,
+            "Ordinary checks never enable a production or isolated cache")
+        let cold =
+            #"{"version":1,"deviceID":"fixture","hlsCacheMode":"isolated","clips":[{"path":"/clip.mkv","route":"hls","expectedCacheHit":false}]}"#
+        try expect(
+            try PlaybackCheckPlan.decode(Data(cold.utf8)).clips[0].expectedCacheHit == false,
+            "Explicit cold expectation")
+        let reuse =
+            #"{"version":1,"deviceID":"fixture","hlsCacheMode":"isolated","profile":"hlsCacheReuse","clips":[{"path":"/clip.mkv","route":"hls","externalSubtitle":"/a.srt","alternateSubtitle":"/b.srt"}]}"#
+        try expect(
+            try PlaybackCheckPlan.decode(Data(reuse.utf8)).selectedProfile == .hlsCacheReuse,
+            "Reuse is explicitly isolated")
+        for invalid in [
+            cold.replacingOccurrences(of: ",\"hlsCacheMode\":\"isolated\"", with: ""),
+            cold.replacingOccurrences(of: "isolated", with: "disabled"),
+            cold.replacingOccurrences(of: "isolated", with: "production"),
+            cold.replacingOccurrences(of: #""expectedCacheHit":false"#, with: #""expectedCacheHit":"false""#),
+            reuse.replacingOccurrences(of: "isolated", with: "disabled"),
+            reuse.replacingOccurrences(of: ",\"externalSubtitle\":\"/a.srt\"", with: ""),
+            reuse.replacingOccurrences(of: ",\"alternateSubtitle\":\"/b.srt\"", with: ""),
+            reuse.replacingOccurrences(of: #""route":"hls""#, with: #""route":"directHDR""#),
+        ] { try expectRejected(Data(invalid.utf8)) }
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "PlaybackCheck-Base-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for name in ["video-init.mp4", "video-00000.m4s", "audio-init.mp4", "audio-00000.m4s"] {
+            try Data(name.utf8).write(to: root.appendingPathComponent(name))
+        }
+        let original = try PlaybackCheckBaseFingerprint.read(directory: root)
+        try Data("mutable playlist".utf8).write(to: root.appendingPathComponent("master.m3u8"))
+        try Data("new subtitle".utf8).write(to: root.appendingPathComponent("subtitle-00000.vtt"))
+        try expect(
+            try PlaybackCheckBaseFingerprint.read(directory: root) == original, "Only immutable base bytes compared")
+        try Data("changed base".utf8).write(to: root.appendingPathComponent("audio-00000.m4s"))
+        let changed = try PlaybackCheckBaseFingerprint.read(directory: root)
+        try expect(changed != original, "Changed audio bytes cannot masquerade as warm reuse")
+
+        func evidence(
+            hit: Bool, expected: Bool?, base: PlaybackCheckBaseFingerprint?, packaging: Bool,
+            lookup: Bool = true, receiver: Bool = true, requestedAt: Double = 9
+        ) -> PlaybackCheckStartupEvidence {
+            let completed = PlaybackStartupTrace.SpanState.completed
+            var spans: [PlaybackStartupTrace.Span] = []
+            if lookup {
+                spans.append(.init(stage: .cacheLookup, startSeconds: 0, elapsedSeconds: 0.1, state: completed))
+            }
+            if packaging {
+                spans.append(.init(stage: .packaging, startSeconds: 0.1, elapsedSeconds: 0.4, state: completed))
+            }
+            if receiver {
+                spans.append(.init(stage: .receiverRequest, startSeconds: 0.5, elapsedSeconds: 0.5, state: completed))
+            }
+            return PlaybackCheckStartupEvidence(
+                label: "fixture", requestedAtUptime: requestedAt, receiverConfirmedAtUptime: 11.1,
+                cacheHit: hit,
+                snapshot: .init(
+                    sessionID: UUID(), startedAtUptimeSeconds: 10, elapsedSeconds: 1,
+                    outcome: receiver ? .receiverMediaRequest : .prepared, spans: spans),
+                expectedCacheHit: expected, baseFingerprint: base)
+        }
+        let warm = evidence(hit: true, expected: true, base: original, packaging: false)
+        try warm.validate(sameBaseAs: original)
+        try evidence(hit: false, expected: false, base: changed, packaging: true).validate(differentBaseFrom: original)
+        func rejected(_ body: () throws -> Void) throws {
+            do { try body() } catch PlaybackCheckFailure.cacheMismatch { return }
+            throw NSError(domain: "PlaybackChecks.AcceptedWrongCacheEvidence", code: 1)
+        }
+        try rejected { try evidence(hit: false, expected: true, base: original, packaging: true).validate() }
+        try rejected { try evidence(hit: true, expected: false, base: original, packaging: false).validate() }
+        try rejected { try evidence(hit: true, expected: true, base: nil, packaging: false).validate() }
+        try rejected { try evidence(hit: true, expected: true, base: original, packaging: true).validate() }
+        try rejected { try evidence(hit: false, expected: false, base: original, packaging: false).validate() }
+        try rejected {
+            try evidence(hit: true, expected: true, base: original, packaging: false, lookup: false).validate()
+        }
+        try rejected {
+            try evidence(hit: true, expected: true, base: original, packaging: false, receiver: false).validate()
+        }
+        try rejected {
+            try evidence(hit: true, expected: true, base: original, packaging: false, requestedAt: 10.5).validate()
+        }
+        try rejected { try warm.validate(sameBaseAs: changed) }
+        try rejected { try warm.validate(differentBaseFrom: original) }
+        let encoded = String(decoding: try JSONEncoder().encode(warm), as: UTF8.self)
+        try expect(!encoded.contains(root.path), "Startup and base evidence excludes fixture paths")
     }
 
     private static func event(

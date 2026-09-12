@@ -14,7 +14,10 @@ struct HLSPreparationServiceSmokeTest {
         try await verifySiblingFailure(root: root, failure: "subtitle")
         try await verifySiblingFailure(root: root, failure: "video")
         try await verifyLaunchFailure(root: root)
-        print("HLS preparation ownership: cancellation, sibling failures, process join and no late progress: OK")
+        try await verifyCacheSpacePressure(root: root)
+        print(
+            "HLS preparation ownership: cancellation, sibling failures, process join, cache space pressure and no late progress: OK"
+        )
     }
 
     @MainActor
@@ -79,23 +82,131 @@ struct HLSPreparationServiceSmokeTest {
 
     @MainActor
     private static func prepare(
-        fixture: Fixture, directory: URL, subtitle: Bool, record: Events
+        fixture: Fixture, directory: URL, subtitle: Bool, record: Events,
+        cache: PreparedMediaCache? = nil,
+        capacityReader: @escaping PreparedMediaCache.CapacityReader = PreparedMediaCache.availableCapacity
     ) async throws -> HLSPreparationResult {
         let track = SubtitleTrack(
             streamIndex: 0, codec: "subrip", language: "eng", title: nil,
             isDefault: true, isForced: false, isHearingImpaired: false,
             externalPath: directory.appendingPathComponent("captions.srt").path)
-        let probe = MediaProbe(
+        return try await HLSPreparationService.prepare(
+            input: fixture.source, probe: fixtureProbe(), audio: nil, outputMode: .original,
+            audioDelay: 0, subtitle: subtitle ? track : nil, subtitleDelay: 0,
+            outputDirectory: directory, ffmpegURL: fixture.helper, cache: cache, capacityReader: capacityReader,
+            observer: { event in record.receive(event) })
+    }
+
+    private static func fixtureProbe() -> MediaProbe {
+        MediaProbe(
             duration: 12, fileSize: 1, bitRate: 1_000_000, videoStreamIndex: 0,
             videoCodec: "h264", videoProfile: nil, videoLevel: nil, hevcCodecIdentifier: nil,
             width: 320, height: 180, frameRate: "24/1", colorTransfer: nil,
             isDolbyVision: false, dolbyVisionProfile: nil, dolbyVisionLevel: nil, dolbyVisionCompatibilityID: nil,
             audioTracks: [], subtitleTracks: [], chapters: [])
-        return try await HLSPreparationService.prepare(
-            input: fixture.source, probe: probe, audio: nil, outputMode: .original,
-            audioDelay: 0, subtitle: subtitle ? track : nil, subtitleDelay: 0,
-            outputDirectory: directory, ffmpegURL: fixture.helper,
-            observer: { event in record.receive(event) })
+    }
+
+    @MainActor
+    private static func verifyCacheSpacePressure(root: URL) async throws {
+        let directory = try makeDirectory(root, "space-pressure")
+        let fixture = try makeFixture(directory, failure: "none")
+        // A cache miss should reach this controlled failure only after its disk
+        // preflight succeeds. No actual media command runs in these checks.
+        try "#!/bin/sh\nexit 51\n".write(to: fixture.helper, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: fixture.helper.path)
+        let cacheRoot = directory.appendingPathComponent("cache")
+        let cache = PreparedMediaCache(rootDirectory: cacheRoot, limitBytes: 1_000_000)
+        let base = try makeDirectory(directory, "base")
+        try Data("initialization".utf8).write(to: base.appendingPathComponent("video-init.mp4"))
+        try Data("segment".utf8).write(to: base.appendingPathComponent("video-00000000.m4s"))
+        try """
+        #EXTM3U
+        #EXT-X-VERSION:7
+        #EXT-X-TARGETDURATION:12
+        #EXT-X-MEDIA-SEQUENCE:0
+        #EXT-X-PLAYLIST-TYPE:VOD
+        #EXT-X-MAP:URI="video-init.mp4"
+        #EXTINF:12.000000,
+        video-00000000.m4s
+        #EXT-X-ENDLIST
+
+        """.write(to: base.appendingPathComponent("video.m3u8"), atomically: true, encoding: .utf8)
+        let key = try PreparedMediaCache.makeKey(
+            source: fixture.source, probe: fixtureProbe(), audio: nil, outputMode: .original,
+            audioDelay: 0, multiplexed: false, engineVersion: "hls-base-v1", engineURL: fixture.helper)
+        guard try await cache.store(key: key, from: base) else { throw Failure.failedCacheFixture }
+        try FileManager.default.removeItem(at: base)
+        let retained = cacheRoot.appendingPathComponent(key.digest)
+        let warm = try makeDirectory(directory, "warm")
+        let warmCapacity = CapacityReadCounter(values: [0])
+        let warmResult = try await prepare(
+            fixture: fixture, directory: warm, subtitle: false, record: Events(), cache: cache,
+            capacityReader: { _ in warmCapacity.next() })
+        guard warmResult.usedCache, warmCapacity.count == 0,
+            FileManager.default.fileExists(atPath: retained.path)
+        else { throw Failure.cacheHitReclaimedSpace }
+        // Finish that disposable session so the retained payload is reclaimable.
+        // Active-session link accounting is exercised by the cache smoke test.
+        try FileManager.default.removeItem(at: warm)
+
+        let newSource = directory.appendingPathComponent("new-source.mkv")
+        try Data([2]).write(to: newSource)
+        let coldFixture = Fixture(source: newSource, helper: fixture.helper)
+        let cold = try makeDirectory(directory, "cold")
+        let capacity: PreparedMediaCache.CapacityReader = { _ in
+            FileManager.default.fileExists(atPath: retained.path) ? 0 : 1_000_000_000
+        }
+        do {
+            _ = try await prepare(
+                fixture: coldFixture, directory: cold, subtitle: false, record: Events(), cache: cache,
+                capacityReader: capacity)
+            throw Failure.acceptedFailedPreparation
+        } catch AirCillerError.ffmpegStopped {}
+        guard !FileManager.default.fileExists(atPath: retained.path),
+            try Data(contentsOf: fixture.source) == Data([1]),
+            try Data(contentsOf: newSource) == Data([2])
+        else { throw Failure.pressureCleanupDamagedMedia }
+
+        let unavailableRoot = directory.appendingPathComponent("unavailable-cache")
+        try Data([9]).write(to: unavailableRoot)
+        let unavailableCache = PreparedMediaCache(rootDirectory: unavailableRoot, limitBytes: 1_000_000)
+        let recoveredCapacity = CapacityReadCounter(values: [0, 0, 1_000_000_000])
+        let recovered = try makeDirectory(directory, "capacity-recovered")
+        do {
+            _ = try await prepare(
+                fixture: coldFixture, directory: recovered, subtitle: false, record: Events(),
+                cache: unavailableCache, capacityReader: { _ in recoveredCapacity.next() })
+            throw Failure.acceptedFailedPreparation
+        } catch AirCillerError.ffmpegStopped {}
+        let insufficient = try makeDirectory(directory, "capacity-insufficient")
+        do {
+            _ = try await prepare(
+                fixture: coldFixture, directory: insufficient, subtitle: false, record: Events(),
+                cache: unavailableCache, capacityReader: { _ in 0 })
+            throw Failure.acceptedFailedPreparation
+        } catch AirCillerError.invalidVODPackage {}
+    }
+
+    private final class CapacityReadCounter: @unchecked Sendable {
+        private let lock = NSLock()
+        private let values: [Int64]
+        private var reads = 0
+
+        init(values: [Int64]) { self.values = values }
+
+        func next() -> Int64 {
+            lock.lock()
+            defer { lock.unlock() }
+            let value = values[min(reads, values.count - 1)]
+            reads += 1
+            return value
+        }
+
+        var count: Int {
+            lock.lock()
+            defer { lock.unlock() }
+            return reads
+        }
     }
 
     @MainActor
@@ -188,5 +299,6 @@ struct HLSPreparationServiceSmokeTest {
     private enum Failure: Error {
         case acceptedCancelledPreparation, acceptedFailedPreparation, unexpectedFailure
         case retainedVideoProcess, retainedChildProcess, branchDidNotStart, retainedSubtitleOutput, lateObserverEvent
+        case failedCacheFixture, cacheHitReclaimedSpace, pressureCleanupDamagedMedia
     }
 }
