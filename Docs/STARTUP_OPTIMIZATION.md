@@ -4,7 +4,7 @@
 
 Phase 1 is local implementation and preparation. The baseline is `558b2350cec9414cfb1d8aca72a693f5412497ef`, after the 0.12.6 release and its CI correction. This candidate does not change the app version, installed app, bundled engines, AirPlay authentication or receiver commands. It has not been published.
 
-Phase 2 will measure and verify the candidate on Apple TV before versioning, publishing or installing it. Local preparation measurements do not establish first visible picture, first audible content or whole-movie reliability.
+Phase 2 is verifying the candidate on Apple TV before versioning, publishing or installing it. Local preparation measurements do not establish first visible picture, first audible content or whole-movie reliability. The receiver record below includes both successful checks and an audio-delay failure found during acceptance.
 
 ## Changes in this candidate
 
@@ -101,6 +101,31 @@ The campaign used internal storage with no OS-cache purge. No external data volu
 Private artifacts remain in `.build/startup-benchmark/run.eoolMh/`, including per-run traces, parity proofs, source and engine hashes, and representative outputs. Raw `summary.json` SHA-256: `3b61b05253a362411c39d18a9b1e7a19491c7d57cff7e2a20cbfeb16bb7c9f01`; `source-and-engine-sha256.txt`: `ed072db8e31082fb3e65e4eea277c72b3d69ceb0f2036ddcff1918b044d60b86`. Earlier resource-instrumentation trials were discarded from these results after correcting child-PID enumeration and benchmark hashing allocations; their JSON remains available. The final insufficient-space error wording changed after measurement; it did not alter the measured successful preparation path. No Apple TV test is established by this section.
 
 The complete phase-2 `./Scripts/check.sh` gate passed with exit 0 after these changes. Its log SHA-256 is `0be52c6fbd98a5eb47c18f28b295f3ba4cb1bbb53608854f08c166dc6772d85b`. The ordinary staging app remains 0.12.6 (59), is 154,431,176 logical bytes and has executable SHA-256 `308f1467886c38bdfe62d741748a0212c832194b90587a4cf5e7d4ca1ca3f4dc`. The installed executable remains `5571459ffba6a1285c8257f3a5dd85dd16eb5f971b40a0187e3c3af0930e4514`. Receiver validation, publication and installation have not occurred in this phase.
+
+## Phase 2 receiver checks, 12 September 2026
+
+The tested checker executable is `0ab119a6a5c60de2ab8eaae4a59b38b1b94f1b2881ca08a00e78c17620845622`, built from the phase-2 preparation code. The separate offline startup evaluator passed the full strict gate; its gate log SHA-256 is `c59346e8841254f47c97e65cdb5c38ae8d031f36321a29f360aad6c2cf74a121`. Neither app version nor the daily installed copy has changed.
+
+The maintainer confirmed receiver availability. All output checks used only the previously authorized Apple TV screen/audio source, with identity checks and no fallback to a Mac or iPhone camera or microphone. Credentials remained in their existing store; no pairing or permission reset was performed.
+
+Completed captured-output checks:
+
+- Direct HDR reference, HLS with external text subtitles and HLS without subtitles: all three passed controls, sampled motion, digital audio and the applicable subtitle-presence checks.
+- HLS subtitle replacement, original audio-track selection and subtitle removal: each playback phase passed. The synthetic source's 880 Hz and 440 Hz tracks were distinguishable in the captured audio.
+- Stop during active preparation passed cancellation and cleanup without delayed playback. A direct HDR natural end triggered exactly one HLS Playlist transition, with separately observed output before and after.
+- HLS stayed paused for 360.063 seconds, then resumed in the same session at the requested position. Captured motion, digital audio and subtitles passed before and after the hold; cleanup was confirmed.
+- Embedded SubRip and ASS both passed with subtitle stream index 2, not an external subtitle. Their synthetic movie derivatives retained identical original video/audio payloads. These simple ASS cues do not certify every animated effect or layout.
+- External PGS and VobSub both passed controls, motion and non-silent digital audio. Review of saved initial and later post-seek frames found the expected text without clipping. Early post-seek frames still showed the known brief subtitle gap. This is not a claim of immediate subtitle recovery or a fresh OCR cache miss.
+
+The isolated cache scenario did **not** pass. Cold preparation, warm replay, subtitle replacement, subtitle delay and original audio-track replacement had the expected cache misses/hits. Changing audio delay to +0.5 seconds correctly missed the cache and ran preparation again, but produced media identical to the unshifted alternate audio. The scenario stopped with `cacheMismatch` and confirmed cleanup; subsequent phases were not executed. A focused reproduction with the unchanged baseline command builder established that separate audio/video HLS outputs already discarded this offset before the optimization. Fixing and validating this issue remains part of acceptance; the failed run is retained, not relabelled as a pass.
+
+The first basic HLS capture could not establish startup latency: it had only one silent audio sample before Play and a 1.25-second gap during startup. Its output pass remains valid, while the separate timing report is inconclusive. No Apple TV startup speedup is established by those samples.
+
+A fixed four-run comparison subsequently used baseline, candidate, candidate, baseline order, the exact same 60-second synthetic movie and fresh subtitle identifiers. Candidate runs each used a new isolated cache and attempted first admission; baseline runs had no prepared-media cache. Two seconds of capture preroll preceded Play in each case. All four controls/output checks passed, but all four onset assessments remained inconclusive. Each had an unobserved audio interval during startup; a candidate run also lacked the required consecutive fresh-pattern frames before the first control action. Missing samples do not establish either silence or a playback failure. No end-to-end timing gain, median or tail percentile is reported. This bounded campaign was not repeated to obtain a successful timing result. Individual reports and hashes remain in `.build/startup-phase2/paired-startup-ohb7e95o/`.
+
+Private evidence directories: `playback-checks/capture-run-ovsncv0f` (basic), `playback-checks/capture-run-vfyl_pro` (failed cache scenario), `playback-checks/capture-run-zzg8n5bx` (track changes, cancellation and Playlist), `startup-phase2/bitmap-run-p4qpgd7l` (bitmap reports plus visual review), and `startup-phase2/embedded-text-run-pn4uzffu` (embedded text), all under `.build/`. Reports retain checker, input and capture hashes. Captured digital output does not establish physical speakers, Atmos layout, HDR panel rendering, physical-remote operation or whole-movie reliability.
+
+The long-pause evidence is in `.build/playback-checks/capture-run-ab4_i4fd/`. A draft audio-delay repair is not accepted: preserving the audio/video offset also requires aligning subtitle time maps and ensuring the playlist covers the actual first and last media timestamps. The original installed app is unchanged. Whether to include that broader repair in this delivery is awaiting a maintainer decision. Settings review also needs an unlocked Mac; automatic unlock was unavailable, although receiver tests worked while it was locked.
 
 ## Phase 2 checklist
 
