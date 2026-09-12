@@ -439,7 +439,7 @@ struct StorageSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 Text(
-                    "Los paquetes que superen el límite no se guardan. Al reducirlo, se eliminan primero los menos recientes."
+                    "Los paquetes que superen el límite no se guardan. Los menos recientes se eliminan al reducirlo o si hace falta espacio para otra película."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

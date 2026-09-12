@@ -77,12 +77,41 @@ Local evidence completed:
 - Running-process cancellation, sibling failure, cleanup and stale trace events.
 - A review showing direct MP4 packaging and pinned runtime files unchanged.
 
+## Phase 2 local preparation and resources
+
+On 12 September 2026, `./Scripts/benchmark_startup.sh 4 large` compared the same frozen baseline with the candidate using a 2,218,226,312-byte synthetic H.264/AAC input. It was created by losslessly repeating the short fixture 160 times; the final packaged duration was 2,883.308 seconds. Four repetitions rotated all four modes through every position. All 32 cases matched the baseline's complete served-file inventory, SHA-256 hashes, direct byte comparisons and final duration. The [individual measurements and resource limits](Benchmarks/hls-startup-phase2-large.json) are retained.
+
+Times below are milliseconds, median (minimum/maximum), ending at complete local preparation:
+
+| Preparation | SRT | ASS |
+| --- | ---: | ---: |
+| Frozen baseline, sequential | 1,896.952 (1,888.356/2,156.020) | 1,917.445 (1,899.014/1,953.206) |
+| Candidate, cache disabled | 1,583.488 (1,553.435/1,619.725) | 1,593.852 (1,540.021/1,661.526) |
+| Candidate, empty app cache | 1,929.657 (1,897.898/1,961.815) | 1,967.717 (1,913.460/2,056.000) |
+| Candidate, prepared app cache | 1,158.925 (1,144.466/1,168.559) | 1,161.703 (1,144.388/1,237.650) |
+
+With cache disabled, preparation saved 313 to 324 ms. Warm reuse saved 738 to 756 ms. First admission into an empty cache was **slower** than the baseline: 32.705 ms for SRT (1.7%) and 50.272 ms for ASS (2.6%). The median `cacheStore` span was approximately 335 ms; warm `cacheLookup`, including checkout checks, took 666 to 669 ms. These overlapping stage spans must not be added together. Cache admission also increased the benchmark process's CPU use: median self CPU was about 0.7 seconds for the baseline and 1.4 seconds for first admission, while child CPU remained approximately 1.8 to 1.9 seconds. Warm runs used approximately 1.0 seconds of self CPU and 0.2 seconds of child CPU. First-use retention is therefore a tradeoff, not an unconditional startup improvement.
+
+RSS was sampled for the benchmark process and its direct children, requesting a sample every 20 ms. Maximum observed aggregate RSS was 338 to 340 MB for baseline, 355 to 356 MB without cache, 354 to 355 MB with an empty cache and 42 to 43 MB for warm reuse (decimal MB). Across 2,213 sampling rounds, six process-info reads failed. By mode, the failed-read counts for SRT/ASS were baseline 0/2, disabled 1/1, empty 2/0 and warm 0/0. The JSON retains these per-mode counts; individual resource samples remain in the private artifacts. Sampling can miss peaks; summed process RSS can count shared mappings more than once and is not physical memory footprint. CPU and sampling overhead are included, not subtracted.
+
+At preparation completion, served files occupied approximately 2.219 GB of logical file size. With retention enabled, served and cache paths summed to approximately 4.437 GB, but deduplicating hard-linked inodes yielded approximately 2.219 GB. The 2.218 GB source is separate. These are endpoint logical sizes, not peak temporary storage or allocated APFS blocks.
+
+The campaign used internal storage with no OS-cache purge. No external data volume was available, so slower external storage remains untested. Generation, probing, warm-cache fill and output comparisons were outside the measured interval. Four observations do not establish a production tail percentile. This preparation-only harness does not measure the coordinator's cancelled packet-demand scan, bitmap OCR, direct HDR MP4, receiver startup, first picture/audio or full-film reliability. A separate corrected-resource smoke also passed all eight short-fixture cases; its one observation per cell is not another comparative campaign.
+
+Private artifacts remain in `.build/startup-benchmark/run.eoolMh/`, including per-run traces, parity proofs, source and engine hashes, and representative outputs. Raw `summary.json` SHA-256: `3b61b05253a362411c39d18a9b1e7a19491c7d57cff7e2a20cbfeb16bb7c9f01`; `source-and-engine-sha256.txt`: `ed072db8e31082fb3e65e4eea277c72b3d69ceb0f2036ddcff1918b044d60b86`. Earlier resource-instrumentation trials were discarded from these results after correcting child-PID enumeration and benchmark hashing allocations; their JSON remains available. The final insufficient-space error wording changed after measurement; it did not alter the measured successful preparation path. No Apple TV test is established by this section.
+
+The complete phase-2 `./Scripts/check.sh` gate passed with exit 0 after these changes. Its log SHA-256 is `0be52c6fbd98a5eb47c18f28b295f3ba4cb1bbb53608854f08c166dc6772d85b`. The ordinary staging app remains 0.12.6 (59), is 154,431,176 logical bytes and has executable SHA-256 `308f1467886c38bdfe62d741748a0212c832194b90587a4cf5e7d4ca1ca3f4dc`. The installed executable remains `5571459ffba6a1285c8257f3a5dd85dd16eb5f971b40a0187e3c3af0930e4514`. Receiver validation, publication and installation have not occurred in this phase.
+
 ## Phase 2 checklist
+
+Phase 2 preparation found and corrected a disk-pressure regression: retained HLS entries could consume space needed to prepare the next movie. A cache miss now attempts bounded, least-recently-used eviction on the preparation volume before failing the space check. Actual available capacity is reread after each removal and before the final decision, including cleanup-error paths. A removed entry whose media is still linked into an active session is not assumed to have freed its payload. Focused tests cover these cases; receiver validation and publication remain pending.
+
+The opt-in playback checker now supports a disposable HLS cache and an eight-phase reuse/invalidation scenario. Its report records monotonic request/receiver timestamps and verifies base hashes. These are verification hooks, not changes to daily playback or evidence of a completed physical test.
 
 1. Freeze a candidate hash and preserve the installed 0.12.6 rollback. Confirm receiver availability; use only the explicitly authorized Apple TV screen/audio source, never a Mac or iPhone camera or microphone.
 2. Measure baseline and candidate in alternating repeated runs on the same hardware/media. Record cache/connection state and capture setup separately. Include short and large inputs and slower external storage. Use known visible and audible opening cues.
 3. Test HLS with no subtitles, embedded/external text, ASS, PGS and VobSub. For matching base reuse, change subtitles, delay, selected audio and resume position; confirm picture, sound, timing, complete duration and selectable tracks.
-   The existing playback-check build disables the persistent movie cache. Before this phase, give its performance profile an isolated disposable cache and explicit empty/warm modes; do not claim warm-cache coverage from the existing cache-disabled runner.
+   Use the checker's isolated disposable cache and explicit empty/warm expectations; the ordinary cache-disabled profile does not establish warm-cache coverage.
 4. Check cancelled preparation, immediate replacement, rapid controls, long pause/resume, end-of-movie transition, stop and replay. Include a direct HDR/Dolby Vision MP4 reference run without changing that packager.
 5. Report individual times, median/tail, regressions, first captured picture/audio, early buffering, CPU/memory and temporary storage. Do not extrapolate short-fixture preparation gains to a full movie or call a warm cache a cold start.
 6. If acceptance passes, select the release version, reconcile release notes/changelog with this record, package and sign, verify GitHub checks, publish and install with rollback. Failed or incomplete physical evidence leaves publication pending.

@@ -35,6 +35,42 @@ final class PlaybackCheckRunner {
     private var now: Double { ProcessInfo.processInfo.systemUptime }
 
     func run(_ plan: PlaybackCheckPlan) async -> PlaybackCheckReport {
+        guard plan.selectedHLSCacheMode == .isolated else { return await runPlan(plan) }
+        // Never accept a cache path from JSON or use AirCillerStorage's production root.
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "AirCiller-PlaybackChecks-HLS-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(
+                at: root, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        } catch {
+            return PlaybackCheckReport(appVersion: "unknown", outcome: "failed", failure: .cleanupFailed)
+        }
+        let cache = PreparedMediaCache(rootDirectory: root, limitBytes: 16 * 1_024 * 1_024 * 1_024)
+        coordinator.playbackCheckPreparedMediaCache = cache
+        var report = await runPlan(plan)
+        report.hlsCacheMode = .isolated
+        coordinator.stop()
+        let deadline = now + 8
+        while !coordinator.playbackCheckRuntimeIsIdle, now < deadline {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+        coordinator.playbackCheckPreparedMediaCache = nil
+        do {
+            guard coordinator.playbackCheckRuntimeIsIdle else { throw PlaybackCheckFailure.cleanupFailed }
+            try await cache.clear()
+            if FileManager.default.fileExists(atPath: root.path) { try FileManager.default.removeItem(at: root) }
+            report.isolatedCacheCleanupConfirmed = !FileManager.default.fileExists(atPath: root.path)
+        } catch {
+            report.isolatedCacheCleanupConfirmed = false
+        }
+        if report.isolatedCacheCleanupConfirmed != true {
+            report.failure = .cleanupFailed
+            report.outcome = "failed"
+        }
+        return report
+    }
+
+    private func runPlan(_ plan: PlaybackCheckPlan) async -> PlaybackCheckReport {
         var report = PlaybackCheckReport(
             appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
             outcome: "failed"
@@ -141,6 +177,7 @@ final class PlaybackCheckRunner {
             result.completedSteps.append(step)
 
             step = "start_and_media_request"
+            let requestedAt = now
             coordinator.start(at: 0)
             try await wait(seconds: 100) {
                 self.coordinator.isStreaming && self.coordinator.isPlaying
@@ -161,6 +198,13 @@ final class PlaybackCheckRunner {
                 throw PlaybackCheckFailure.unsupportedFixture
             }
             result.completedSteps.append(step)
+            if clip.route != .directHDR {
+                let startup = try PlaybackCheckStartupRecorder.record(
+                    coordinator: coordinator, label: "initial", requestedAtUptime: requestedAt,
+                    expectedCacheHit: clip.expectedCacheHit)
+                result.startups.append(startup)
+                try startup.validate()
+            }
 
             if subtitleSeek {
                 try await checkSubtitleSeeks(result: &result)

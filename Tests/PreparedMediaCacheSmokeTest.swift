@@ -59,6 +59,7 @@ struct PreparedMediaCacheSmokeTest {
         try await checkCorruption(cache: cache, cacheRoot: cacheRoot, key: key, base: base, root: root)
         try await checkPartialCheckout(key: key, root: root)
         try await checkBudgetRefresh(root: root)
+        try await checkSpacePressure(root: root, source: source, engine: engine)
         try await checkBoundsAndPruning(
             cache: cache, cacheRoot: cacheRoot, key: key, source: source,
             engine: engine, base: base, sessionSegment: sessionSegment, root: root)
@@ -278,6 +279,59 @@ struct PreparedMediaCacheSmokeTest {
         try require(
             !FileManager.default.fileExists(atPath: emptyEntry.path),
             "A failed budget application is retried even when the requested value is unchanged")
+    }
+
+    private static func checkSpacePressure(root: URL, source: URL, engine: URL) async throws {
+        let cacheRoot = root.appendingPathComponent("pressure-cache")
+        let cache = PreparedMediaCache(rootDirectory: cacheRoot, limitBytes: 1_000_000)
+        let keys = try (0..<3).map { try makeKey(source, engine: engine, delay: Double($0)) }
+        for (index, key) in keys.enumerated() {
+            // Separate preparations have separate inodes, just like real remuxes.
+            let base = try makeBase(root.appendingPathComponent("pressure-base-\(index)"))
+            try require(try await cache.store(key: key, from: base), "Pressure fixture is admitted")
+            try FileManager.default.removeItem(at: base)
+        }
+        let entries = keys.map { cacheRoot.appendingPathComponent($0.digest) }
+        let active = try makeDirectory(root.appendingPathComponent("pressure-active"))
+        try require(try await cache.checkout(key: keys[0], into: active), "Active session owns a separate media link")
+        for (index, entry) in entries.enumerated() {
+            try FileManager.default.setAttributes(
+                [.modificationDate: Date(timeIntervalSince1970: Double(index + 1))],
+                ofItemAtPath: entry.path)
+        }
+        let originalBytes = try Data(contentsOf: source)
+        let activeSegment = active.appendingPathComponent("video-00000000.m4s")
+        // Model capacity which does not increase when the oldest entry loses its
+        // cache link: the active session still owns its payload. The next entry
+        // is reclaimable. This is deterministic and does not fill the real disk.
+        let capacity: PreparedMediaCache.CapacityReader = { _ in
+            let firstPinned =
+                FileManager.default.fileExists(atPath: activeSegment.path)
+                || FileManager.default.fileExists(atPath: entries[0].path)
+            let first = firstPinned ? Int64(0) : 100
+            let second = FileManager.default.fileExists(atPath: entries[1].path) ? Int64(0) : 100
+            let third = FileManager.default.fileExists(atPath: entries[2].path) ? Int64(0) : 100
+            return first + second + third
+        }
+        let free = try await cache.reclaimSpace(requiredFreeBytes: 80, forDirectory: active, capacityReader: capacity)
+        try require(free == 100, "Pressure cleanup re-reads capacity instead of assuming manifest bytes were freed")
+        try require(
+            !FileManager.default.fileExists(atPath: entries[0].path)
+                && !FileManager.default.fileExists(atPath: entries[1].path)
+                && FileManager.default.fileExists(atPath: entries[2].path),
+            "Pressure cleanup respects LRU order and stops after enough actual capacity is reported")
+        try require(
+            try Data(contentsOf: activeSegment) == Data("video segment".utf8),
+            "Pressure eviction preserves active media")
+        try require(try Data(contentsOf: source) == originalBytes, "Pressure eviction never modifies the original")
+        try require(try await cache.sizeBytes() <= 1_000_000, "Pressure cleanup never increases the retained budget")
+        _ = try await cache.reclaimSpace(requiredFreeBytes: 80, forDirectory: active, capacityReader: { _ in 100 })
+        try require(
+            FileManager.default.fileExists(atPath: entries[2].path), "Enough free space preserves the remaining cache")
+        _ = try await cache.reclaimSpace(requiredFreeBytes: 80, forDirectory: active, capacityReader: { _ in nil })
+        try require(
+            FileManager.default.fileExists(atPath: entries[2].path),
+            "Unknown capacity never causes speculative eviction")
     }
 
     private static func makeBase(_ directory: URL, segmentCount: Int = 1) throws -> URL {

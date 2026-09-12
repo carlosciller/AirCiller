@@ -25,6 +25,7 @@ enum HLSPreparationService {
         input: URL, probe: MediaProbe, audio: AudioTrack?, outputMode: AudioOutputMode,
         audioDelay: Double, subtitle: SubtitleTrack?, subtitleDelay: Double,
         outputDirectory: URL, ffmpegURL: URL, cache: PreparedMediaCache? = nil,
+        capacityReader: @escaping PreparedMediaCache.CapacityReader = PreparedMediaCache.availableCapacity,
         observer: @escaping Observer = { _ in }
     ) async throws -> HLSPreparationResult {
         try Task.checkCancellation()
@@ -49,7 +50,7 @@ enum HLSPreparationService {
                     try await prepareBase(
                         input: input, probe: probe, audio: audio, outputMode: outputMode,
                         audioDelay: audioDelay, directory: outputDirectory, ffmpegURL: ffmpegURL,
-                        cache: cache, key: key, observer: observer
+                        cache: cache, key: key, capacityReader: capacityReader, observer: observer
                     ))
             }
             if let subtitle, !subtitle.usesBitmapOCR {
@@ -122,7 +123,8 @@ enum HLSPreparationService {
     private static func prepareBase(
         input: URL, probe: MediaProbe, audio: AudioTrack?, outputMode: AudioOutputMode,
         audioDelay: Double, directory: URL, ffmpegURL: URL,
-        cache: PreparedMediaCache?, key: PreparedMediaCache.Key?, observer: @escaping Observer
+        cache: PreparedMediaCache?, key: PreparedMediaCache.Key?,
+        capacityReader: @escaping PreparedMediaCache.CapacityReader, observer: @escaping Observer
     ) async throws -> Bool {
         if let cache, let key {
             await observer(.began(.cacheLookup))
@@ -155,19 +157,31 @@ enum HLSPreparationService {
             try FileManager.default.removeItem(at: file)
         }
         // A valid cache hit needs no full-file space reservation.
-        if let size = probe.fileSize, size > 0,
-            let values = try? FileManager.default.attributesOfFileSystem(forPath: directory.path),
-            let available = (values[.systemFreeSize] as? NSNumber)?.int64Value,
-            Double(available) < max(Double(size) + 768_000_000, Double(size) * 1.12)
-        {
-            let formatter = ByteCountFormatter()
-            formatter.countStyle = .file
+        if let size = probe.fileSize, size > 0 {
             let required = Int64(min(Double(Int64.max - 1_024), max(Double(size) + 768_000_000, Double(size) * 1.12)))
-            throw AirCillerError.invalidVODPackage(
-                L10n.format(
-                    "Para conservar el vídeo sin recodificar hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no borrará ni reducirá nada silenciosamente.",
-                    formatter.string(fromByteCount: required), formatter.string(fromByteCount: available))
-            )
+            if let available = capacityReader(directory), available >= 0, available < required {
+                if let cache {
+                    do {
+                        try await cache.reclaimSpace(
+                            requiredFreeBytes: required, forDirectory: directory, capacityReader: capacityReader)
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        // Cache cleanup remains optional. Only the fresh capacity
+                        // reading below decides whether preparation has room.
+                    }
+                }
+                try Task.checkCancellation()
+                if let current = capacityReader(directory), current >= 0, current < required {
+                    let formatter = ByteCountFormatter()
+                    formatter.countStyle = .file
+                    throw AirCillerError.invalidVODPackage(
+                        L10n.format(
+                            "Para preparar esta película hacen falta aproximadamente %@ libres; ahora hay %@. AirCiller no modificará ni recodificará el archivo original.",
+                            formatter.string(fromByteCount: required), formatter.string(fromByteCount: current))
+                    )
+                }
+            }
         }
         await observer(.began(.packaging))
         let build = makeBuild(

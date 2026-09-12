@@ -21,6 +21,7 @@ if [[ "${1:-}" == "--playback-checks" && $# == 1 ]]; then
   extra_swift_sources=(
     "$project_dir/Tests/PlaybackChecks/PlaybackCheckModel.swift"
     "$project_dir/Tests/PlaybackChecks/PlaybackCheckRunner.swift"
+    "$project_dir/Tests/PlaybackChecks/PlaybackCheckCacheEvidence.swift"
     "$project_dir/Tests/PlaybackChecks/PlaybackCheckScenarios.swift"
     "$project_dir/Tests/PlaybackChecks/BitmapCancellationCheck.swift"
   )
