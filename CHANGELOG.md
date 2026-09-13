@@ -2,12 +2,21 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
-## Unreleased
+## 0.13.0 (13 September 2026)
 
-- HLS playback can reuse previously prepared video and audio when replaying a movie or changing subtitles. Settings > Storage shows the retained size, lets you change the limit and can clear the movie cache. The default limit is 16 GiB; larger packages are prepared normally without being retained. Direct HDR MP4 with subtitles is not included.
-- Text subtitles can be extracted while the HLS movie is being prepared. Blu-ray and DVD subtitle recognition keeps its current scheduling.
+AirCiller can now keep prepared movies for reuse when you play them again or change subtitles.
 
-Local preparation and validation are complete. Apple TV validation and publication are pending; no end-to-end startup improvement is claimed yet. [Scope and measurement record](Docs/STARTUP_OPTIMIZATION.md).
+- In **Settings > Storage > Cached Movies**, see how much space is used, change the limit or choose **Clear Movie Cache**. Caching is enabled by default with a 16 GiB limit. Choose **Off** to disable it. Stop playback before changing these controls.
+- Replaying a cached HLS movie, changing subtitles or adjusting their delay can reuse its prepared video and audio. Changing the movie file, audio track or audio settings prepares a new stream.
+- Prepared movies larger than the limit are not kept. Older cached preparations are removed when you lower the limit or another movie needs the space. Clearing the cache leaves your original movies alone.
+- Text and ASS subtitles are prepared alongside HLS video and audio. Blu-ray and DVD subtitle recognition keeps its existing process.
+- Exported diagnostics now include HLS startup stages and whether cached media was reused. Find **Export Diagnostics** in **Settings > Diagnostics**.
+
+Saving a first preparation can add a small delay. Later matching plays can reuse that work. This applies to HLS playback; direct HDR MP4 playback with subtitles is unchanged. The cache limit covers retained movies, not all temporary space used during playback. No playback engine or supported format changes in this release.
+
+Known limitation: manual audio synchronization in SDR HLS can leave the requested offset unapplied. This predates the optimization and is not fixed in this release. Subtitle synchronization is separate.
+
+[Scope, measurements and playback checks](https://github.com/carlosciller/AirCiller/blob/v0.13.0/Docs/STARTUP_OPTIMIZATION.md)
 
 ## 0.12.6 (9 September 2026)
 
