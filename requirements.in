@@ -6,7 +6,7 @@ pyatv==0.18.0
 aiohttp==3.14.3
 requests==2.34.2
 urllib3==2.7.0
-zeroconf==0.150.0
+zeroconf==0.151.3
 
 # Keep the serialization/model stack used by the physically validated release.
 protobuf==6.33.6
