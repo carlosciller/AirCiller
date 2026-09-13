@@ -2,7 +2,7 @@
 
 Design direction researched on 13 September 2026. This is guidance for future UI work, not a claim that the redesign or accessibility checks are implemented. Read the applicable section for the requested change. The [baseline audit](NATIVE_DESIGN_AUDIT.md) records observations, code findings and proposed work separately.
 
-For future visual exploration, read the [reference dossier](NATIVE_DESIGN_REFERENCES.md) and [three proposals](NATIVE_DESIGN_PROPOSALS.md). These remain separate from the current playback work; no direction has been selected.
+For future visual exploration, read the [reference dossier](NATIVE_DESIGN_REFERENCES.md) and [three proposals](NATIVE_DESIGN_PROPOSALS.md). The maintainer selected **A. Mac essential** on 13 September 2026. This future direction remains separate from the current playback work.
 
 ## Product brief
 

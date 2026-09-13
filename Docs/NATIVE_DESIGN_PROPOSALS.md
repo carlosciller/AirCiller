@@ -1,12 +1,12 @@
 # Future interface proposals
 
-Status: exploration, 13 September 2026. The maintainer is refining the current AirCiller work separately; these proposals belong to a future version. This document does not schedule, select, implement or release a redesign. Keep changes on the design branch until the intended future integration. Recheck the current code and [dated audit](NATIVE_DESIGN_AUDIT.md) before implementing any finding.
+Status: direction A selected by the maintainer on 13 September 2026; an isolated native prototype has been built. The maintainer is refining the current AirCiller work separately; these proposals belong to a future version. The selection records a future design direction; it does not schedule integration or release a redesign. Keep changes on the design branch until the intended future integration. Recheck the current code and [dated audit](NATIVE_DESIGN_AUDIT.md) before implementing any finding.
 
 Read the [reference dossier](NATIVE_DESIGN_REFERENCES.md) for source evidence and the [design guide](NATIVE_DESIGN.md) for invariants and acceptance. This document records the comparison and decisions still open, without repeating those rules.
 
 ## Shared comparison
 
-Use identical content and commands when comparing compositions. All fixture data and interactions are fictional. The conversation preview is a web approximation; native materials, SF Symbols, menus, keyboard focus and accessibility must be evaluated in a subsequent native prototype.
+Use identical content and commands when comparing compositions. All fixture data and interactions are fictional. The conversation preview is a web approximation; native materials, SF Symbols, menus, keyboard focus and accessibility need their own evaluation. See the [native prototype record](NATIVE_DESIGN_PROTOTYPE.md) for completed checks and remaining acceptance.
 
 Initial scenario: Costa al amanecer plays on Apple TV at 42:18 of 1:42:00 while La última estación is selected. Audio is Spanish, original 5.1, and subtitles are English. Selecting another row changes selection only. The current movie and destination remain explicit in every direction.
 
@@ -42,7 +42,7 @@ The preview also shows the neutral analysis-pending state reached after cancelli
 
 **Risk to evaluate:** The interface may feel generic if its proportions, labels and transitions receive insufficient attention. Decorative cards are not a substitute for resolving that problem.
 
-**Best fit:** General everyday use. This is the recommended starting candidate, not a selected or accepted design.
+**Best fit:** General everyday use. The maintainer selected this direction. Native interaction, accessibility and release acceptance remain separate checks.
 
 ## B. Quiet cinema
 
@@ -68,9 +68,9 @@ The preview also shows the neutral analysis-pending state reached after cancelli
 
 **Best fit:** Frequent file switching and track adjustments. It should earn its additional visible detail through use.
 
-## Decision and later native prototype
+## Decision and native prototype
 
-No direction has been chosen. Preserve the three compositions long enough to compare the same tasks and adverse states; avoid combining every attractive element into one more crowded window.
+The maintainer chose **A. Mac essential** after comparing the three compositions. Keep B and C as alternatives in the study; do not incorporate their additional density or composition without a task that calls for it. The accepted choice preserves the sidebar library, balanced session detail and optional tracks inspector.
 
 1. Identify current movie, selected movie, destination and phase without opening diagnostics.
 2. Select another file without interrupting playback, then activate it explicitly.
@@ -78,6 +78,6 @@ No direction has been chosen. Preserve the three compositions long enough to com
 4. Recover the missing file while retaining identity and settings; try another available library item.
 5. Repeat at a compact width and in light/dark, another accent and inactive appearance.
 
-Record which direction was preferred and the concrete reason. After selection, build a small isolated native SwiftUI prototype with synthetic state to evaluate actual materials, controls, keyboard/VoiceOver, resizing and movement. It should not contact the receiver or replace the daily app. Verify API availability and the existing macOS 14 path before choosing newer enhancements.
+An isolated native SwiftUI prototype of A now provides synthetic state for evaluating actual materials, controls, keyboard/VoiceOver, resizing and movement. It does not contact the receiver or replace the daily app. Its [evidence record](NATIVE_DESIGN_PROTOTYPE.md) distinguishes compilation, model tests and initial runtime observation from pending native acceptance. Verify API availability and the existing macOS 14 path before integrating newer enhancements.
 
-Before future integration, refresh the source baseline against the maintainer's completed work. Implement only the accepted scope in focused changes and use the existing [contribution gate](../CONTRIBUTING.md#minimum-validation), [native acceptance](NATIVE_DESIGN.md#acceptance-and-implementation-order) and playback checks for the behavior actually changed. The current study is documentation and simulated design exploration; no application build, receiver acceptance or release claim follows from it.
+Before future integration, refresh the source baseline against the maintainer's completed work. Implement only the accepted scope in focused changes and use the existing [contribution gate](../CONTRIBUTING.md#minimum-validation), [native acceptance](NATIVE_DESIGN.md#acceptance-and-implementation-order) and playback checks for the behavior actually changed. The repository delivery remains documentation. The standalone prototype has its own build and tests; these do not establish AirCiller application, receiver, physical playback or release acceptance.
