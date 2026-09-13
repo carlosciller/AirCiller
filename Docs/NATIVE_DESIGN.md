@@ -2,6 +2,8 @@
 
 Design direction researched on 13 September 2026. This is guidance for future UI work, not a claim that the redesign or accessibility checks are implemented. Read the applicable section for the requested change. The [baseline audit](NATIVE_DESIGN_AUDIT.md) records observations, code findings and proposed work separately.
 
+For future visual exploration, read the [reference dossier](NATIVE_DESIGN_REFERENCES.md) and [three proposals](NATIVE_DESIGN_PROPOSALS.md). These remain separate from the current playback work; no direction has been selected.
+
 ## Product brief
 
 AirCiller helps someone choose a local movie, understand where it will play and control it on Apple TV. The interface should make the selected file, current item, destination and next available action unambiguous. Reliability, keyboard behavior, recovery and accessibility are part of design quality.
