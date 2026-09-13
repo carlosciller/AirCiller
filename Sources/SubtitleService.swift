@@ -8,6 +8,15 @@ struct HLSSegment: Hashable, Sendable {
     let fileName: String
 }
 
+/// Subtitle content independent of HLS segment boundaries. Bitmap conversion
+/// also records its exact movie duration because the final cue and cache key
+/// can depend on it; it must not be prepared against an estimated timeline.
+struct HLSSubtitleContent: Sendable {
+    let track: SubtitleTrack
+    let webVTT: String
+    let bitmapDuration: Double?
+}
+
 enum SubtitleService {
     static func alignRenditionPlaylists(outputDirectory: URL, expectedDuration: Double) throws {
         let videoURL = outputDirectory.appendingPathComponent("video.m3u8")
@@ -104,46 +113,112 @@ enum SubtitleService {
         maximumOCRFrames: Int? = nil,
         ocrProgress: (@Sendable (_ completed: Int, _ total: Int) -> Void)? = nil
     ) async throws -> SubtitleTrack {
+        try Task.checkCancellation()
         guard track.isSelectable else {
             throw AirCillerError.unsupportedSubtitle(track.unsupportedReason ?? "Pista de subtítulos no compatible.")
         }
+        let segments = try parseVODPlaylist(at: videoPlaylistURL)
+        guard !segments.isEmpty else {
+            throw AirCillerError.invalidVODPackage("La película no contiene segmentos de vídeo.")
+        }
+        let content = try await materializeHLSContent(
+            track: track,
+            videoURL: videoURL,
+            videoDuration: segments.reduce(0) { $0 + $1.duration },
+            outputDirectory: outputDirectory,
+            maximumOCRFrames: maximumOCRFrames,
+            ocrProgress: ocrProgress
+        )
+        return try finalizeHLSContent(
+            content,
+            delay: delay,
+            videoPlaylistURL: videoPlaylistURL,
+            outputDirectory: outputDirectory
+        )
+    }
 
-        do {
-            let segments = try parseVODPlaylist(at: videoPlaylistURL)
-            guard !segments.isEmpty else {
+    /// Text/ASS extraction can overlap video preparation. Bitmap callers must
+    /// supply the finalized video duration, not the container's estimate.
+    static func materializeHLSContent(
+        track: SubtitleTrack,
+        videoURL: URL,
+        videoDuration: Double,
+        outputDirectory: URL,
+        maximumOCRFrames: Int? = nil,
+        ocrProgress: (@Sendable (_ completed: Int, _ total: Int) -> Void)? = nil,
+        ffmpegURL: URL? = nil
+    ) async throws -> HLSSubtitleContent {
+        try Task.checkCancellation()
+        guard track.isSelectable else {
+            throw AirCillerError.unsupportedSubtitle(track.unsupportedReason ?? "Pista de subtítulos no compatible.")
+        }
+        let webVTT: String
+        if track.usesBitmapOCR {
+            guard videoDuration.isFinite, videoDuration > 0 else {
                 throw AirCillerError.invalidVODPackage("La película no contiene segmentos de vídeo.")
             }
-
-            let webVTT: String
-            if track.usesBitmapOCR {
-                let conversion = try await PGSSubtitleConverter.convert(
-                    track: track,
-                    videoURL: videoURL,
-                    videoDuration: segments.reduce(0) { $0 + $1.duration },
-                    maximumRenderedFrames: maximumOCRFrames,
-                    progress: ocrProgress
-                )
-                webVTT = conversion.webVTT
-            } else {
-                let rawExtension = track.usesAdvancedTextStyling ? "ass" : "vtt"
-                let rawURL = outputDirectory.appendingPathComponent("subtitles-raw.\(rawExtension)")
-                try await extractWebVTT(track: track, videoURL: videoURL, outputURL: rawURL)
-                defer { try? FileManager.default.removeItem(at: rawURL) }
-
-                let raw = (try? String(contentsOf: rawURL, encoding: .utf8)) ?? "WEBVTT\n"
-                webVTT =
-                    track.usesAdvancedTextStyling
-                    ? ASSSubtitleConverter.convert(raw).webVTT
-                    : raw
-            }
-            let cues = parseCues(webVTT, delay: delay)
-
-            for segment in segments {
-                try writeWebVTTSegment(segment, cues: cues, outputDirectory: outputDirectory)
-            }
-            try writeSubtitlePlaylist(segments: segments, outputDirectory: outputDirectory)
-            return resolvedBitmapTrack(track, webVTT: webVTT)
+            let conversion = try await PGSSubtitleConverter.convert(
+                track: track,
+                videoURL: videoURL,
+                videoDuration: videoDuration,
+                maximumRenderedFrames: maximumOCRFrames,
+                progress: ocrProgress
+            )
+            webVTT = conversion.webVTT
+        } else {
+            let rawExtension = track.usesAdvancedTextStyling ? "ass" : "vtt"
+            let rawURL = outputDirectory.appendingPathComponent("subtitles-raw-\(UUID().uuidString).\(rawExtension)")
+            defer { try? FileManager.default.removeItem(at: rawURL) }
+            try await extractWebVTT(track: track, videoURL: videoURL, outputURL: rawURL, ffmpegURL: ffmpegURL)
+            try Task.checkCancellation()
+            let raw = try String(contentsOf: rawURL, encoding: .utf8)
+            webVTT = track.usesAdvancedTextStyling ? ASSSubtitleConverter.convert(raw).webVTT : raw
         }
+        try Task.checkCancellation()
+        return HLSSubtitleContent(
+            track: resolvedBitmapTrack(track, webVTT: webVTT),
+            webVTT: webVTT,
+            bitmapDuration: track.usesBitmapOCR ? videoDuration : nil
+        )
+    }
+
+    /// Only the finalized, aligned video playlist defines subtitle segments.
+    /// Nothing is exposed to the receiver while this stage is running.
+    @discardableResult
+    static func finalizeHLSContent(
+        _ content: HLSSubtitleContent,
+        delay: Double,
+        videoPlaylistURL: URL,
+        outputDirectory: URL
+    ) throws -> SubtitleTrack {
+        try Task.checkCancellation()
+        guard delay.isFinite else {
+            throw AirCillerError.invalidVODPackage("Los subtítulos no están alineados con el vídeo.")
+        }
+        let playlist = try String(contentsOf: videoPlaylistURL, encoding: .utf8)
+        guard playlist.components(separatedBy: .newlines).contains("#EXT-X-ENDLIST") else {
+            throw AirCillerError.invalidVODPackage("La lista de vídeo no está cerrada como VOD.")
+        }
+        let segments = try parseVODPlaylistText(playlist)
+        guard !segments.isEmpty,
+            segments.allSatisfy({ $0.duration.isFinite && $0.duration > 0 && $0.startTime.isFinite }),
+            segments.reduce(0, { $0 + $1.duration }).isFinite
+        else {
+            throw AirCillerError.invalidVODPackage("La película no contiene segmentos de vídeo.")
+        }
+        if let bitmapDuration = content.bitmapDuration,
+            bitmapDuration != segments.reduce(0, { $0 + $1.duration })
+        {
+            throw AirCillerError.invalidVODPackage("Los subtítulos no están alineados con el vídeo.")
+        }
+        let cues = parseCues(content.webVTT, delay: delay)
+        for segment in segments {
+            try Task.checkCancellation()
+            try writeWebVTTSegment(segment, cues: cues, outputDirectory: outputDirectory)
+        }
+        try Task.checkCancellation()
+        try writeSubtitlePlaylist(segments: segments, outputDirectory: outputDirectory)
+        return content.track
     }
 
     /// Materializes a graphical subtitle as a temporary text track so the
@@ -539,9 +614,10 @@ enum SubtitleService {
     private static func extractWebVTT(
         track: SubtitleTrack,
         videoURL: URL,
-        outputURL: URL
+        outputURL: URL,
+        ffmpegURL explicitFFmpegURL: URL? = nil
     ) async throws {
-        guard let ffmpegURL = Executables.find("ffmpeg") else {
+        guard let ffmpegURL = explicitFFmpegURL ?? Executables.find("ffmpeg") else {
             throw AirCillerError.ffmpegMissing
         }
 
@@ -571,6 +647,11 @@ enum SubtitleService {
         }
         process.standardError = errors
         process.standardOutput = FileHandle.nullDevice
+        defer {
+            errors.fileHandleForReading.readabilityHandler = nil
+            try? errors.fileHandleForReading.close()
+            try? errors.fileHandleForWriting.close()
+        }
         let status = try await CancellableProcess(process).run {
             try? errors.fileHandleForWriting.close()
         }

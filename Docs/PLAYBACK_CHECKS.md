@@ -93,9 +93,24 @@ The final `report.json` is in a new private `.build/playback-checks/capture-run-
 
 These are sampled digital-output checks. They do not certify physical speakers, Atmos channel layout, television HDR rendering, frame-accurate subtitle timing, physical remote use or whole-movie reliability. The control-only mode below retains its deliberately different `automated_checks_passed_output_unverified` result.
 
+## Startup timing from saved captures
+
+`Scripts/playback_startup.py` analyzes an existing basic HLS-with-subtitles case without opening a device or starting playback:
+
+```sh
+python3 Scripts/playback_startup.py /absolute/path/to/case-02 \
+  --cue-token 123456 --output /absolute/path/to/new-timing-report.json
+```
+
+Use the actual fresh six-digit token from that case's generated subtitle, not the documentation value. The evaluator reads the saved sample manifest, frame analysis and controls. The candidate must supply its explicit initial Play timestamp; the instrumented baseline uses `playRequestedAtUptime`. The analysis-start timestamp and receiver confirmation cannot substitute for that anchor. Input files and existing output reports are never overwritten. Reports record input and evaluator hashes.
+
+This narrow measurement requires passing playback output, a recent clean video sample before Play, measured silence before Play, two consecutive moving test-pattern frames with the new subtitle identifier, and three consecutive 880 Hz audio measurements. Samples after the first pause, seek or terminal event cannot establish startup. Missing prior audio is unknown, not silence. Old cues, missing anchors, sampling gaps or insufficient attribution produce `inconclusive` with no latency numbers.
+
+The reported times identify the first qualifying captured output and the later sample that confirmed it. They include callback scheduling, capture transport and image persistence overhead. Recognizing the fresh picture also depends on subtitle display and text recognition. Observed sample spacing is not an error bound on physical screen or speaker latency. This is not a decoder-first-frame measurement and cannot be applied to repeated-cue cache scenarios. Capture timing and playback acceptance remain separate results.
+
 ## Optional scenarios
 
-Keep the same command and select the desired names in the capture configuration's `cases` array. The default remains the three basic cases. A configuration accepts up to ten distinct cases:
+Keep the same command and select the desired names in the capture configuration's `cases` array. The default remains the three basic cases. A configuration accepts up to eleven distinct cases:
 
 | Case | Actions and required evidence |
 | --- | --- |
@@ -105,6 +120,7 @@ Keep the same command and select the desired names in the capture configuration'
 | `playlistTransition` | Open two items through the normal Playlist action. Observe the first, seek into its final six seconds, wait for the receiver's natural-end event, and require exactly one automatic load of the second item. |
 | `directLongPause`, `hlsLongPause` | Observe the clip, obtain a receiver-confirmed pause, seek to second 15 while paused, retain the same session for six minutes, then require the receiver to resume at that target without loading again. Require separate captured picture, audio and subtitle evidence after resuming. |
 | `hlsHDRNoSubtitles` | Exercise HDR through multiplexed HLS without subtitles. Require the generated HDR color pattern, motion, digital audio and receiver controls. See [transport-stream validation](TRANSPORT_STREAMS.md) for the bounded fixture override. |
+| `hlsCacheReuse` | Use a disposable HLS cache and check seven separately captured phases: first preparation, replay, subtitle replacement, alternate audio, subtitle delay, original audio restored, and subtitles off. Require expected cache hits/misses, unchanged base-file hashes on hits, receiver starts and matching subtitle/audio in every phase. Manual audio adjustment stays at zero. |
 
 The long-pause supervisor suspends frame and audio-measurement persistence during the hold. The explicitly approved Apple TV input stays active and its identity remains guarded. Persistence resumes before the post-pause observation window. This bounds stored evidence without relaxing camera exclusions or inventing output samples for the paused interval. The commands originate in AirCiller, so this does not validate a physical remote or prove how the receiver behaves without a capture connection.
 
@@ -115,6 +131,10 @@ A second attempt completed the six-minute direct HDR hold and resumed at second 
 For example, use `"cases": ["directTrackChanges", "hlsTrackChanges", "cancelPreparation", "playlistTransition"]` for the new scenarios, or include the three basic names for the complete current batch. New scenarios do not substitute for basic startup, pause and seek checks.
 
 The HLS track-change fixture has two original E-AC-3 stereo tracks with different tones, 880 Hz and 440 Hz. Only the generated fixture gains an extra audio track; private movie tracks are not encoded or modified. The sampler measures the known tone frequencies in memory and saves numbers, not raw audio. The check requires the expected tone after the track change, so merely selecting a row cannot pass it. This is a fixture-specific signal check, not a test of surround layout or sound quality.
+
+`hlsCacheReuse` uses that dual-audio fixture. It requires misses for the first preparation and alternate audio; the other five phases must hit the cache, including a subtitle-delay change while retaining the alternate audio. Each stable observation lasts eight seconds. Its video/audio hash inventory is bounded to 256 MiB and read after receiver confirmation. These reads and the output observations make this an integrity test, not a clean startup benchmark. The private report distinguishes the action request, preparation trace and receiver-confirmation timestamps; none is called the first visible frame. The capture evaluator also requires successful cleanup of the isolated cache. Every output window is assessed even if another lacks samples; any missing evidence keeps the overall result inconclusive. Manual audio timing is excluded following the [deferred repair decision](HLS_AUDIO_TIMING.md).
+
+For separate control measurements, a private plan can opt into `"hlsCacheMode": "isolated"`. This creates a fresh, fixed-limit temporary cache for that run, never the daily app's cache. Repeating the same file in `clips` can exercise first preparation and reuse. An optional Boolean `expectedCacheHit` on a clip requires the corresponding result and hashes its short synthetic base. Omit the expectation for timing-only runs to avoid the hash read. The default remains `disabled`; plans cannot supply a cache path or budget. The direct MP4 route cannot enable this mode.
 
 Each stable playback phase has a bounded observation window and must have its own fresh receiver-start evidence. Windows are assessed independently: an earlier subtitle, moving picture or audio sample cannot pass a later phase. Applying track settings uses the normal coordinator action and preserves original-audio mode. Both text tracks must have distinct fresh identifiers. The Playlist scenario uses the normal two-file open action and records load order without including file paths in the report; it never invokes the completion callback or starts the second item manually.
 

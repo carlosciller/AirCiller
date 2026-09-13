@@ -8,7 +8,8 @@ AirCiller has no AirCiller account, telemetry, analytics, advertising, or cloud 
 - AirPlay credentials are stored in the macOS Keychain.
 - PGS subtitle OCR runs through Apple Vision. Its WebVTT result may remain in a local cache to avoid repeating recognition.
 - OpenSubtitles API and account credentials are stored in the macOS Keychain. Downloaded subtitles remain in the local subtitle cache until you clear it.
-- Prepared VODs and tracks are created in temporary storage and removed when the session ends or during later cleanup.
+- Session-specific VOD playlists and tracks are created in temporary storage and removed when the session ends or during later cleanup.
+- Finalized HLS video and audio can remain in the local prepared-media cache for reuse. Settings > Storage shows its size and provides a limit, Off and Clear controls. The default retention limit is 16 GiB. Older entries can be removed when another movie needs disk space. Direct HDR MP4 preparations are not retained by this cache. Cache removal never removes original movies.
 
 ## Internet services
 
@@ -24,5 +25,7 @@ During playback, AirCiller opens a temporary HTTP server on the local network so
 ## Logs
 
 The macOS unified log may contain technical state, but filenames, receivers, addresses, and URIs are marked private. Before sharing diagnostics, review and remove any remaining personal data.
+
+An exported local diagnostic can include HLS preparation stage timings and cache-hit status. These measurements contain no movie path/title, receiver identity or credentials. They are only exported when requested and are not transmitted automatically.
 
 AirCiller does not send your library, diagnostics, or credentials to its maintainer or OpenAI. Data sent to GitHub and OpenSubtitles is limited to the actions described above.

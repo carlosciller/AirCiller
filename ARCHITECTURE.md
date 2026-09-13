@@ -21,6 +21,8 @@ Local certificate-signed builds also embed an on-demand, read-only [credential s
 
 The paths share discovery, control, and the HTTP server, but keep their packagers and physical validation separate. A single delivery must not change both paths.
 
+HLS preparation is owned by `HLSPreparationService`. It joins concurrent base packaging and text extraction before segmenting subtitles against the finalized video timeline. Bitmap OCR still runs after packaging. `PreparedMediaCache` retains only immutable base video/audio; each session gets independent playlist copies. `StreamCoordinator` owns cancellation, the temporary server, receiver startup and a local per-attempt timing trace. See the [unreleased optimization record](Docs/STARTUP_OPTIMIZATION.md) for cache boundaries and validation status.
+
 ## Boundaries
 
 - Swift/AppKit/SwiftUI: interface, state, preparation, and local server.

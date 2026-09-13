@@ -3,8 +3,12 @@ import Foundation
 // Compiled into the opt-in check app and deterministic tests only.
 struct PlaybackCheckPlan: Decodable {
     enum Route: String, Codable { case directHDR, hls, hlsHDR }
+    enum HLSCacheMode: String, Codable { case disabled, isolated }
     enum Profile: String, Codable {
         case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap, subtitleSeek
+        case hlsCacheReuse
+
+        var stableObservationSeconds: Double { self == .hlsCacheReuse ? 8 : 5 }
     }
 
     struct NextClip: Decodable {
@@ -19,6 +23,7 @@ struct PlaybackCheckPlan: Decodable {
         let externalSubtitle: String?
         let alternateSubtitle: String?
         let nextClip: NextClip?
+        let expectedCacheHit: Bool?
 
         func validate() throws {
             guard path.hasPrefix("/"),
@@ -52,7 +57,9 @@ struct PlaybackCheckPlan: Decodable {
     let clips: [Clip]
     let captureReadyFile: String?
     let profile: Profile?
+    let hlsCacheMode: HLSCacheMode?
     var selectedProfile: Profile { profile ?? .controls }
+    var selectedHLSCacheMode: HLSCacheMode { hlsCacheMode ?? .disabled }
 
     static func decode(_ data: Data) throws -> Self {
         guard data.count <= 65_536 else { throw PlaybackCheckFailure.invalidPlan }
@@ -77,6 +84,21 @@ struct PlaybackCheckPlan: Decodable {
             else { throw PlaybackCheckFailure.invalidPlan }
         }
         for clip in plan.clips {
+            if plan.selectedHLSCacheMode == .isolated {
+                guard clip.route != .directHDR,
+                    [.controls, .hlsCacheReuse].contains(plan.selectedProfile)
+                else { throw PlaybackCheckFailure.invalidPlan }
+            }
+            if clip.expectedCacheHit != nil {
+                guard plan.selectedHLSCacheMode == .isolated, plan.selectedProfile == .controls else {
+                    throw PlaybackCheckFailure.invalidPlan
+                }
+            }
+            if plan.selectedProfile == .hlsCacheReuse {
+                guard plan.selectedHLSCacheMode == .isolated, clip.route == .hls,
+                    clip.externalSubtitle != nil, clip.subtitleIndex == nil
+                else { throw PlaybackCheckFailure.invalidPlan }
+            }
             if plan.selectedProfile == .subtitleSeek {
                 guard clip.route == .hls, clip.externalSubtitle != nil else {
                     throw PlaybackCheckFailure.invalidPlan
@@ -85,7 +107,7 @@ struct PlaybackCheckPlan: Decodable {
             guard clip.route != .hlsHDR || plan.selectedProfile == .controls else {
                 throw PlaybackCheckFailure.invalidPlan
             }
-            guard (clip.alternateSubtitle != nil) == (plan.selectedProfile == .trackChanges),
+            guard (clip.alternateSubtitle != nil) == ([.trackChanges, .hlsCacheReuse].contains(plan.selectedProfile)),
                 (clip.nextClip != nil) == (plan.selectedProfile == .playlistTransition)
             else { throw PlaybackCheckFailure.invalidPlan }
             if [.trackChanges, .playlistTransition, .longPause].contains(plan.selectedProfile) {
@@ -109,7 +131,7 @@ enum PlaybackCheckFailure: String, Error, Codable {
     case invalidPlan, missingMedia, wrongBuild, appAlreadyRunning, playbackNotAuthorized
     case deviceUnavailable, authorizationUnavailable, conversionRequested, unsupportedFixture
     case applicationError, receiverMismatch, unexpectedTerminalEvent, timedOut, evidenceLimit, cleanupFailed,
-        interrupted
+        interrupted, cacheMismatch
 
     var outcome: String {
         switch self {
@@ -267,6 +289,7 @@ struct PlaybackCheckResult: Encodable {
     var loadSequence: [Int] = []
     var pauseWindow: PlaybackCheckOutputWindow?
     var bitmapCancellation: BitmapCancellationEvidence?
+    var startups: [PlaybackCheckStartupEvidence] = []
 }
 
 struct BitmapCancellationEvidence: Encodable {
@@ -288,6 +311,8 @@ struct PlaybackCheckReport: Encodable {
     var outcome: String
     var failure: PlaybackCheckFailure?
     var results: [PlaybackCheckResult] = []
+    var hlsCacheMode: PlaybackCheckPlan.HLSCacheMode = .disabled
+    var isolatedCacheCleanupConfirmed: Bool?
     let outputVerification = "not_observed"
     let unobservedOutputChecks = [
         "Picture and HDR/Dolby Vision appearance for each selected clip",

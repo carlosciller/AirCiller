@@ -1,6 +1,7 @@
 """Additional opt-in checks. Basic three-case acceptance remains separate."""
 import copy
 import json
+import re
 import secrets
 
 from playback_checks import run_process
@@ -11,6 +12,12 @@ from playback_capture import (CASE_INFO, CONTROL_PASS, OUTPUT_PASS, CANCELLATION
 
 def expected_windows(name, tokens):
     route = CASE_INFO[name][1]
+    if name == "hlsCacheReuse":
+        return [("cold", route, tokens[0], 880), ("warmReplay", route, tokens[0], 880),
+                ("subtitleChanged", route, tokens[1], 880),
+                ("audioChanged", route, tokens[1], 440),
+                ("subtitleDelayChanged", route, tokens[1], 440),
+                ("originalAudioRestored", route, tokens[1], 880), ("subtitlesOff", route, None, 880)]
     initial = ("initial", route, tokens[0], 880 if route == "hls" else None)
     if CASE_INFO[name][0] == "longPause":
         return [initial, ("afterPause", route, tokens[0], 880 if route == "hls" else None)]
@@ -86,7 +93,13 @@ def assess_scenario(samples, analysis, control, name, tokens):
                     raise CaptureError("invalidScenarioCues")
                 frames.append(dict(row, expectedCue=token is not None and token in row["cueTokens"]))
             base_case = "directHDR" if route == "directHDR" else ("hlsSubtitles" if token else "hlsNoSubtitles")
-            observed = assess_samples(samples, frames, proxy, base_case)
+            try:
+                observed = assess_samples(samples, frames, proxy, base_case)
+            except CaptureError as error:
+                # Keep the strict failure for this window without discarding
+                # independent observations from the rest of the same run.
+                output.append({"window": label, "outcome": "inconclusive", "gaps": [str(error)]})
+                continue
             observed["window"] = label
             if tone is not None:
                 audio = [r for r in samples["rows"] if r["kind"] == "audio" and start + .5 <= r["uptime"] <= end - .5
@@ -97,10 +110,69 @@ def assess_scenario(samples, analysis, control, name, tokens):
                     observed["gaps"].append("expectedAudioTrackNotObserved")
                     observed["outcome"] = "inconclusive"
             output.append(observed)
-        return {"outcome": OUTPUT_PASS if all(w["outcome"] == OUTPUT_PASS for w in output) else "inconclusive",
-                "controls": CONTROL_PASS, "windows": output, "gaps": sorted({g for w in output for g in w["gaps"]})}
+        verdict = {"outcome": OUTPUT_PASS if all(w["outcome"] == OUTPUT_PASS for w in output) else "inconclusive",
+                   "controls": CONTROL_PASS, "windows": output, "gaps": sorted({g for w in output for g in w["gaps"]})}
+        if name == "hlsCacheReuse":
+            if control.get("hlsCacheMode") != "isolated" or control.get("isolatedCacheCleanupConfirmed") is not True:
+                raise CaptureError("isolatedCacheCleanupNotEstablished")
+            verdict["cacheReuse"] = assess_cache_reuse(result, expected)
+        return verdict
     except (KeyError, TypeError, IndexError, ValueError):
         raise CaptureError("invalidScenarioEvidence") from None
+
+
+def assess_cache_reuse(result, expected):
+    """Require measured reuse and immutable media, not just successful playback."""
+    starts = result["startups"]
+    hits = [False, True, True, False, True, True, True]
+    if not isinstance(starts, list) or len(starts) != len(expected) or len(expected) != len(hits):
+        raise CaptureError("incompleteCacheEvidence")
+    bases, timings = [], []
+    previous_end = result["startedAtUptime"]
+    for start, window, (label, _, _, _), hit in zip(starts, result["outputWindows"], expected, hits):
+        requested, confirmed = start["requestedAtUptime"], start["receiverConfirmedAtUptime"]
+        trace = start["snapshot"]
+        origin, elapsed = trace["startedAtUptimeSeconds"], trace["elapsedSeconds"]
+        if (start["label"] != label or start["cacheHit"] is not hit or start["expectedCacheHit"] is not hit
+                or not all(finite(v) for v in (requested, confirmed, origin, elapsed)) or elapsed < 0
+                or not previous_end <= requested <= origin <= origin + elapsed <= confirmed + .01
+                or confirmed > window["startedAtUptime"] or trace["outcome"] != "receiverMediaRequest"):
+            raise CaptureError("cacheTimingMismatch")
+        previous_end = window["endedAtUptime"]
+        spans = trace["spans"]
+        stages = {"analysis", "authorization", "cacheLookup", "cacheStore", "packaging", "subtitles", "validation",
+                  "localServer", "localAsset", "airPlay", "receiverRequest"}
+        if (not isinstance(spans, list) or not 1 <= len(spans) <= 64 or any(
+                not isinstance(s, dict) or s.get("stage") not in stages or s.get("state") != "completed"
+                or not finite(s.get("startSeconds")) or not finite(s.get("elapsedSeconds"))
+                or s["startSeconds"] < 0 or s["elapsedSeconds"] < 0
+                or s["startSeconds"] + s["elapsedSeconds"] > elapsed + .01 for s in spans)
+                or not {"cacheLookup", "receiverRequest"}.issubset({s["stage"] for s in spans})
+                or any(s["stage"] == "packaging" for s in spans) == hit):
+            raise CaptureError("cacheTraceMismatch")
+        files = start["baseFingerprint"]["files"]
+        if (not isinstance(files, list) or not 2 <= len(files) <= 512 or any(
+                not isinstance(f, dict) or not isinstance(f.get("name"), str)
+                or not re.fullmatch(r"(video|audio)-(init\.mp4|[0-9]+\.m4s)", f["name"])
+                or type(f.get("bytes")) is not int or f["bytes"] <= 0
+                or not isinstance(f.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", f["sha256"])
+                for f in files)):
+            raise CaptureError("invalidCacheFingerprint")
+        names = [f["name"] for f in files]
+        if (len(set(names)) != len(names) or "video-init.mp4" not in names or "audio-init.mp4" not in names
+                or not any(n.startswith("video-") and n.endswith(".m4s") for n in names)
+                or not any(n.startswith("audio-") and n.endswith(".m4s") for n in names)
+                or sum(f["bytes"] for f in files) > 256 * 1024**2):
+            raise CaptureError("invalidCacheFingerprint")
+        bases.append(sorted(files, key=lambda f: f["name"]))
+        timings.append(dict(label=label, cacheHit=hit,
+                            requestToReceiverConfirmationSeconds=confirmed - requested,
+                            preparationToReceiverRequestSeconds=elapsed))
+    if (any(bases[i] != bases[0] for i in (1, 2, 5, 6))
+            or bases[4] != bases[3] or bases[3] == bases[0]):
+        raise CaptureError("cacheMediaMismatch")
+    return {"outcome": "cache_reuse_and_media_identity_observed", "starts": timings,
+            "timingEndpoint": "receiver_confirmation_not_first_visible_frame"}
 
 
 def assess_long_pause(result):
@@ -144,13 +216,15 @@ def run_scenario(name, config, fixtures, project, directory, candidate_hash):
     tools = project / ".build/playback-capture-tools"
     plan = {"version": 1, "deviceID": config["deviceID"], "profile": profile,
             "clips": [{"path": str(fixture[0]), "route": route}]}
+    if profile == "hlsCacheReuse":
+        plan["hlsCacheMode"] = "isolated"
     clip = plan["clips"][0]
     tokens = [f"{value:06d}" for value in secrets.SystemRandom().sample(range(1_000_000), 2)]
     if profile != "cancelPreparation":
         first = directory / "initial.eng.srt"
         write_cues(first, tokens[0])
         clip["externalSubtitle"] = str(first)
-        if profile == "trackChanges":
+        if profile in {"trackChanges", "hlsCacheReuse"}:
             alternate = directory / "alternate.eng.srt"
             write_cues(alternate, tokens[1])
             clip["alternateSubtitle"] = str(alternate)

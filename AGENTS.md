@@ -25,5 +25,5 @@
 ## Release boundaries
 
 - Follow [DISTRIBUTION.md](DISTRIBUTION.md) and [release readiness](.agents/skills/airciller-development/references/release-readiness.md). Publication and daily-app replacement require authorization in the conversation; preserve rollback and signed third-party bundles. Ad hoc signing is not notarization.
-- Preserve the existing [dedicated startup-phase checkpoint](ROADMAP.md#next-dedicated-update-faster-playback-startup): notify the maintainer and wait for readiness confirmation so they can select Astra with ultra reasoning. Do not switch models or start that phase silently; this does not block unrelated maintenance.
+- The [dedicated startup phase](ROADMAP.md#in-progress-faster-playback-startup) records that the maintainer readiness checkpoint is complete. Preserve its authorized scope and recorded validation limits; do not restart that checkpoint or switch models silently. This does not block unrelated maintenance.
 - Maintainer review references: [Theo](https://x.com/theo/status/2095966874010046621) and [Eric Provencher](https://x.com/pvncher/status/2095991462416490862). Apply relevant ideas with evidence; these are not authorization for unrelated changes.

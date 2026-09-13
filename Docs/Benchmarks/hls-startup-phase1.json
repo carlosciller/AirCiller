@@ -1,0 +1,127 @@
+{
+  "baselineRevision" : "558b2350cec9414cfb1d8aca72a693f5412497ef",
+  "limitations" : [
+    "Synthetic 18-second SDR fixture, not a large movie or bitmap OCR workload.",
+    "A separately fingerprinted development FFmpeg generates the fixture only; remux\/probe\/preparation use the pinned engine.",
+    "Empty app cache does not mean cold OS\/disk cache; no system cache purge is performed.",
+    "Probe, fixture generation, warm-cache fill and output comparisons are not timed.",
+    "No HTTP, receiver, first-visible-frame, sound, HDR or direct-MP4 measurement.",
+    "Baseline uses frozen production sources plus the equivalent sequential preparation call order and 200 ms polling.",
+    "No performance threshold or expected gain is asserted; every sample must retain identical served bytes."
+  ],
+  "rows" : [
+    {
+      "maximumMilliseconds" : 241.820250004821,
+      "medianMilliseconds" : 236.08866667200346,
+      "minimumMilliseconds" : 231.43625000375323,
+      "mode" : "baseline",
+      "samplesMilliseconds" : [
+        238.14237500482704,
+        232.89558333635796,
+        236.08866667200346,
+        231.43625000375323,
+        241.820250004821
+      ],
+      "subtitleCodec" : "subrip"
+    },
+    {
+      "maximumMilliseconds" : 35.16420833329903,
+      "medianMilliseconds" : 33.63612500106683,
+      "minimumMilliseconds" : 33.247333332838025,
+      "mode" : "noCache",
+      "samplesMilliseconds" : [
+        33.3705416705925,
+        33.247333332838025,
+        34.18191666423809,
+        35.16420833329903,
+        33.63612500106683
+      ],
+      "subtitleCodec" : "subrip"
+    },
+    {
+      "maximumMilliseconds" : 40.779166665743105,
+      "medianMilliseconds" : 39.81470833241474,
+      "minimumMilliseconds" : 38.726083330402616,
+      "mode" : "emptyAppCache",
+      "samplesMilliseconds" : [
+        40.34716667229077,
+        38.726083330402616,
+        39.81470833241474,
+        39.36637500009965,
+        40.779166665743105
+      ],
+      "subtitleCodec" : "subrip"
+    },
+    {
+      "maximumMilliseconds" : 21.84250000573229,
+      "medianMilliseconds" : 21.24320832808735,
+      "minimumMilliseconds" : 19.784416668699123,
+      "mode" : "warmAppCache",
+      "samplesMilliseconds" : [
+        19.784416668699123,
+        20.954791667463724,
+        21.24320832808735,
+        21.84250000573229,
+        21.507041667064186
+      ],
+      "subtitleCodec" : "subrip"
+    },
+    {
+      "maximumMilliseconds" : 242.4135416658828,
+      "medianMilliseconds" : 232.4550833363901,
+      "minimumMilliseconds" : 229.1697083346662,
+      "mode" : "baseline",
+      "samplesMilliseconds" : [
+        239.77587500121444,
+        229.1697083346662,
+        232.4550833363901,
+        242.4135416658828,
+        229.7130000006291
+      ],
+      "subtitleCodec" : "ass"
+    },
+    {
+      "maximumMilliseconds" : 34.635374999197666,
+      "medianMilliseconds" : 33.531416665937286,
+      "minimumMilliseconds" : 31.594583328114823,
+      "mode" : "noCache",
+      "samplesMilliseconds" : [
+        34.635374999197666,
+        31.594583328114823,
+        33.806916668254416,
+        33.531416665937286,
+        32.80845833069179
+      ],
+      "subtitleCodec" : "ass"
+    },
+    {
+      "maximumMilliseconds" : 41.01479167002253,
+      "medianMilliseconds" : 40.290666664077435,
+      "minimumMilliseconds" : 38.817624998046085,
+      "mode" : "emptyAppCache",
+      "samplesMilliseconds" : [
+        39.8458333365852,
+        41.01433333562454,
+        40.290666664077435,
+        41.01479167002253,
+        38.817624998046085
+      ],
+      "subtitleCodec" : "ass"
+    },
+    {
+      "maximumMilliseconds" : 21.653958327078726,
+      "medianMilliseconds" : 21.296916667779442,
+      "minimumMilliseconds" : 20.99116666795453,
+      "mode" : "warmAppCache",
+      "samplesMilliseconds" : [
+        21.296916667779442,
+        21.194583336182404,
+        20.99116666795453,
+        21.653958327078726,
+        21.563249996688683
+      ],
+      "subtitleCodec" : "ass"
+    }
+  ],
+  "scope" : "Local complete HLS preparation: embedded text subtitles, copied H.264 and AAC, VOD validation"
+}

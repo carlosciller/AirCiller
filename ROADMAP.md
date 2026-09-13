@@ -64,9 +64,15 @@ OCR and conversion to selectable text are separate from original audio/video pas
 
 AV1 passthrough remains research only. A device decoder does not establish support in its AirPlay video receiver.
 
-## Next dedicated update: faster playback startup
+## In progress: faster playback startup
 
-Planned after 0.12.6. This is a separate, measured engineering phase; implementation has not started. Notify the maintainer before beginning and wait for their readiness confirmation, as required by `AGENTS.md`.
+Authorized on 11 September 2026, after the maintainer readiness checkpoint. Delivery is split into two phases: local implementation and preparation first, then Apple TV tests and publication. The [candidate record](Docs/STARTUP_OPTIMIZATION.md) tracks the baseline, changes, measurements and remaining checks. No version or installed app changes in phase 1.
+
+Phase 1 is locally complete. The candidate changes only HLS preparation: bounded reuse of finalized video/audio, parallel text extraction, event-driven process completion and cancellation of a redundant source-demand scan. The strict gate passed, and 40 short-fixture preparations preserve baseline output byte for byte. Phase 2 also passed the strict gate and 32 comparisons using a 2.218 GB input: warm reuse saves about 0.75 seconds of local preparation, while first admission adds about 0.03 to 0.05 seconds compared with the baseline. The report records CPU, sampled memory, disk use and measurement limits.
+
+The first HLS optimization is accepted for 0.13.0. The final gate and seven-phase cache batch passed: cold preparation, warm replay, subtitle replacement, alternate original audio, subtitle delay, original audio restored, and subtitles off. Every phase kept the manual audio offset at zero and passed receiver controls, immutable-media checks, sampled output and cleanup. Native Storage was checked in English and Spanish, with the original language and settings restored. Distribution and update verification follow the separate release procedure. Direct MP4 and bitmap OCR scheduling are unchanged. Apple TV startup gains are not established; end-to-end timing and slower external-storage measurements remain follow-up work, without promised gains.
+
+A confirmed pre-existing defect can discard manual audio timing adjustments in SDR HLS, independently of the cache. The maintainer approved deferring that repair from this delivery after the experimental correction failed Apple TV acceptance. The [audio-timing investigation](Docs/HLS_AUDIO_TIMING.md) retains the failure evidence and unresolved design questions. Any later repair must preserve original encoded media without silent conversion or truncation; it is not a completed optimization feature.
 
 The goal is to reduce the time from pressing Play to the first visible picture and audible content on Apple TV, while preserving original quality, selectable subtitles and reliable playback through the movie. Set numeric targets after measuring a baseline; do not promise a speed ranking without comparable evidence.
 
