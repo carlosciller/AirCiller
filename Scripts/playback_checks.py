@@ -15,33 +15,69 @@ import time
 
 def finish_process_group(process):
     """Only clean the new process group owned by this invocation."""
-    try:
-        os.killpg(process.pid, 0)
-    except ProcessLookupError:
-        return False
-    os.killpg(process.pid, signal.SIGTERM)
-    try:
-        process.wait(timeout=3)
-    except subprocess.TimeoutExpired:
-        pass
-    # The app may have exited before its helper. Check the group, not just Popen.
-    deadline = time.monotonic() + 3
-    while time.monotonic() < deadline:
+    original_error = sys.exc_info()[1]
+    observed_group = False
+    group_absent = False
+    child_reaped = False
+
+    def group_signal(number):
         try:
-            os.killpg(process.pid, 0)
-        except ProcessLookupError:
+            os.killpg(process.pid, number)
             return True
+        except ProcessLookupError:
+            return False
         except PermissionError:
-            # Darwin can briefly refuse signals to an exiting orphan. Do not
-            # mistake that for successful cleanup or abandon the result report.
-            pass
-        time.sleep(0.1)
+            # EPERM does not prove either existence or successful cleanup.
+            return None
+
+    def wait_for_group(deadline):
+        nonlocal observed_group, group_absent
+        while True:
+            # Reap the direct child even if group inspection is denied. A
+            # descendant can keep the group alive after this child exits.
+            process.poll()
+            state = group_signal(0)
+            observed_group = observed_group or state is True
+            group_absent = state is False
+            if group_absent and process.returncode is not None:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.05)
+
     try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
-    process.wait(timeout=3)
-    return True
+        initial = group_signal(0)
+        observed_group = initial is True
+        group_absent = initial is False
+        if initial is not False:
+            sent = group_signal(signal.SIGTERM)
+            observed_group = observed_group or sent is True
+        if not wait_for_group(time.monotonic() + 3):
+            group_signal(signal.SIGKILL)
+            # This is still our unreaped Popen child, not an inferred PID or
+            # another group. It may remain signalable when killpg returns EPERM.
+            if process.poll() is None:
+                try:
+                    process.kill()
+                except (ProcessLookupError, PermissionError):
+                    pass
+            wait_for_group(time.monotonic() + 3)
+    finally:
+        # Always wait, including initial ESRCH/EPERM and signal races. If the
+        # OS denies all signals, bounded waiting cannot certify cleanup.
+        try:
+            process.wait(timeout=3)
+            child_reaped = True
+        except subprocess.TimeoutExpired:
+            pass
+    if not group_absent or not child_reaped:
+        message = "cleanupUnverified"
+        if original_error is not None:
+            label = str(original_error)
+            if len(label) <= 64 and label.isidentifier():
+                message += f" (original failure: {label})"
+        raise OSError(message) from original_error
+    return observed_group
 
 
 def run_process(command, timeout):

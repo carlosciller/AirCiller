@@ -1,0 +1,182 @@
+{
+  "baselineRevision" : "558b2350cec9414cfb1d8aca72a693f5412497ef",
+  "fixtureBytes" : 2218226312,
+  "limitations" : [
+    "Synthetic SDR H.264\/AAC fixture (size and duration recorded), not a private movie or bitmap OCR workload.",
+    "A separately fingerprinted development FFmpeg generates the fixture only; remux\/probe\/preparation use the pinned engine.",
+    "Empty app cache does not mean cold OS\/disk cache; no system cache purge is performed.",
+    "Probe, fixture generation, warm-cache fill and output comparisons are not timed.",
+    "No HTTP, receiver, first-visible-frame, sound, HDR or direct-MP4 measurement.",
+    "Baseline uses frozen production sources plus the equivalent sequential preparation call order and 200 ms polling.",
+    "No performance threshold or expected gain is asserted; every sample must retain identical served bytes.",
+    "CPU is the preparation-interval rusage delta for this benchmark and its reaped children, including measurement overhead.",
+    "RSS is sampled every requested 20 ms for this benchmark and its direct children; short peaks can be missed and shared mappings can be counted twice.",
+    "Storage is end-of-preparation logical size, with a second total deduplicating hard-linked inodes; it is not peak or physical allocated disk space.",
+    "Cache warmup finishes and its disposable session is removed before measurement; only retained cache and measured session enter storage totals.",
+    "Byte comparisons run before any generated package cleanup. Per-sample proofs remain linked to the exact sample JSON hashes."
+  ],
+  "packagedDuration" : 2883.308053000005,
+  "rows" : [
+    {
+      "maximumMilliseconds" : 2156.020124995848,
+      "maximumSampledAggregateRSSBytes" : 337739776,
+      "medianChildrenCPUSeconds" : 1.8457505,
+      "medianMilliseconds" : 1896.951958318823,
+      "medianSelfCPUSeconds" : 0.7082900000000001,
+      "minimumMilliseconds" : 1888.355708331801,
+      "mode" : "baseline",
+      "retainedCacheLogicalBytes" : 0,
+      "rssReadFailures" : 0,
+      "samplesMilliseconds" : [
+        2156.020124995848,
+        1896.401166653959,
+        1888.355708331801,
+        1897.502749983687
+      ],
+      "servedLogicalBytes" : 2218583350,
+      "subtitleCodec" : "subrip",
+      "uniqueInodeLogicalBytes" : 2218583350
+    },
+    {
+      "maximumMilliseconds" : 1619.7246666706633,
+      "maximumSampledAggregateRSSBytes" : 356122624,
+      "medianChildrenCPUSeconds" : 1.8965489999999998,
+      "medianMilliseconds" : 1583.487583338865,
+      "medianSelfCPUSeconds" : 0.37037799999999993,
+      "minimumMilliseconds" : 1553.4354166593403,
+      "mode" : "noCache",
+      "retainedCacheLogicalBytes" : 0,
+      "rssReadFailures" : 1,
+      "samplesMilliseconds" : [
+        1619.7246666706633,
+        1553.4354166593403,
+        1597.7762916591018,
+        1569.1988750186283
+      ],
+      "servedLogicalBytes" : 2218583350,
+      "subtitleCodec" : "subrip",
+      "uniqueInodeLogicalBytes" : 2218583350
+    },
+    {
+      "maximumMilliseconds" : 1961.8152916664258,
+      "maximumSampledAggregateRSSBytes" : 353878016,
+      "medianChildrenCPUSeconds" : 1.883265,
+      "medianMilliseconds" : 1929.6568124991609,
+      "medianSelfCPUSeconds" : 1.3961875,
+      "minimumMilliseconds" : 1897.898166673258,
+      "mode" : "emptyAppCache",
+      "retainedCacheLogicalBytes" : 2218592961,
+      "rssReadFailures" : 2,
+      "samplesMilliseconds" : [
+        1961.8152916664258,
+        1941.5091249975376,
+        1917.8045000007842,
+        1897.898166673258
+      ],
+      "servedLogicalBytes" : 2218583350,
+      "subtitleCodec" : "subrip",
+      "uniqueInodeLogicalBytes" : 2218720666
+    },
+    {
+      "maximumMilliseconds" : 1168.558875011513,
+      "maximumSampledAggregateRSSBytes" : 42729472,
+      "medianChildrenCPUSeconds" : 0.20136299999999985,
+      "medianMilliseconds" : 1158.9253333368106,
+      "medianSelfCPUSeconds" : 1.0236764999999999,
+      "minimumMilliseconds" : 1144.466249999823,
+      "mode" : "warmAppCache",
+      "retainedCacheLogicalBytes" : 2218592958,
+      "rssReadFailures" : 0,
+      "samplesMilliseconds" : [
+        1168.3410416881088,
+        1149.5096249855123,
+        1168.558875011513,
+        1144.466249999823
+      ],
+      "servedLogicalBytes" : 2218583350,
+      "subtitleCodec" : "subrip",
+      "uniqueInodeLogicalBytes" : 2218720663
+    },
+    {
+      "maximumMilliseconds" : 1953.2062500074971,
+      "maximumSampledAggregateRSSBytes" : 340033536,
+      "medianChildrenCPUSeconds" : 1.8242615,
+      "medianMilliseconds" : 1917.4446666584117,
+      "medianSelfCPUSeconds" : 0.6960709999999999,
+      "minimumMilliseconds" : 1899.0143333212472,
+      "mode" : "baseline",
+      "retainedCacheLogicalBytes" : 0,
+      "rssReadFailures" : 2,
+      "samplesMilliseconds" : [
+        1922.7980833384208,
+        1912.0912499784026,
+        1899.0143333212472,
+        1953.2062500074971
+      ],
+      "servedLogicalBytes" : 2218617590,
+      "subtitleCodec" : "ass",
+      "uniqueInodeLogicalBytes" : 2218617590
+    },
+    {
+      "maximumMilliseconds" : 1661.5257083321922,
+      "maximumSampledAggregateRSSBytes" : 354975744,
+      "medianChildrenCPUSeconds" : 1.9176165,
+      "medianMilliseconds" : 1593.852395817521,
+      "medianSelfCPUSeconds" : 0.3747869999999999,
+      "minimumMilliseconds" : 1540.0210416701157,
+      "mode" : "noCache",
+      "retainedCacheLogicalBytes" : 0,
+      "rssReadFailures" : 1,
+      "samplesMilliseconds" : [
+        1608.176249981625,
+        1579.528541653417,
+        1540.0210416701157,
+        1661.5257083321922
+      ],
+      "servedLogicalBytes" : 2218617590,
+      "subtitleCodec" : "ass",
+      "uniqueInodeLogicalBytes" : 2218617590
+    },
+    {
+      "maximumMilliseconds" : 2055.999541655183,
+      "maximumSampledAggregateRSSBytes" : 354664448,
+      "medianChildrenCPUSeconds" : 1.887416,
+      "medianMilliseconds" : 1967.7165000030072,
+      "medianSelfCPUSeconds" : 1.417953,
+      "minimumMilliseconds" : 1913.4599166573025,
+      "mode" : "emptyAppCache",
+      "retainedCacheLogicalBytes" : 2218592874,
+      "rssReadFailures" : 0,
+      "samplesMilliseconds" : [
+        2018.2112916663755,
+        1913.4599166573025,
+        1917.221708339639,
+        2055.999541655183
+      ],
+      "servedLogicalBytes" : 2218617590,
+      "subtitleCodec" : "ass",
+      "uniqueInodeLogicalBytes" : 2218754819
+    },
+    {
+      "maximumMilliseconds" : 1237.649541668361,
+      "maximumSampledAggregateRSSBytes" : 42156032,
+      "medianChildrenCPUSeconds" : 0.2008239999999999,
+      "medianMilliseconds" : 1161.7031666683033,
+      "medianSelfCPUSeconds" : 1.0280574999999998,
+      "minimumMilliseconds" : 1144.3884166656062,
+      "mode" : "warmAppCache",
+      "retainedCacheLogicalBytes" : 2218592957,
+      "rssReadFailures" : 0,
+      "samplesMilliseconds" : [
+        1163.9135000004899,
+        1144.3884166656062,
+        1159.4928333361167,
+        1237.649541668361
+      ],
+      "servedLogicalBytes" : 2218617590,
+      "subtitleCodec" : "ass",
+      "uniqueInodeLogicalBytes" : 2218754902
+    }
+  ],
+  "scope" : "Local complete HLS preparation: embedded text subtitles, copied H.264 and AAC, VOD validation"
+}

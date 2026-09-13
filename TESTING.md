@@ -14,6 +14,8 @@ Push, pull-request and release-tag CI use the released `macos-26` runner. The CI
 
 ## 2. Local tests with media
 
+The [startup optimization candidate](Docs/STARTUP_OPTIMIZATION.md) separates reproducible local preparation benchmarks and byte comparisons from its pending receiver matrix. A warm prepared-media cache is reported separately from a first preparation; operating-system cache state is not reset by the benchmark.
+
 Executables in `Tests/` that require a real file receive its path through an argument or environment variable. Media remains outside the repository. These tests validate containers, OCR, AVPlayer, and VOD playlists, but they do not prove that tvOS will accept the session.
 
 ## 3. Physical Apple TV matrix

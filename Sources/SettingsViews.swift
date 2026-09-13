@@ -230,7 +230,7 @@ struct SupportSettingsView: View {
             airPlayVersion: airPlay.version,
             airPlaySource: airPlay.source
         )
-        return DiagnosticsReport.render(snapshot)
+        return DiagnosticsReport.render(snapshot) + coordinator.startupDiagnostics
     }
 
     private var authorizationDescription: String {
@@ -390,10 +390,76 @@ struct PlaybackSettingsView: View {
 struct StorageSettingsView: View {
     var coordinator: StreamCoordinator
     @AirCillerState private var cacheLimitMB = AirCillerStorage.subtitleCacheLimitMB
+    @AirCillerState private var preparedCacheLimitGiB = AirCillerStorage.preparedMediaCacheLimitGiB
+    @AirCillerState private var preparedCacheBytes: Int64?
+    @AirCillerState private var changingPreparedCache = false
+    @AirCillerState private var storageError: String?
     @AirCillerState private var snapshot = AirCillerStorage.snapshot()
+
+    private var playbackIsBusy: Bool { coordinator.isPreparing || coordinator.isStreaming }
 
     var body: some View {
         Form {
+            Section("Películas en caché") {
+                LabeledContent("Caché local") {
+                    if let preparedCacheBytes {
+                        Text(
+                            L10n.format(
+                                "%@ de %@",
+                                preparedByteCount(preparedCacheBytes),
+                                preparedByteCount(Int64(preparedCacheLimitGiB) * 1_024 * 1_024 * 1_024)
+                            )
+                        )
+                        .monospacedDigit()
+                    } else {
+                        Text("Pendiente")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Picker(
+                    "Límite",
+                    selection: Binding(
+                        get: { preparedCacheLimitGiB },
+                        set: { changePreparedCacheLimit($0) }
+                    )
+                ) {
+                    ForEach(AirCillerStorage.preparedMediaCacheLimitOptionsGiB, id: \.self) { gibibytes in
+                        if gibibytes == 0 {
+                            Text("Desactivada").tag(gibibytes)
+                        } else {
+                            Text(preparedByteCount(Int64(gibibytes) * 1_024 * 1_024 * 1_024)).tag(gibibytes)
+                        }
+                    }
+                }
+                .disabled(playbackIsBusy || changingPreparedCache)
+
+                Text(
+                    "Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Text(
+                    "Los paquetes que superen el límite no se guardan. Los menos recientes se eliminan al reducirlo o si hace falta espacio para otra película."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                HStack {
+                    Button("Vaciar caché de películas", role: .destructive) {
+                        clearPreparedCache()
+                    }
+                    .disabled(preparedCacheBytes == 0 || playbackIsBusy || changingPreparedCache)
+                    if changingPreparedCache {
+                        ProgressView().controlSize(.small)
+                    }
+                }
+                if let storageError {
+                    Text(storageError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
             Section("Subtítulos en caché") {
                 LabeledContent("Caché local") {
                     Text(
@@ -411,7 +477,7 @@ struct StorageSettingsView: View {
                         Text(byteCount(Int64(megabytes) * 1_024 * 1_024)).tag(megabytes)
                     }
                 }
-                .disabled(coordinator.isPreparing || coordinator.isStreaming)
+                .disabled(playbackIsBusy || changingPreparedCache)
                 .onChange(of: cacheLimitMB) { _, newValue in
                     AirCillerStorage.setSubtitleCacheLimitMB(newValue)
                     refresh()
@@ -427,7 +493,7 @@ struct StorageSettingsView: View {
                     try? AirCillerStorage.clearSubtitleCache()
                     refresh()
                 }
-                .disabled(snapshot.subtitleCacheBytes == 0 || coordinator.isPreparing || coordinator.isStreaming)
+                .disabled(snapshot.subtitleCacheBytes == 0 || playbackIsBusy || changingPreparedCache)
             }
 
             Section("Preparación de películas") {
@@ -436,7 +502,7 @@ struct StorageSettingsView: View {
                         .monospacedDigit()
                 }
                 Text(
-                    "AirCiller conserva el paquete preparado solo mientras se reproduce y lo elimina al detener. Aquí puedes borrar restos de un cierre inesperado."
+                    "La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -447,12 +513,23 @@ struct StorageSettingsView: View {
                     )
                     refresh()
                 }
-                .disabled(snapshot.preparedMediaBytes == 0 || coordinator.isPreparing)
+                .disabled(snapshot.preparedMediaBytes == 0 || playbackIsBusy || changingPreparedCache)
             }
         }
         .formStyle(.grouped)
         .padding(16)
-        .task { refresh() }
+        .task {
+            refresh()
+            await refreshPreparedCache()
+        }
+        .onChange(of: playbackIsBusy) { _, busy in
+            if !busy {
+                Task {
+                    refresh()
+                    await refreshPreparedCache()
+                }
+            }
+        }
     }
 
     private func refresh() {
@@ -465,5 +542,56 @@ struct StorageSettingsView: View {
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: bytes)
+    }
+
+    private func preparedByteCount(_ bytes: Int64) -> String {
+        let formatter = ByteCountFormatter()
+        formatter.countStyle = .binary
+        return formatter.string(fromByteCount: bytes)
+    }
+
+    private func refreshPreparedCache() async {
+        do {
+            let bytes = try await AirCillerStorage.preparedMediaCache.sizeBytes()
+            guard !Task.isCancelled else { return }
+            preparedCacheBytes = bytes
+        } catch is CancellationError {
+            return
+        } catch {
+            preparedCacheBytes = nil
+            storageError = L10n.text("No se pudo leer el tamaño de la caché de películas.")
+        }
+    }
+
+    private func changePreparedCacheLimit(_ value: Int) {
+        guard !playbackIsBusy, !changingPreparedCache else { return }
+        preparedCacheLimitGiB = value
+        changingPreparedCache = true
+        storageError = nil
+        Task {
+            do {
+                try await AirCillerStorage.setPreparedMediaCacheLimitGiB(value)
+            } catch {
+                storageError = L10n.text("El límite se ha guardado, pero no se pudo completar la limpieza de la caché.")
+            }
+            preparedCacheLimitGiB = AirCillerStorage.preparedMediaCacheLimitGiB
+            await refreshPreparedCache()
+            changingPreparedCache = false
+        }
+    }
+
+    private func clearPreparedCache() {
+        guard !playbackIsBusy, !changingPreparedCache else { return }
+        changingPreparedCache = true
+        storageError = nil
+        Task {
+            do {
+                try await AirCillerStorage.preparedMediaCache.clear()
+            } catch {
+                storageError = L10n.text("No se pudo vaciar la caché de películas. Vuelve a intentarlo.")
+            }
+            await refreshPreparedCache()
+            changingPreparedCache = false
+        }
     }
 }

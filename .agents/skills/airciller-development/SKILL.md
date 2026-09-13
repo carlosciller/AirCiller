@@ -1,6 +1,6 @@
 ---
 name: airciller-development
-description: Implement, debug, review and validate changes in the AirCiller repository, including playback-path selection and release readiness. Use for AirCiller development; not ordinary media playback or unrelated projects.
+description: Implement, debug, review and validate changes in the AirCiller repository, including native macOS UI/UX, playback-path selection and release readiness. Use for AirCiller development; not ordinary media playback or unrelated projects.
 ---
 
 # AirCiller development
@@ -14,7 +14,8 @@ Read [CONTRIBUTING.md](../../../CONTRIBUTING.md#minimum-validation) to choose th
 | Task | Entry point |
 | --- | --- |
 | Documentation or agent instructions only | Review the diff and changed references; run `git diff --check` against the delivery base, including new files. No app build or device session. |
-| UI, library or other non-playback code | Inspect the affected view/service and its tests; use [library recovery](../../../Docs/LIBRARY_RECOVERY.md) or [credential service](../../../Docs/CREDENTIAL_SERVICE.md) only if involved. |
+| UI/UX design, interface implementation or accessibility | Read the applicable [native design guidance](../../../Docs/NATIVE_DESIGN.md); use its dated audit only for baseline context. Inspect the affected view/service and tests. For implemented interface changes, validate native interaction and accessibility in the running app; design research and documentation alone follow the documentation gate. A mockup is not runtime acceptance. |
+| Library, credentials or other non-playback code | Inspect the affected service and tests; use [library recovery](../../../Docs/LIBRARY_RECOVERY.md) or [credential service](../../../Docs/CREDENTIAL_SERVICE.md) only if involved. |
 | Playback, preparation, subtitles or shared controls | Read [playback development and evidence](references/playback.md), then the specific architecture, compatibility and test sections it identifies. |
 | Performance | Read [reproducible local fixtures](../../../TESTING.md#12-reproducible-performance-fixtures) or the relevant [ROADMAP.md](../../../ROADMAP.md) phase. Use the playback reference for end-to-end claims. Retain the dedicated startup-phase checkpoint in AGENTS. |
 | Packaging, release-readiness review, installation or publication | Read [release readiness](references/release-readiness.md). Assessment alone does not trigger publication steps. |

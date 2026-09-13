@@ -60,6 +60,23 @@ final class StreamCoordinator {
     @ObservationIgnored private var ffmpegProcess: Process?
     @ObservationIgnored private var ffmpegLog: ProcessLogBuffer?
     @ObservationIgnored private var temporaryDirectory: URL?
+    @ObservationIgnored private var startupTrace: PlaybackStartupTrace?
+    @ObservationIgnored private var startupSpans: [PlaybackStartupTrace.Stage: PlaybackStartupTrace.SpanToken] = [:]
+    @ObservationIgnored private var startupUsedCache = false
+    // While HLS children run, their owning task removes the directory only after
+    // cancellation has joined them. Stop can detach the session immediately.
+    @ObservationIgnored private var preparingHLSDirectory: URL?
+
+    var startupDiagnostics: String {
+        guard let trace = startupTrace else { return "" }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(trace.snapshot()),
+            let json = String(data: data, encoding: .utf8)
+        else { return "" }
+        return "\n\nHLS startup timing (preparation to receiver request, not first visible frame)\n"
+            + "Base cache hit: \(startupUsedCache)\n" + json
+    }
 
     var activePreparedDirectory: URL? { temporaryDirectory }
     #if AIRCILLER_PLAYBACK_CHECKS
@@ -76,6 +93,10 @@ final class StreamCoordinator {
         }
 
         @ObservationIgnored var onPlaybackCheckLoad: ((URL) -> Void)?
+        // Only the opt-in runner owns this disposable cache. Nil keeps checks cold.
+        @ObservationIgnored var playbackCheckPreparedMediaCache: PreparedMediaCache?
+        var playbackCheckStartupSnapshot: PlaybackStartupTrace.Snapshot? { startupTrace?.snapshot() }
+        var playbackCheckUsedPreparedMediaCache: Bool { startupUsedCache }
         var playbackCheckPreparationProcessIsRunning: Bool { ffmpegProcess?.isRunning == true }
         var playbackCheckRuntimeIsIdle: Bool {
             server == nil && ffmpegProcess == nil && streamTask == nil && activeSessionID == nil
@@ -760,15 +781,11 @@ final class StreamCoordinator {
             )
             return
         }
-        if let storageError = Self.storagePreflightError(
-            fileSize: info.fileSize,
-            sizeMultiplier: 1.12
-        ) {
-            presentError(title: "No hay espacio temporal suficiente", detail: storageError)
-            return
-        }
-
         if info.isHDR, selectedSubtitle != nil {
+            if let storageError = Self.storagePreflightError(fileSize: info.fileSize, sizeMultiplier: 1.12) {
+                presentError(title: "No hay espacio temporal suficiente", detail: storageError)
+                return
+            }
             beginDirectHDRSubtitleStreaming(url: selectedURL, info: info, requestedTime: requestedTime)
         } else {
             beginStreaming(url: selectedURL, info: info, requestedTime: requestedTime)
@@ -1313,6 +1330,12 @@ final class StreamCoordinator {
         )
         let sessionID = session.id
         let startTime = session.startTime
+        // Segment sizes provide the final HLS demand profile. Do not compete
+        // with remuxing by scanning every source packet at the same time.
+        mediaAnalysisTasks.cancelDemand()
+        startupTrace = PlaybackStartupTrace(sessionID: sessionID)
+        startupSpans.removeAll()
+        startupUsedCache = false
 
         let audio = selectedAudio
         let subtitle = selectedSubtitle
@@ -1325,7 +1348,6 @@ final class StreamCoordinator {
             guard let self else { return }
             var sessionDirectory: URL?
             var sessionServer: LocalHTTPServer?
-            var sessionProcess: Process?
             do {
                 let directory = FileManager.default.temporaryDirectory
                     .appendingPathComponent("AirCiller-\(UUID().uuidString)", isDirectory: true)
@@ -1334,123 +1356,29 @@ final class StreamCoordinator {
                 guard self.activeSessionID == sessionID else { throw CancellationError() }
                 self.temporaryDirectory = directory
 
-                let build = try Self.makeFFmpegProcess(
-                    input: url,
-                    outputDirectory: directory,
-                    probe: info,
-                    audio: audio,
-                    outputMode: outputMode,
-                    audioDelay: chosenAudioDelay,
-                    multiplexed: usesDirectHDRRendition
-                )
-                let process = build.process
-                sessionProcess = process
-                self.ffmpegProcess = process
-                self.ffmpegLog = build.log
-                try process.run()
-                build.didStart()
-                let exitTask = Task {
-                    try await CancellableProcess(process).waitForExit()
-                }
-                try await self.waitForVODCompletion(
-                    build,
-                    exitTask: exitTask,
-                    expectedDuration: info.duration,
-                    sessionID: sessionID
-                )
-                build.closePipes()
-                if self.activeSessionID == sessionID {
-                    self.ffmpegProcess = nil
-                    self.ffmpegLog = nil
-                }
-
-                if usesDirectHDRRendition {
-                    self.status = "Ajustando la cabecera HDR…"
-                    self.detail = "Conservando Dolby Vision/HDR y preparando el formato fMP4 que exige Apple TV."
-                    self.preparationProgress = 0.91
-                    let initializationURL = directory.appendingPathComponent("video-init.mp4")
-                    let firstSegmentURL = directory.appendingPathComponent("video-00000000.m4s")
-                    try HDRConfigurationInjector.normalizeHLSFileType(
-                        initializationSegment: initializationURL
-                    )
-                    let isHDR10CompatibleDolbyVision =
-                        info.dolbyVisionProfile == 8 && info.dolbyVisionCompatibilityID == 1
-                    if info.colorTransfer?.lowercased() == "smpte2084"
-                        && (!info.isDolbyVision || isHDR10CompatibleDolbyVision)
-                    {
-                        try HDRConfigurationInjector.injectStaticMetadata(
-                            initializationSegment: initializationURL,
-                            firstMediaSegment: firstSegmentURL
-                        )
+                self.preparingHLSDirectory = directory
+                guard let ffmpegURL = Executables.find("ffmpeg") else { throw AirCillerError.ffmpegMissing }
+                #if AIRCILLER_PLAYBACK_CHECKS
+                    let cache: PreparedMediaCache? = self.playbackCheckPreparedMediaCache
+                #else
+                    let cache: PreparedMediaCache? = AirCillerStorage.preparedMediaCache
+                    _ = try? await cache?.setLimitBytes(AirCillerStorage.preparedMediaCacheLimitBytes)
+                #endif
+                let prepared = try await HLSPreparationService.prepare(
+                    input: url, probe: info, audio: audio, outputMode: outputMode,
+                    audioDelay: chosenAudioDelay, subtitle: subtitle, subtitleDelay: chosenSubtitleDelay,
+                    outputDirectory: directory, ffmpegURL: ffmpegURL, cache: cache,
+                    observer: { [weak self] event in
+                        self?.handleHLSPreparation(event, sessionID: sessionID, expectedDuration: info.duration)
                     }
-                }
-
-                try SubtitleService.alignRenditionPlaylists(
-                    outputDirectory: directory,
-                    expectedDuration: info.duration
                 )
-
-                var preparedSubtitle = subtitle
-                if let subtitle {
-                    self.status =
-                        subtitle.usesBitmapOCR
-                        ? "Leyendo subtítulos gráficos…"
-                        : "Alineando subtítulos…"
-                    self.detail =
-                        subtitle.usesBitmapOCR
-                        ? "Apple Vision reconoce la pista gráfica localmente y la convierte en WebVTT seleccionable."
-                        : "Creando una pista WebVTT para cada tramo de la película."
-                    self.preparationProgress = 0.91
-                    preparedSubtitle = try await SubtitleService.prepare(
-                        track: subtitle,
-                        videoURL: url,
-                        delay: chosenSubtitleDelay,
-                        videoPlaylistURL: directory.appendingPathComponent("video.m3u8"),
-                        outputDirectory: directory,
-                        ocrProgress: { [weak self] completed, total in
-                            Task { @MainActor [weak self] in
-                                self?.reportOCRProgress(
-                                    completed: completed,
-                                    total: total,
-                                    sessionID: sessionID,
-                                    baseProgress: 0.91,
-                                    span: 0.04
-                                )
-                            }
-                        }
-                    )
-                    try SubtitleService.alignRenditionPlaylists(
-                        outputDirectory: directory,
-                        expectedDuration: info.duration
-                    )
-                }
-                if !usesDirectHDRRendition {
-                    try SubtitleService.writeMasterPlaylist(
-                        probe: info,
-                        audio: audio,
-                        audioOutputMode: outputMode,
-                        subtitle: preparedSubtitle,
-                        outputDirectory: directory
-                    )
-                }
                 try Task.checkCancellation()
                 guard self.activeSessionID == sessionID else { throw CancellationError() }
+                self.preparingHLSDirectory = nil
+                let packagedDuration = prepared.duration
+                self.packagedDemandProfile = prepared.demandProfile
 
-                self.status = "Comprobando la película preparada…"
-                self.detail = "Verificando duración, cierre VOD y sincronía de todas las listas."
-                self.preparationProgress = 0.96
-                let packagedDuration = try SubtitleService.validatePackage(
-                    outputDirectory: directory,
-                    expectedDuration: info.duration,
-                    hasAudio: audio != nil && !usesDirectHDRRendition,
-                    hasSubtitles: subtitle != nil,
-                    requiresMasterPlaylist: !usesDirectHDRRendition
-                )
-                self.packagedDemandProfile = try StreamDemandAnalyzer.packagedHLSProfile(
-                    outputDirectory: directory,
-                    hasSeparateAudio: audio != nil && !usesDirectHDRRendition
-                )
-
+                self.beginStartupStage(.localServer, sessionID: sessionID)
                 let localServer = self.makeLocalServer(
                     rootDirectory: directory,
                     sessionID: sessionID
@@ -1458,6 +1386,8 @@ final class StreamCoordinator {
                 sessionServer = localServer
                 self.server = localServer
                 let baseURL = try await localServer.start()
+                self.endStartupStage(.localServer, sessionID: sessionID)
+                self.beginStartupStage(.localAsset, sessionID: sessionID)
                 try Task.checkCancellation()
                 guard self.activeSessionID == sessionID else { throw CancellationError() }
 
@@ -1466,10 +1396,14 @@ final class StreamCoordinator {
                 let item = AVPlayerItem(url: playbackURL)
                 item.preferredForwardBufferDuration = 12
                 let isPlayable = try await item.asset.load(.isPlayable)
+                try Task.checkCancellation()
+                guard self.activeSessionID == sessionID else { throw CancellationError() }
                 guard isPlayable else {
                     throw AirCillerError.invalidVODPackage("AVPlayer no reconoce el paquete como reproducible.")
                 }
                 let playerDuration = try await item.asset.load(.duration).seconds
+                try Task.checkCancellation()
+                guard self.activeSessionID == sessionID else { throw CancellationError() }
                 guard playerDuration.isFinite, playerDuration > 0 else {
                     throw AirCillerError.invalidVODPackage("AVPlayer no ha recibido una duración final válida.")
                 }
@@ -1488,6 +1422,8 @@ final class StreamCoordinator {
                             "AVPlayer no encuentra la pista de subtítulos WebVTT preparada."
                         )
                     }
+                    try Task.checkCancellation()
+                    guard self.activeSessionID == sessionID else { throw CancellationError() }
                     item.select(option, in: group)
                 }
                 self.observe(item: item)
@@ -1497,8 +1433,12 @@ final class StreamCoordinator {
                 if playableStartTime > 0.05 {
                     await self.seekPlayer(to: playableStartTime)
                 }
+                try Task.checkCancellation()
+                guard self.activeSessionID == sessionID else { throw CancellationError() }
                 self.player.pause()
 
+                self.endStartupStage(.localAsset, sessionID: sessionID)
+                self.beginStartupStage(.airPlay, sessionID: sessionID)
                 self.status = L10n.format(
                     "Conectando con %@…", self.airPlay.selectedDevice?.name ?? "Apple TV")
                 self.detail = "Enviando la orden directamente por AirPlay y esperando confirmación real de duración."
@@ -1508,9 +1448,15 @@ final class StreamCoordinator {
                     duration: packagedDuration,
                     title: self.selectedURL?.deletingPathExtension().lastPathComponent
                 )
+                self.endStartupStage(.airPlay, sessionID: sessionID)
+                try Task.checkCancellation()
+                guard self.activeSessionID == sessionID else { throw CancellationError() }
+                self.beginStartupStage(.receiverRequest, sessionID: sessionID)
                 self.status = "Confirmando el stream en el Apple TV…"
                 self.detail = "Esperando la primera petición real de vídeo del receptor."
                 try await self.waitForReceiverMediaRequest(sessionID: sessionID)
+                self.endStartupStage(.receiverRequest, sessionID: sessionID)
+                self.startupTrace?.finish(.receiverMediaRequest, sessionID: sessionID)
                 self.authorizationRetryPolicy.reset()
 
                 self.duration = packagedDuration
@@ -1533,18 +1479,22 @@ final class StreamCoordinator {
                         "VOD completo · %@ · control AirPlay directo.",
                         TimeFormatting.duration(packagedDuration))
             } catch is CancellationError {
+                self.startupTrace?.finish(.cancelled, sessionID: sessionID)
+                if self.preparingHLSDirectory == sessionDirectory { self.preparingHLSDirectory = nil }
                 Self.cleanupLocalResources(
-                    process: sessionProcess,
+                    process: nil,
                     server: sessionServer,
                     directory: sessionDirectory
                 )
                 return
             } catch {
+                self.startupTrace?.finish(.failed, sessionID: sessionID)
+                if self.preparingHLSDirectory == sessionDirectory { self.preparingHLSDirectory = nil }
                 if self.activeSessionID == sessionID {
                     self.cleanupRuntime()
                 } else {
                     Self.cleanupLocalResources(
-                        process: sessionProcess,
+                        process: nil,
                         server: sessionServer,
                         directory: sessionDirectory
                     )
@@ -1559,6 +1509,64 @@ final class StreamCoordinator {
                 }
                 self.presentError(title: "No se pudo iniciar la reproducción", detail: error.localizedDescription)
             }
+        }
+    }
+
+    private func beginStartupStage(_ stage: PlaybackStartupTrace.Stage, sessionID: UUID) {
+        guard activeSessionID == sessionID else { return }
+        startupSpans[stage] = startupTrace?.begin(stage, sessionID: sessionID)
+    }
+
+    private func endStartupStage(_ stage: PlaybackStartupTrace.Stage, sessionID: UUID) {
+        guard activeSessionID == sessionID else { return }
+        startupTrace?.end(startupSpans.removeValue(forKey: stage), sessionID: sessionID)
+    }
+
+    private func handleHLSPreparation(
+        _ event: HLSPreparationEvent, sessionID: UUID, expectedDuration: Double
+    ) {
+        guard activeSessionID == sessionID else { return }
+        switch event {
+        case .began(let stage):
+            beginStartupStage(stage, sessionID: sessionID)
+            if stage == .validation {
+                status = "Comprobando la película preparada…"
+                detail = "Verificando duración, cierre VOD y sincronía de todas las listas."
+                preparationProgress = 0.96
+            } else if stage == .subtitles, selectedSubtitle?.usesBitmapOCR == true {
+                status = "Leyendo subtítulos gráficos…"
+                detail = "Apple Vision reconoce la pista gráfica localmente y la convierte en WebVTT seleccionable."
+                preparationProgress = 0.91
+            }
+        case .ended(let stage):
+            endStartupStage(stage, sessionID: sessionID)
+            if stage == .packaging {
+                preparationProgress = 0.90
+                if let selectedSubtitle, !selectedSubtitle.usesBitmapOCR {
+                    status = "Alineando subtítulos…"
+                    detail = "Creando una pista WebVTT para cada tramo de la película."
+                }
+            }
+        case .packagingProgress(let seconds, let speed):
+            let fraction = expectedDuration > 0 ? seconds / expectedDuration : 0
+            preparationProgress = min(0.88, max(0.01, fraction * 0.88))
+            status = L10n.format("Preparando %@…", L10n.text("VOD completo"))
+            let percent = Int((preparationProgress / 0.88 * 100).rounded())
+            if let speed, speed > 0.01 {
+                detail = L10n.format(
+                    "%lld %% · %@ · quedan aprox. %@ · vídeo intacto.",
+                    Int64(percent), String(format: "%.1f×", speed),
+                    TimeFormatting.duration(max(0, expectedDuration - seconds) / speed))
+            } else {
+                detail = L10n.format("%lld %% · sin recodificar el vídeo.", Int64(percent))
+            }
+        case .ocrProgress(let completed, let total):
+            reportOCRProgress(completed: completed, total: total, sessionID: sessionID, baseProgress: 0.91, span: 0.04)
+        case .process(let build):
+            ffmpegProcess = build?.process
+            ffmpegLog = build?.log
+        case .cacheHit:
+            startupUsedCache = true
         }
     }
 
@@ -1815,6 +1823,7 @@ final class StreamCoordinator {
     }
 
     private func cleanupRuntime() {
+        if let activeSessionID { startupTrace?.finish(.cancelled, sessionID: activeSessionID) }
         activeSessionID = nil
         airPlay.stop(silently: true)
         playbackPower.end()
@@ -1826,9 +1835,10 @@ final class StreamCoordinator {
         ffmpegLog = nil
         server?.stop()
         server = nil
-        if let temporaryDirectory {
+        if let temporaryDirectory, temporaryDirectory != preparingHLSDirectory {
             try? FileManager.default.removeItem(at: temporaryDirectory)
         }
+        preparingHLSDirectory = nil
         temporaryDirectory = nil
         preparationProgress = 0
         nowPlaying.clear()
@@ -1886,65 +1896,6 @@ final class StreamCoordinator {
             throw AirCillerError.ffmpegStopped(build.log.snapshot)
         }
         preparationProgress = 0.90
-    }
-
-    nonisolated private static func makeFFmpegProcess(
-        input: URL,
-        outputDirectory: URL,
-        probe: MediaProbe,
-        audio: AudioTrack?,
-        outputMode: AudioOutputMode,
-        audioDelay: Double,
-        multiplexed: Bool = false
-    ) throws -> VODBuildProcess {
-        guard let ffmpegURL = Executables.find("ffmpeg") else {
-            throw AirCillerError.ffmpegMissing
-        }
-
-        let process = Process()
-        process.executableURL = ffmpegURL
-        process.arguments =
-            multiplexed
-            ? VODCommandBuilder.multiplexedArguments(
-                input: input,
-                outputDirectory: outputDirectory,
-                probe: probe,
-                audio: audio,
-                outputMode: outputMode,
-                audioDelay: audioDelay
-            )
-            : VODCommandBuilder.arguments(
-                input: input,
-                outputDirectory: outputDirectory,
-                probe: probe,
-                audio: audio,
-                outputMode: outputMode,
-                audioDelay: audioDelay
-            )
-
-        let errorPipe = Pipe()
-        let log = ProcessLogBuffer()
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            log.append(text)
-        }
-        process.standardError = errorPipe
-        let progressPipe = Pipe()
-        let progress = ProcessProgressBuffer()
-        progressPipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard !data.isEmpty, let text = String(data: data, encoding: .utf8) else { return }
-            progress.append(text)
-        }
-        process.standardOutput = progressPipe
-        return VODBuildProcess(
-            process: process,
-            log: log,
-            progress: progress,
-            errorPipe: errorPipe,
-            progressPipe: progressPipe
-        )
     }
 
     nonisolated private static func makeDirectFileProcess(

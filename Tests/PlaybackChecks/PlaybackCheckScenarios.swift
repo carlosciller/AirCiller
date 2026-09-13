@@ -68,7 +68,7 @@ final class PlaybackCheckScenarioRunner {
                 coordinator.selectedSubtitleID = subtitle.id
             }
             coordinator.audioOutputMode = .original
-            if profile == .trackChanges, clip.route == .hls {
+            if [.trackChanges, .hlsCacheReuse].contains(profile), clip.route == .hls {
                 guard coordinator.audioTracks.count == 2, coordinator.audioTracks.allSatisfy(\.canPassThrough) else {
                     throw PlaybackCheckFailure.unsupportedFixture
                 }
@@ -77,6 +77,7 @@ final class PlaybackCheckScenarioRunner {
             result.completedSteps.append(step)
             step = profile == .cancelPreparation ? "observe_running_preparation" : "start_and_media_request"
             let marker = events.count
+            let requestedAt = now
             coordinator.start(at: 0)
             if profile == .cancelPreparation {
                 try await cancelPreparation(result: &result, directories: &directories)
@@ -84,9 +85,18 @@ final class PlaybackCheckScenarioRunner {
                 try await started(after: marker, route: clip.route, expectedPosition: 0, result: &result)
                 if let directory = coordinator.activePreparedDirectory { directories.insert(directory) }
                 result.completedSteps.append(step)
-                try await observe("initial", after: marker, result: &result)
+                let initialLabel = profile == .hlsCacheReuse ? "cold" : "initial"
+                if clip.route == .hls {
+                    try recordStartup(
+                        initialLabel, requestedAt: requestedAt,
+                        expectedCacheHit: profile == .hlsCacheReuse ? false : nil,
+                        result: &result)
+                }
+                try await observe(initialLabel, after: marker, result: &result)
                 if profile == .trackChanges {
                     try await changeTracks(clip, result: &result, directories: &directories)
+                } else if profile == .hlsCacheReuse {
+                    try await checkCacheReuse(clip, result: &result, directories: &directories)
                 } else if profile == .playlistTransition {
                     try await finishPlaylist(clip, result: &result, directories: &directories)
                 } else if profile == .longPause {
@@ -145,7 +155,10 @@ final class PlaybackCheckScenarioRunner {
 
     private func observe(_ label: String, after marker: Int, result: inout PlaybackCheckResult) async throws {
         let start = now
-        try await wait(seconds: 7, after: marker, allowStopped: true) { self.now - start >= 5 }
+        // Cache transitions need more sampling time on a busy capture source;
+        // the offline frame, audio and cue requirements remain unchanged.
+        let duration = result.profile.stableObservationSeconds
+        try await wait(seconds: duration + 2, after: marker, allowStopped: true) { self.now - start >= duration }
         guard coordinator.isPlaying, coordinator.isStreaming else { throw PlaybackCheckFailure.receiverMismatch }
         result.outputWindows.append(PlaybackCheckOutputWindow(label: label, startedAtUptime: start, endedAtUptime: now))
     }
@@ -171,12 +184,14 @@ final class PlaybackCheckScenarioRunner {
 
     private func applyChange(
         _ label: String, route: PlaybackCheckPlan.Route, result: inout PlaybackCheckResult,
-        directories: inout Set<URL>
+        directories: inout Set<URL>, expectedCacheHit: Bool? = nil,
+        sameBaseAs: PlaybackCheckBaseFingerprint? = nil, differentBaseFrom: PlaybackCheckBaseFingerprint? = nil
     ) async throws {
         step = label
         let target = coordinator.currentTime
         let previous = coordinator.activePreparedDirectory
         let marker = events.count
+        let requestedAt = now
         coordinator.applyTrackSettings()
         try await started(after: marker, route: route, expectedPosition: target, result: &result)
         guard let directory = coordinator.activePreparedDirectory, directory != previous else {
@@ -184,7 +199,80 @@ final class PlaybackCheckScenarioRunner {
         }
         directories.insert(directory)
         result.completedSteps.append(label)
+        if route == .hls {
+            try recordStartup(
+                label, requestedAt: requestedAt, expectedCacheHit: expectedCacheHit,
+                sameBaseAs: sameBaseAs, differentBaseFrom: differentBaseFrom, result: &result)
+        }
         try await observe(label, after: marker, result: &result)
+    }
+
+    private func recordStartup(
+        _ label: String, requestedAt: Double, expectedCacheHit: Bool? = nil,
+        sameBaseAs: PlaybackCheckBaseFingerprint? = nil, differentBaseFrom: PlaybackCheckBaseFingerprint? = nil,
+        result: inout PlaybackCheckResult
+    ) throws {
+        let evidence = try PlaybackCheckStartupRecorder.record(
+            coordinator: coordinator, label: label, requestedAtUptime: requestedAt,
+            expectedCacheHit: expectedCacheHit)
+        guard !result.startups.contains(where: { $0.snapshot.sessionID == evidence.snapshot.sessionID }) else {
+            throw PlaybackCheckFailure.cacheMismatch
+        }
+        result.startups.append(evidence)
+        try evidence.validate(sameBaseAs: sameBaseAs, differentBaseFrom: differentBaseFrom)
+    }
+
+    private func checkCacheReuse(
+        _ clip: PlaybackCheckPlan.Clip, result: inout PlaybackCheckResult, directories: inout Set<URL>
+    ) async throws {
+        guard let original = result.startups.first?.baseFingerprint,
+            let alternatePath = clip.alternateSubtitle,
+            let alternate = coordinator.registerExternalSubtitle(URL(fileURLWithPath: alternatePath))
+        else { throw PlaybackCheckFailure.unsupportedFixture }
+
+        step = "warmReplay"
+        let previous = coordinator.activePreparedDirectory
+        coordinator.stop()
+        try await wait(seconds: 8, allowStopped: true) { self.coordinator.playbackCheckRuntimeIsIdle }
+        guard previous.map({ !FileManager.default.fileExists(atPath: $0.path) }) == true else {
+            throw PlaybackCheckFailure.cleanupFailed
+        }
+        let marker = events.count
+        let requestedAt = now
+        coordinator.start(at: 0)
+        try await started(after: marker, route: .hls, expectedPosition: 0, result: &result)
+        guard let directory = coordinator.activePreparedDirectory, directory != previous else {
+            throw PlaybackCheckFailure.cacheMismatch
+        }
+        directories.insert(directory)
+        try recordStartup(
+            "warmReplay", requestedAt: requestedAt, expectedCacheHit: true, sameBaseAs: original, result: &result)
+        result.completedSteps.append("warmReplay")
+        try await observe("warmReplay", after: marker, result: &result)
+
+        coordinator.selectedSubtitleID = alternate.id
+        try await applyChange(
+            "subtitleChanged", route: .hls, result: &result, directories: &directories,
+            expectedCacheHit: true, sameBaseAs: original)
+        coordinator.selectedAudioID = coordinator.audioTracks[1].id
+        try await applyChange(
+            "audioChanged", route: .hls, result: &result, directories: &directories,
+            expectedCacheHit: false, differentBaseFrom: original)
+        guard let alternateAudio = result.startups.last?.baseFingerprint else {
+            throw PlaybackCheckFailure.cacheMismatch
+        }
+        coordinator.subtitleDelay = 1
+        try await applyChange(
+            "subtitleDelayChanged", route: .hls, result: &result, directories: &directories,
+            expectedCacheHit: true, sameBaseAs: alternateAudio)
+        coordinator.selectedAudioID = coordinator.audioTracks[0].id
+        try await applyChange(
+            "originalAudioRestored", route: .hls, result: &result, directories: &directories,
+            expectedCacheHit: true, sameBaseAs: original)
+        coordinator.selectedSubtitleID = nil
+        try await applyChange(
+            "subtitlesOff", route: .hls, result: &result, directories: &directories,
+            expectedCacheHit: true, sameBaseAs: original)
     }
 
     private func cancelPreparation(result: inout PlaybackCheckResult, directories: inout Set<URL>) async throws {
