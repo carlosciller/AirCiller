@@ -16,7 +16,9 @@ Optional scenarios cover changing tracks during playback, stopping an active pre
 
 ## One command with captured output
 
-The capture workflow verifies the approved Apple TV screen source and requires an initial frame before checking noninteractive credentials or preparing fixtures. It then runs the actual check app and writes a single summary. It does not ask anyone to watch the television. Build the isolated candidate after changing application code:
+The capture workflow verifies the approved Apple TV screen source and requires an initial frame before checking noninteractive credentials or preparing fixtures. It then runs the actual check app and writes a single summary. It does not ask anyone to watch the television.
+
+Before a live run, rebuild the isolated candidate when its application/check-app source, bundled helpers/runtimes, dependencies, resources or build/signing inputs change. The ordinary check suite does not rebuild this isolated app, and the launcher does not verify its freshness. Reuse requires an explicit comparison showing that its incorporated inputs are unchanged; recording the executable hash alone is not that comparison. Build it with:
 
 ```sh
 ./build.sh --playback-checks
