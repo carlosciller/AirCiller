@@ -85,6 +85,6 @@ Hold fictional media, commands, states and information constant so that the comp
 - **Quiet cinema:** Reference IINA's content/transport relationship. Test whether cinematic emphasis still communicates selection, receiver state and recovery when no artwork is available.
 - **Refined utility:** Reference Things lists, Transmit activity and Pixelmator contextual tools. Test whether useful detail stays optional and the window remains workable at compact sizes.
 
-Keep macOS 14 native fallback and modern native enhancement as two implementations of the same task, not two separate products. A web concept can compare hierarchy and simulated states; choose a direction before using a small native SwiftUI prototype to assess actual materials, focus, keyboard access, resizing and movement.
+Keep macOS 14 native fallback and modern native enhancement as two implementations of the same task, not two separate products. The maintainer chose A after the web comparison. An [isolated native SwiftUI prototype](NATIVE_DESIGN_PROTOTYPE.md) has been built to assess actual materials, focus, keyboard access, resizing and movement; its record separates completed checks from pending acceptance.
 
 Acceptance, playback evidence and release readiness remain in the [design guide](NATIVE_DESIGN.md#acceptance-and-implementation-order). Record the tested OS/SDK, commit and exact scenarios. Design research alone neither clears a release gate nor authorizes changes to the active playback work.
