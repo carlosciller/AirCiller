@@ -7,6 +7,8 @@ struct PlaybackCheckPlan: Decodable {
     enum Profile: String, Codable {
         case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap, subtitleSeek
         case hlsCacheReuse
+
+        var stableObservationSeconds: Double { self == .hlsCacheReuse ? 8 : 5 }
     }
 
     struct NextClip: Decodable {

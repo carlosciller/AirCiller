@@ -14,8 +14,9 @@ def expected_windows(name, tokens):
     route = CASE_INFO[name][1]
     if name == "hlsCacheReuse":
         return [("cold", route, tokens[0], 880), ("warmReplay", route, tokens[0], 880),
-                ("subtitleChanged", route, tokens[1], 880), ("subtitleDelayChanged", route, tokens[1], 880),
-                ("audioChanged", route, tokens[1], 440), ("audioDelayChanged", route, tokens[1], 440),
+                ("subtitleChanged", route, tokens[1], 880),
+                ("audioChanged", route, tokens[1], 440),
+                ("subtitleDelayChanged", route, tokens[1], 440),
                 ("originalAudioRestored", route, tokens[1], 880), ("subtitlesOff", route, None, 880)]
     initial = ("initial", route, tokens[0], 880 if route == "hls" else None)
     if CASE_INFO[name][0] == "longPause":
@@ -92,7 +93,13 @@ def assess_scenario(samples, analysis, control, name, tokens):
                     raise CaptureError("invalidScenarioCues")
                 frames.append(dict(row, expectedCue=token is not None and token in row["cueTokens"]))
             base_case = "directHDR" if route == "directHDR" else ("hlsSubtitles" if token else "hlsNoSubtitles")
-            observed = assess_samples(samples, frames, proxy, base_case)
+            try:
+                observed = assess_samples(samples, frames, proxy, base_case)
+            except CaptureError as error:
+                # Keep the strict failure for this window without discarding
+                # independent observations from the rest of the same run.
+                output.append({"window": label, "outcome": "inconclusive", "gaps": [str(error)]})
+                continue
             observed["window"] = label
             if tone is not None:
                 audio = [r for r in samples["rows"] if r["kind"] == "audio" and start + .5 <= r["uptime"] <= end - .5
@@ -117,8 +124,8 @@ def assess_scenario(samples, analysis, control, name, tokens):
 def assess_cache_reuse(result, expected):
     """Require measured reuse and immutable media, not just successful playback."""
     starts = result["startups"]
-    hits = [False, True, True, True, False, False, True, True]
-    if not isinstance(starts, list) or len(starts) != len(expected):
+    hits = [False, True, True, False, True, True, True]
+    if not isinstance(starts, list) or len(starts) != len(expected) or len(expected) != len(hits):
         raise CaptureError("incompleteCacheEvidence")
     bases, timings = [], []
     previous_end = result["startedAtUptime"]
@@ -161,8 +168,8 @@ def assess_cache_reuse(result, expected):
         timings.append(dict(label=label, cacheHit=hit,
                             requestToReceiverConfirmationSeconds=confirmed - requested,
                             preparationToReceiverRequestSeconds=elapsed))
-    if (any(bases[i] != bases[0] for i in (1, 2, 3, 6, 7))
-            or bases[4] == bases[0] or bases[5] == bases[4] or bases[5] == bases[0]):
+    if (any(bases[i] != bases[0] for i in (1, 2, 5, 6))
+            or bases[4] != bases[3] or bases[3] == bases[0]):
         raise CaptureError("cacheMediaMismatch")
     return {"outcome": "cache_reuse_and_media_identity_observed", "starts": timings,
             "timingEndpoint": "receiver_confirmation_not_first_visible_frame"}

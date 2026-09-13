@@ -28,6 +28,7 @@ Add external text or bitmap files from the tracks panel, or place matching files
 
 ## Other limits
 
+- Manual audio timing adjustments can be discarded during SDR HLS preparation. This confirmed pre-existing defect is not fixed by the startup optimization; the [repair is deferred](Docs/HLS_AUDIO_TIMING.md). Subtitle timing is a separate control.
 - No video transcoder: unsupported codecs such as AV1, VP9 and MPEG-2 are not converted.
 - No DCP packages, DVD/Blu-ray menus, disc navigation or encrypted media.
 - Preparation can require substantial temporary disk space. Storage controls are in Settings.

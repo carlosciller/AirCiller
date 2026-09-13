@@ -4,6 +4,13 @@ import Foundation
 struct PlaybackCheckModelSmokeTest {
     static func main() throws {
         try checkCachePlansAndEvidence()
+        try expect(
+            PlaybackCheckPlan.Profile.hlsCacheReuse.stableObservationSeconds == 8, "Cache windows last eight seconds")
+        for profile: PlaybackCheckPlan.Profile in [
+            .controls, .trackChanges, .cancelPreparation, .playlistTransition, .longPause, .cancelBitmap, .subtitleSeek,
+        ] {
+            try expect(profile.stableObservationSeconds == 5, "Other profiles retain five-second observation windows")
+        }
         let seekPlan =
             #"{"version":1,"deviceID":"fixture","profile":"subtitleSeek","clips":[{"path":"/clip.m2ts","route":"hls","externalSubtitle":"/cue.srt"}]}"#
         _ = try PlaybackCheckPlan.decode(Data(seekPlan.utf8))

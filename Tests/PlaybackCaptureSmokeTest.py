@@ -293,6 +293,34 @@ class CaptureWorkflowTests(unittest.TestCase):
         with self.assertRaisesRegex(capture.CaptureError, "processTimeout"):
             capture.bounded_command([sys.executable, "-c", "import time; time.sleep(20)"], timeout=0.1)
 
+    def test_output_limit_survives_initial_cleanup_permission_error(self):
+        original_start, original_killpg = capture.start_process, os.killpg
+        children, first = [], [True]
+        def start(*args, **kwargs):
+            process, pump = original_start(*args, **kwargs)
+            children.append(process)
+            return process, pump
+        def permission_once(pid, number):
+            if first[0] and number == 0:
+                first[0] = False
+                raise PermissionError()
+            return original_killpg(pid, number)
+        try:
+            with mock.patch.object(capture, "start_process", side_effect=start), \
+                    mock.patch.object(os, "killpg", side_effect=permission_once):
+                with self.assertRaisesRegex(capture.CaptureError, "^processOutputLimit$"):
+                    capture.bounded_command(
+                        [sys.executable, "-c", "import time; print('x'*5000, flush=True); time.sleep(20)"], limit=100)
+            self.assertFalse(first[0])
+            self.assertEqual(len(children), 1)
+            self.assertIsNotNone(children[0].returncode)
+            self.assertEqual(children[0].wait(timeout=.1), children[0].returncode)
+        finally:
+            for process in children:
+                if process.poll() is None:
+                    process.kill()
+                process.wait(timeout=3)
+
     def commands(self, capture_body=None, app_body=None):
         ready, stop = self.root / "capture.ready", self.root / "capture.stop"
         completed = self.root / "completed"
