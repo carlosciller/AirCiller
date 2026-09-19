@@ -83,6 +83,25 @@ compile_and_run helper-command-writer \
 compile_and_run launch-options \
   "$project_dir/Sources/AirCillerLaunchOptions.swift" \
   "$project_dir/Tests/LaunchOptionsSmokeTest.swift"
+compile_and_run playback-command-availability \
+  "$project_dir/Sources/PlaybackCommandAvailability.swift" \
+  "$project_dir/Tests/PlaybackCommandAvailabilitySmokeTest.swift"
+compile_and_run session-presentation \
+  "$project_dir/Sources/SessionPresentation.swift" \
+  "$project_dir/Tests/SessionPresentationSmokeTest.swift"
+compile_and_run error-recovery \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Tests/AirCillerErrorRecoverySmokeTest.swift"
+"$swiftc_path" -sdk "$sdk_path" -target arm64-apple-macosx14.0 \
+  -module-cache-path "$module_cache" -swift-version 6 -strict-concurrency=complete \
+  -warnings-as-errors "$project_dir/Scripts/make_icon.swift" -o "$test_dir/make-icon"
+compile_and_run icon "$project_dir/Tests/IconSmokeTest.swift"
+compile_and_run track-settings \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/TrackSettings.swift" \
+  "$project_dir/Tests/TrackSettingsSmokeTest.swift"
 compile_and_run playback-check-model \
   "$project_dir/Sources/MediaFileTypes.swift" \
   "$project_dir/Sources/PlaybackStartupTrace.swift" \

@@ -9,6 +9,8 @@ previous_app_path="$build_dir/AirCiller.previous.app"
 extra_swift_arguments=()
 extra_swift_sources=()
 extra_link_inputs=()
+test_icon_arguments=()
+is_auxiliary_build=false
 if [[ "${1:-}" == "--playback-checks" && $# == 1 ]]; then
   app_path="$build_dir/AirCiller Playback Checks.app"
   staged_app_path="$build_dir/AirCiller Playback Checks.staged.app"
@@ -25,8 +27,17 @@ if [[ "${1:-}" == "--playback-checks" && $# == 1 ]]; then
     "$project_dir/Tests/PlaybackChecks/PlaybackCheckScenarios.swift"
     "$project_dir/Tests/PlaybackChecks/BitmapCancellationCheck.swift"
   )
+  is_auxiliary_build=true
+  test_icon_arguments=(--test)
+elif [[ "${1:-}" == "--candidate" && $# == 1 ]]; then
+  app_path="$build_dir/AirCiller Test.app"
+  staged_app_path="$build_dir/AirCiller Test.staged.app"
+  previous_app_path="$build_dir/AirCiller Test.previous.app"
+  extra_swift_arguments=(-D AIRCILLER_UI_CHECKS)
+  is_auxiliary_build=true
+  test_icon_arguments=(--test)
 elif [[ $# != 0 ]]; then
-  echo "Usage: ./build.sh [--playback-checks]" >&2
+  echo "Usage: ./build.sh [--playback-checks | --candidate]" >&2
   exit 2
 fi
 signing_identity="$(/bin/zsh "$project_dir/Scripts/signing_identity.sh")"
@@ -88,6 +99,7 @@ mkdir -p \
   "$project_dir/Scripts/make_icon.swift" \
   -o "$build_dir/make-icon"
 "$build_dir/make-icon" \
+  "${test_icon_arguments[@]}" \
   "$generated_resources/AirCiller-1024.png" \
   "$generated_resources/AirCiller.icns"
 
@@ -129,10 +141,20 @@ if [[ -n "$credential_service_path" ]]; then
   plutil -insert ACCredentialServiceRequired -bool true "$contents_path/Info.plist"
   plutil -insert ACCredentialServiceClientVersion -string 1 "$contents_path/Info.plist"
 fi
-if [[ ${#extra_swift_sources[@]} != 0 ]]; then
+if $is_auxiliary_build; then
+  # Both internal tools use the already allowlisted credential-client identity.
+  # Never run them concurrently. Do not broaden the credential service policy.
   plutil -replace CFBundleIdentifier -string local.carlosciller.AirCiller.PlaybackChecks "$contents_path/Info.plist"
-  plutil -replace CFBundleName -string 'AirCiller Playback Checks' "$contents_path/Info.plist"
-  plutil -replace CFBundleDisplayName -string 'AirCiller Playback Checks' "$contents_path/Info.plist"
+  plutil -replace CFBundleName -string "${app_path:t:r}" "$contents_path/Info.plist"
+  plutil -replace CFBundleDisplayName -string "${app_path:t:r}" "$contents_path/Info.plist"
+  plutil -insert ACDevelopmentBuild -bool true "$contents_path/Info.plist"
+  plutil -replace SUEnableAutomaticChecks -bool false "$contents_path/Info.plist"
+  plutil -replace SUAutomaticallyUpdate -bool false "$contents_path/Info.plist"
+  for key in SUFeedURL SUPublicEDKey CFBundleDocumentTypes CFBundleURLTypes; do
+    if plutil -extract "$key" raw "$contents_path/Info.plist" >/dev/null 2>&1; then
+      plutil -remove "$key" "$contents_path/Info.plist"
+    fi
+  done
 fi
 ditto "$sparkle_framework" "$contents_path/Frameworks/Sparkle.framework"
 cp "$generated_resources/AirCiller.icns" "$contents_path/Resources/AirCiller.icns"

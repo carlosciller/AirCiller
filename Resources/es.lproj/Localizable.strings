@@ -1,3 +1,21 @@
+/* Native session window */
+"Volver a analizar" = "Volver a analizar";
+"Revisa la conexión" = "Revisa la conexión";
+"Audio y subtítulos…" = "Audio y subtítulos…";
+"Selección en la biblioteca" = "Selección en la biblioteca";
+"Esta es la película de la sesión actual." = "Esta es la película de la sesión actual.";
+"Reproducir esta película" = "Reproducir esta película";
+"¿Vaciar la playlist?" = "¿Vaciar la playlist?";
+"Se quitarán todas las entradas de la playlist. Los archivos originales no se borrarán." = "Se quitarán todas las entradas de la playlist. Los archivos originales no se borrarán.";
+"¿Borrar el historial?" = "¿Borrar el historial?";
+"Se eliminarán las entradas de Recientes y sus posiciones guardadas. Los archivos originales no se borrarán." = "Se eliminarán las entradas de Recientes y sus posiciones guardadas. Los archivos originales no se borrarán.";
+"Película de la sesión actual" = "Película de la sesión actual";
+"La película se preparará con estas pistas y continuará desde la posición actual." = "La película se preparará con estas pistas y continuará desde la posición actual.";
+"No se pudieron buscar los subtítulos" = "No se pudieron buscar los subtítulos";
+"Busca por título o comprueba la coincidencia del archivo." = "Busca por título o comprueba la coincidencia del archivo.";
+"La instalación de AirCiller está incompleta: falta FFmpeg. Vuelve a descargar e instalar AirCiller." = "La instalación de AirCiller está incompleta: falta FFmpeg. Vuelve a descargar e instalar AirCiller.";
+"La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller." = "La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller.";
+
 /* Main menu */
 "%@ (detectado localmente)" = "%@ (detectado localmente)";
 "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos." = "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos.";
@@ -649,4 +667,26 @@
 "Detén esta película antes de localizar su archivo" = "Detén esta película antes de localizar su archivo";
 "Elige la misma película. Se conservarán el orden y el progreso; no empezará a reproducirse." = "Elige la misma película. Se conservarán el orden y el progreso; no empezará a reproducirse.";
 "No se ha cambiado la biblioteca" = "No se ha cambiado la biblioteca";
+"Tu biblioteca, en Apple TV" = "Tu biblioteca, en Apple TV";
+"Elige tu próxima película" = "Elige tu próxima película";
+"Abre una película o arrástrala aquí." = "Abre una película o arrástrala aquí.";
+"Subtítulos: %@" = "Subtítulos: %@";
+"Sin subtítulos" = "Sin subtítulos";
+"Tus películas se quedan en tus dispositivos." = "Tus películas se quedan en tus dispositivos.";
+"Reproducir en Apple TV" = "Reproducir en Apple TV";
+"Todo listo para preparar la reproducción" = "Todo listo para preparar la reproducción";
+"La película se reproduce en Apple TV" = "La película se reproduce en Apple TV";
+"Continúa cuando quieras" = "Continúa cuando quieras";
+"Volver a la sesión" = "Volver a la sesión";
+"Películas" = "Películas";
+"Reproducidas recientemente" = "Reproducidas recientemente";
+"Añadir película…" = "Añadir película…";
+"Sincronización" = "Sincronización";
+"Audio (s)" = "Audio (s)";
+"Subtítulos (s)" = "Subtítulos (s)";
+"Un valor positivo retrasa la pista; uno negativo la adelanta." = "Un valor positivo retrasa la pista; uno negativo la adelanta.";
+"Opciones de audio" = "Opciones de audio";
+"Opciones de subtítulos" = "Opciones de subtítulos";
+"No hay cambios pendientes." = "No hay cambios pendientes.";
+"Cerrar" = "Cerrar";
 "El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada." = "El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada.";

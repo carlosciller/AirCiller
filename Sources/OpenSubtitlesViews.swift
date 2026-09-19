@@ -149,6 +149,9 @@ struct OpenSubtitlesSearchView: View {
     @AirCillerState private var isWorking = false
     @AirCillerState private var isDownloading = false
     @AirCillerState private var message: String?
+    @AirCillerState private var searchErrorMessage: String?
+    @AirCillerState private var searchNeedsConfiguration = false
+    @AirCillerState private var searchHasCompleted = false
     @AirCillerState private var usedExactFileMatch = false
     @AirCillerState private var operationTask: Task<Void, Never>?
 
@@ -206,11 +209,24 @@ struct OpenSubtitlesSearchView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if results.isEmpty {
                     ContentUnavailableView {
-                        Label("No hay resultados", systemImage: "captions.bubble")
+                        if searchErrorMessage != nil {
+                            Label("No se pudieron buscar los subtítulos", systemImage: "exclamationmark.triangle")
+                        } else if searchHasCompleted {
+                            Label("No hay resultados", systemImage: "captions.bubble")
+                        } else {
+                            Label("Buscar subtítulos", systemImage: "magnifyingglass")
+                        }
                     } description: {
-                        Text(message ?? L10n.text("Prueba con otro título o idioma."))
+                        Text(
+                            searchErrorMessage
+                                ?? L10n.text(
+                                    searchHasCompleted
+                                        ? "Prueba con otro título o idioma."
+                                        : "Busca por título o comprueba la coincidencia del archivo."
+                                )
+                        )
                     } actions: {
-                        if message == OpenSubtitlesError.notConfigured.localizedDescription {
+                        if searchNeedsConfiguration {
                             SettingsLink {
                                 Text("Abrir Ajustes")
                             }
@@ -298,6 +314,9 @@ struct OpenSubtitlesSearchView: View {
     private func search(exactFirst: Bool) async {
         isWorking = true
         message = nil
+        searchErrorMessage = nil
+        searchNeedsConfiguration = false
+        searchHasCompleted = false
         if !exactFirst {
             results = []
             selectedID = nil
@@ -319,16 +338,17 @@ struct OpenSubtitlesSearchView: View {
                 }
             guard !Task.isCancelled else { return }
             results = outcome.results
+            searchHasCompleted = true
             usedExactFileMatch = outcome.usedExactFileMatch
             selectedID = outcome.results.first?.id
-            if outcome.results.isEmpty {
-                message = L10n.text("Prueba con otro título o idioma.")
-            }
         } catch {
             guard !Task.isCancelled else { return }
             results = []
             selectedID = nil
-            message = error.localizedDescription
+            searchErrorMessage = error.localizedDescription
+            if case OpenSubtitlesError.notConfigured = error {
+                searchNeedsConfiguration = true
+            }
         }
     }
 
