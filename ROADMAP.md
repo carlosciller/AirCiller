@@ -6,6 +6,12 @@ The 0.12.1 stability release covers playback controls, authorization, track edit
 
 [The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. Release and signing steps are documented in [Distribution](DISTRIBUTION.md); user-facing changes are in the [release notes](CHANGELOG.md).
 
+## In progress: Mac essential interface
+
+Integrate the selected **A. Mac essential** composition from the native design study against 0.13.0, preserving its playback engines and preparation paths. The main window, optional named tracks inspector, compact sizing, shared command availability and common internal-app icon are implemented on the development branch.
+
+Current validation and remaining gates are recorded in [native interface integration](Docs/NATIVE_UI_INTEGRATION.md). The earlier [prototype](Docs/NATIVE_DESIGN_PROTOTYPE.md) is design evidence only. Publication and daily installation are separate from implementation.
+
 ## 0.12.6: library and reliability
 
 Implemented for 0.12.6. [Library recovery](Docs/LIBRARY_RECOVERY.md) and [capture readiness](Docs/PLAYBACK_CHECKS.md#initial-capture-readiness) record scope and validation separately, including local coordinator checks and the successful integrated Apple TV batch.

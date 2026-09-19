@@ -1,13 +1,15 @@
 import AppKit
 import Foundation
 
-guard CommandLine.arguments.count == 3 else {
-    fputs("Uso: make_icon.swift destino.png destino.icns\n", stderr)
+let isTestIcon = CommandLine.arguments.dropFirst().first == "--test"
+let outputArguments = Array(CommandLine.arguments.dropFirst(isTestIcon ? 2 : 1))
+guard outputArguments.count == 2 else {
+    fputs("Usage: make_icon [--test] output.png output.icns\n", stderr)
     exit(2)
 }
 
-let pngURL = URL(fileURLWithPath: CommandLine.arguments[1])
-let icnsURL = URL(fileURLWithPath: CommandLine.arguments[2])
+let pngURL = URL(fileURLWithPath: outputArguments[0])
+let icnsURL = URL(fileURLWithPath: outputArguments[1])
 
 func appendUInt32(_ value: UInt32, to data: inout Data) {
     var bigEndian = value.bigEndian
@@ -29,6 +31,17 @@ func superellipse(in rect: CGRect, exponent: CGFloat = 4.0) -> CGPath {
         let y = center.y + halfHeight * (sine < 0 ? -1 : 1) * pow(abs(sine), 2 / exponent)
         if index == 0 { path.move(to: CGPoint(x: x, y: y)) } else { path.addLine(to: CGPoint(x: x, y: y)) }
     }
+    path.closeSubpath()
+    return path
+}
+
+// Both test colors share this exact diagonal. Keeping it in the renderer's
+// coordinate system preserves the production silhouette and glyph geometry.
+func testHalf(in rect: CGRect) -> CGPath {
+    let path = CGMutablePath()
+    path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+    path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+    path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
     path.closeSubpath()
     return path
 }
@@ -87,6 +100,19 @@ func renderIcon(size: Int) throws -> Data {
         (NSColor(calibratedRed: 1.000, green: 0.650, blue: 0.000, alpha: 1), 1.0)
     )!
     background.draw(in: iconRect, angle: -90)
+
+    if isTestIcon {
+        context.saveGState()
+        context.addPath(testHalf(in: iconRect))
+        context.clip()
+        let purple = NSGradient(
+            colorsAndLocations: (NSColor(calibratedRed: 0.53, green: 0.30, blue: 0.88, alpha: 1), 0.0),
+            (NSColor(calibratedRed: 0.43, green: 0.20, blue: 0.76, alpha: 1), 0.58),
+            (NSColor(calibratedRed: 0.34, green: 0.13, blue: 0.63, alpha: 1), 1.0)
+        )!
+        purple.draw(in: iconRect, angle: -90)
+        context.restoreGState()
+    }
 
     let sheen = NSGradient(colors: [
         NSColor(calibratedWhite: 1, alpha: 0.38),
@@ -160,6 +186,27 @@ func renderIcon(size: Int) throws -> Data {
     context.setLineCap(.round)
     context.setLineJoin(.round)
     context.strokePath()
+    if isTestIcon {
+        context.saveGState()
+        context.addPath(testHalf(in: CGRect(x: 0, y: 0, width: 1024, height: 1024)))
+        context.clip()
+        context.saveGState()
+        context.addPath(screen)
+        context.clip(using: .evenOdd)
+        let testGlyph = NSGradient(colors: [
+            NSColor(calibratedRed: 1, green: 0.89, blue: 0.07, alpha: 1),
+            NSColor(calibratedRed: 1, green: 0.78, blue: 0, alpha: 1),
+        ])!
+        testGlyph.draw(in: CGRect(x: 190, y: 390, width: 644, height: 390), angle: -90)
+        context.restoreGState()
+        context.addPath(beam)
+        context.setStrokeColor(NSColor(calibratedRed: 1, green: 0.84, blue: 0.03, alpha: 1).cgColor)
+        context.setLineWidth(76)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+        context.strokePath()
+        context.restoreGState()
+    }
     context.restoreGState()
 
     graphics.flushGraphics()

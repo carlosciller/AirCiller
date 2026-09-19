@@ -12,6 +12,9 @@ final class StreamCoordinator {
     private(set) var probeInfo: MediaProbe?
     var status = "Listo"
     var detail = "Elige una película y AirCiller comprobará todas sus pistas."
+    private(set) var isAnalyzing = false
+    private var automaticStartWait = AutomaticPlaybackStartWait()
+    var isWaitingToStart: Bool { automaticStartWait.isPending }
     var isPreparing = false
     var isStreaming = false
     var isPlaying = false
@@ -102,12 +105,14 @@ final class StreamCoordinator {
             server == nil && ffmpegProcess == nil && streamTask == nil && activeSessionID == nil
                 && player.currentItem == nil && !airPlay.isSessionActive
                 && !isPreparing && !isStreaming && !isPlaying
+                && !isWaitingToStart
         }
     #endif
     @ObservationIgnored private var streamTask: Task<Void, Never>?
     @ObservationIgnored private let authorizationPreflight = PlaybackAuthorizationPreflight()
     @ObservationIgnored private var authorizationRetryPolicy = AirPlayAuthorizationRetryPolicy()
     @ObservationIgnored private let mediaAnalysisTasks = MediaAnalysisTasks()
+    @ObservationIgnored private var activeAnalysisID: UUID?
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
     @ObservationIgnored private var itemEndObserver: NSObjectProtocol?
     @ObservationIgnored private var itemErrorObserver: NSObjectProtocol?
@@ -118,7 +123,7 @@ final class StreamCoordinator {
     @ObservationIgnored private var lastRebufferEvent = Date.distantPast
 
     init() {
-        #if !AIRCILLER_PLAYBACK_CHECKS
+        #if !AIRCILLER_PLAYBACK_CHECKS && !AIRCILLER_UI_CHECKS
             Self.cleanupStaleBuffers()
         #endif
         player.allowsExternalPlayback = true
@@ -277,6 +282,22 @@ final class StreamCoordinator {
 
     var selectedAudio: AudioTrack? {
         audioTracks.first(where: { $0.id == selectedAudioID })
+    }
+
+    var commandAvailability: PlaybackCommandAvailability {
+        PlaybackCommandAvailability(
+            hasFile: selectedURL != nil,
+            hasProbe: probeInfo != nil,
+            isAnalyzing: isAnalyzing,
+            isWaitingToStart: isWaitingToStart,
+            isPreparing: isPreparing,
+            isStreaming: isStreaming,
+            isCheckingAuthorization: airPlay.authorizationState == .checking,
+            isPairing: airPlay.isPairingPresented,
+            isAwaitingConversion: showConversionAlert,
+            duration: duration,
+            hasChapters: !chapters.isEmpty
+        )
     }
 
     var selectedSubtitle: SubtitleTrack? {
@@ -585,6 +606,9 @@ final class StreamCoordinator {
         hasError = false
         status = "Analizando la película…"
         detail = "Comprobando duración, Dolby Vision, HDR, audio, subtítulos y capítulos."
+        let analysisID = UUID()
+        activeAnalysisID = analysisID
+        isAnalyzing = true
         touchRecent(url: url, duration: 0, position: currentTime)
 
         mediaAnalysisTasks.replacePrimary(
@@ -593,6 +617,10 @@ final class StreamCoordinator {
                 do {
                     let info = try await MediaProbeService.probe(url: url)
                     try Task.checkCancellation()
+                    guard self.activeAnalysisID == analysisID else { return }
+                    let automaticStartID = autoStart ? self.automaticStartWait.begin() : nil
+                    self.activeAnalysisID = nil
+                    self.isAnalyzing = false
                     self.probeInfo = info
                     self.audioTracks = info.audioTracks
                     self.subtitleTracks = info.subtitleTracks
@@ -633,11 +661,19 @@ final class StreamCoordinator {
                         ? "Dolby Vision se mantendrá intacto. Elige las pistas y pulsa Reproducir."
                         : "El vídeo se enviará sin recodificar. Elige las pistas y pulsa Reproducir."
                     self.touchRecent(url: url, duration: info.duration, position: self.currentTime)
-                    if autoStart { await self.startAfterNetworkSettles() }
+                    if let automaticStartID {
+                        await self.startAfterNetworkSettles(waitID: automaticStartID)
+                    }
                 } catch is CancellationError {
+                    if self.activeAnalysisID == analysisID {
+                        self.activeAnalysisID = nil
+                        self.isAnalyzing = false
+                    }
                     return
                 } catch {
-                    guard !Task.isCancelled else { return }
+                    guard !Task.isCancelled, self.activeAnalysisID == analysisID else { return }
+                    self.activeAnalysisID = nil
+                    self.isAnalyzing = false
                     self.hasError = true
                     self.status = "No se pudo analizar la película"
                     self.detail = error.localizedDescription
@@ -655,12 +691,15 @@ final class StreamCoordinator {
         continueStart(at: requestedTime)
     }
 
-    private func startAfterNetworkSettles() async {
+    private func startAfterNetworkSettles(waitID: UUID) async {
+        defer { automaticStartWait.finish(waitID) }
+        guard !Task.isCancelled, automaticStartWait.id == waitID else { return }
         let deadline = Date().addingTimeInterval(3)
         while !network.isReady, Date() < deadline {
             try? await Task.sleep(for: .milliseconds(100))
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, automaticStartWait.id == waitID else { return }
         }
+        guard !Task.isCancelled, automaticStartWait.finish(waitID) else { return }
         start()
     }
 
@@ -822,6 +861,7 @@ final class StreamCoordinator {
     }
 
     func togglePlayback() {
+        guard commandAvailability.canTogglePlayback else { return }
         guard isStreaming else {
             start()
             return
@@ -840,6 +880,7 @@ final class StreamCoordinator {
     }
 
     func seek(to time: Double) {
+        guard commandAvailability.canSeek, time.isFinite else { return }
         let target = min(max(time, 0), max(duration - 0.5, 0))
         currentTime = target
         if isStreaming {
@@ -854,18 +895,22 @@ final class StreamCoordinator {
     }
 
     func previousChapter() {
-        guard !chapters.isEmpty else { return }
+        guard commandAvailability.canChangeChapter else { return }
         let target = chapters.last(where: { $0.start < currentTime - 3 })?.start ?? 0
         seek(to: target)
     }
 
     func nextChapter() {
+        guard commandAvailability.canChangeChapter else { return }
         guard let target = chapters.first(where: { $0.start > currentTime + 1 })?.start else { return }
         seek(to: target)
     }
 
     func stop(resetStatus: Bool = true) {
         saveCurrentPosition(force: true)
+        activeAnalysisID = nil
+        isAnalyzing = false
+        automaticStartWait.cancel()
         mediaAnalysisTasks.cancelAll()
         streamTask?.cancel()
         streamTask = nil

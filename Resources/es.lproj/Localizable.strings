@@ -1,3 +1,21 @@
+/* Native session window */
+"Volver a analizar" = "Volver a analizar";
+"Revisa la conexión" = "Revisa la conexión";
+"Audio y subtítulos…" = "Audio y subtítulos…";
+"Selección en la biblioteca" = "Selección en la biblioteca";
+"Esta es la película de la sesión actual." = "Esta es la película de la sesión actual.";
+"Reproducir esta película" = "Reproducir esta película";
+"¿Vaciar la playlist?" = "¿Vaciar la playlist?";
+"Se quitarán todas las entradas de la playlist. Los archivos originales no se borrarán." = "Se quitarán todas las entradas de la playlist. Los archivos originales no se borrarán.";
+"¿Borrar el historial?" = "¿Borrar el historial?";
+"Se eliminarán las entradas de Recientes y sus posiciones guardadas. Los archivos originales no se borrarán." = "Se eliminarán las entradas de Recientes y sus posiciones guardadas. Los archivos originales no se borrarán.";
+"Película de la sesión actual" = "Película de la sesión actual";
+"La película se preparará con estas pistas y continuará desde la posición actual." = "La película se preparará con estas pistas y continuará desde la posición actual.";
+"No se pudieron buscar los subtítulos" = "No se pudieron buscar los subtítulos";
+"Busca por título o comprueba la coincidencia del archivo." = "Busca por título o comprueba la coincidencia del archivo.";
+"La instalación de AirCiller está incompleta: falta FFmpeg. Vuelve a descargar e instalar AirCiller." = "La instalación de AirCiller está incompleta: falta FFmpeg. Vuelve a descargar e instalar AirCiller.";
+"La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller." = "La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller.";
+
 /* Main menu */
 "%@ (detectado localmente)" = "%@ (detectado localmente)";
 "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos." = "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos.";

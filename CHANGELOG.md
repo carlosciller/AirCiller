@@ -2,6 +2,19 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## Unreleased
+
+AirCiller's main window has been redesigned around the movie playing on your Apple TV.
+
+- The library stays in a sidebar, with playback controls in the main area and toolbar. The window can be made smaller, and long filenames remain readable in the session and selection details.
+- **Audio & Subtitles** opens a side inspector named for the current movie. Browse the library without changing its tracks. Cancel discards your edits; Apply is available only when settings have changed.
+- Arrow keys stay available for list navigation and controls. Use **Command-Left/Right** to skip ten seconds, or **Option-Command-Left/Right** for thirty seconds. Playlist reordering shortcuts are unchanged.
+- Playback actions stay unavailable while the movie is being analyzed or prepared, or while authorization needs attention. Stop remains available to cancel the operation.
+- Clearing Playlist or Recents asks for confirmation and explains what will be removed. Original files are never deleted.
+- Failed subtitle searches are distinguished from searches with no matches. An incomplete playback-engine installation now directs you to reinstall AirCiller.
+
+Internal test apps use a shared yellow-and-purple icon. The regular AirCiller icon, bundled engines and supported formats are unchanged. The existing manual-audio-synchronization limitation remains.
+
 ## 0.13.0 (13 September 2026)
 
 AirCiller can now keep prepared movies for reuse when you play them again or change subtitles.

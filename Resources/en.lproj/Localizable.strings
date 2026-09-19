@@ -1,3 +1,21 @@
+/* Native session window */
+"Volver a analizar" = "Analyze Again";
+"Revisa la conexión" = "Check the Connection";
+"Audio y subtítulos…" = "Audio & Subtitles…";
+"Selección en la biblioteca" = "Library Selection";
+"Esta es la película de la sesión actual." = "This is the movie in the current session.";
+"Reproducir esta película" = "Play This Movie";
+"¿Vaciar la playlist?" = "Empty the Playlist?";
+"Se quitarán todas las entradas de la playlist. Los archivos originales no se borrarán." = "All playlist entries will be removed. The original files will not be deleted.";
+"¿Borrar el historial?" = "Clear History?";
+"Se eliminarán las entradas de Recientes y sus posiciones guardadas. Los archivos originales no se borrarán." = "Recent entries and their saved positions will be removed. The original files will not be deleted.";
+"Película de la sesión actual" = "Current Session Movie";
+"La película se preparará con estas pistas y continuará desde la posición actual." = "The movie will be prepared with these tracks and continue from the current position.";
+"No se pudieron buscar los subtítulos" = "Couldn't search for subtitles";
+"Busca por título o comprueba la coincidencia del archivo." = "Search by title or check for a matching file.";
+"La instalación de AirCiller está incompleta: falta FFmpeg. Vuelve a descargar e instalar AirCiller." = "Your AirCiller installation is incomplete: FFmpeg is missing. Download and install AirCiller again.";
+"La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller." = "Your AirCiller installation is incomplete: ffprobe is missing. Download and install AirCiller again.";
+
 /* Main menu */
 "Abrir película…" = "Open Movie…";
 "Añadir a la playlist…" = "Add to Playlist…";

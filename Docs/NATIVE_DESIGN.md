@@ -1,6 +1,6 @@
 # Native macOS design for AirCiller
 
-Design direction researched on 13 September 2026. This is guidance for future UI work, not a claim that the redesign or accessibility checks are implemented. Read the applicable section for the requested change. The [baseline audit](NATIVE_DESIGN_AUDIT.md) records observations, code findings and proposed work separately.
+Design direction researched on 13 September 2026. The maintainer selected A. Mac essential; its integration against 0.13.0 is recorded in [native interface integration](NATIVE_UI_INTEGRATION.md). This guide defines acceptance, not a claim that every accessibility or platform check has passed. The [baseline audit](NATIVE_DESIGN_AUDIT.md) remains a dated source review.
 
 ## Product brief
 
