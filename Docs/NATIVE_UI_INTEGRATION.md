@@ -149,12 +149,29 @@ signatures. This is not Developer ID signing or notarization, and the actual
 update remains a separate check.
 
 The normal GUI candidate reopened at the intended default size with the final
-header and named inspector. Before its real Stop/replay/quit sequence could
-begin, the Mac locked. The first Play action returned a locked-session error;
-that sequence is not a passed test. Native interaction stopped and the maintainer
-was asked to unlock manually. No alternate input was used. The successful
-seven-case batch remains separate evidence.
+header and named inspector. Before its first Stop/replay/quit attempt could
+begin, the Mac locked. The Play action returned a locked-session error; that
+attempt did not establish playback. Native interaction stopped and the maintainer
+was asked to unlock manually. The separate capture showed only a screensaver.
 
-Publication and installation have not occurred. GitHub Latest and the daily app
-remain at 0.13.0. Real GUI Stop/replay/quit, exact release CI and the installed
-update must be established separately before this candidate is called complete.
+After the maintainer confirmed manual unlock, the normal candidate completed
+Play, central Pause, Resume, toolbar Stop, Play again and Command-Q. Its executable
+SHA-256 was `727c1ac5b4534de81c49ca68f3693a524dd1252fa5c052629e22ba9240c87c98`.
+The Mac showed the correct phase and control availability at each step. Stop
+returned to Ready with the saved position; playing again continued near second
+21, not from the beginning.
+
+A separate 90-second capture from the same approved Apple TV digital source
+confirmed motion and non-silent audio in the initial, resumed and replayed
+intervals. Seven sampled paused frames were stationary and all 17 paused audio
+measurements were silent. Inspected Stop and post-quit frames showed the
+screensaver without the movie player. The final post-quit interval had no audio
+measurements, so it does not establish measured silence. Scoped process checks
+found no remaining app, AirPlay helper, FFmpeg or capture processes. No original
+movie, daily library or installed app was changed by these checks.
+
+Code, native interaction and the selected receiver/output acceptance are complete
+for these frozen executable inputs. Package signing is recorded above. Exact
+commit/tag CI, public-asset verification and the real Sparkle installation follow
+the separate [distribution procedure](../DISTRIBUTION.md); none is inferred from
+a local build or these playback observations.
