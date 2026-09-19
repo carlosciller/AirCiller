@@ -86,6 +86,9 @@ compile_and_run launch-options \
 compile_and_run playback-command-availability \
   "$project_dir/Sources/PlaybackCommandAvailability.swift" \
   "$project_dir/Tests/PlaybackCommandAvailabilitySmokeTest.swift"
+compile_and_run session-presentation \
+  "$project_dir/Sources/SessionPresentation.swift" \
+  "$project_dir/Tests/SessionPresentationSmokeTest.swift"
 compile_and_run error-recovery \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \

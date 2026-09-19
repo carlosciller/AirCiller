@@ -1,118 +1,160 @@
 # Mac essential integration
 
-19 September 2026. Base: AirCiller 0.13.0 (4d749e5). This is the production
-integration of the maintainer's selected **A. Mac essential** direction, not a
-replacement of the application with the earlier simulated prototype.
+19 September 2026. Candidate: AirCiller 0.14.0 (61), based on 0.13.0
+(`4d749e5`). The selected direction is [A. Mac essential](NATIVE_DESIGN_PROPOSALS.md#a-mac-essential).
+The [native prototype](NATIVE_DESIGN_PROTOTYPE.md) is the composition reference;
+its simulated playback is not application or receiver evidence.
 
-## Scope
+## Design correction
 
-- Keep the existing native Playlist table, fixed row rhythm, drag/autoscroll and
-  keyboard reordering. Library selection remains separate from the loaded movie.
-- Replace the large video-preview canvas and stacked status cards with the named
-  session, transport and concise track summary. The toolbar keeps Play/Pause,
-  Stop, destination, Open, diagnostics and the inspector available while scrolling.
-- Use a native optional inspector for the current movie's audio/subtitle draft.
-  Unchanged, stale, busy or different-file drafts cannot apply. Actual changes
-  still use the existing coordinator operation; no packaging implementation changes.
-- Show full filenames in the session and selected-item detail. Keep diagnostics
-  in the explicit information popover. Use system materials, fonts and colors.
-- Share playback-command availability across the coordinator, buttons and menus.
-  Analysis has an observable state and replacement identity. Unknown authorization
-  must still allow the first Play; an actual check, pairing or conversion decision
-  blocks duplicate commands. Stop cancels pending work.
-- Reserve unmodified arrows for native controls. Command-arrow seeks ten seconds;
-  Option-Command-arrow seeks thirty seconds. Space retains Play/Pause and
-  Option-Command-Up/Down retains Playlist reordering.
-- Confirm bulk library removal. Distinguish a subtitle-search error from a
-  successful empty result. Missing-engine guidance directs users to reinstall
-  the bundled application.
-- Give internal GUI builds the same [test icon](TEST_APP_ICON.md). Production
-  artwork is preserved exactly. Internal builds have no update feed or file
-  associations and are not a data sandbox.
+The first integration retained the sidebar, session detail and optional inspector,
+but diverged from the selected design: wider columns, a borderless Play button,
+controls above the timeline, stacked track information and an expanded editor.
+Its successful build and initial interaction checks did not establish visual
+fidelity. That limitation was identified during the subsequent source comparison.
 
-Both packagers, subtitle preparation, HTTP delivery, runtime locks and credential
-allowlists are unchanged. The deferred SDR HLS manual-audio-offset defect is not
-repaired here.
+The revised source restores the prototype's 225-point ideal sidebar, 265-point
+ideal inspector, 30-point content margins, title treatment and balanced session
+area. The timeline is above the circular Play/Pause button and is limited to
+440 points. The primary button uses the native prominent glass style on macOS 26
+and later, with a standard prominent-button fallback. Ready, busy and active
+sessions have distinct presentations; selection details adapt between a row and
+a column. Optional chapter controls move to a second row when space is limited.
 
-## Acceptance record
+The inspector uses a grouped form with Audio and Subtitles first. Synchronization,
+audio output and additional subtitle options are initially collapsed. Real track
+names, file import, OpenSubtitles, timing/reset controls and explanatory text are
+retained. Selected conversion and unsupported-track warnings remain visible.
+The named header and Cancel/Apply footer stay outside the scrolling form. Long
+header filenames have a three-line limit; the full name remains available in
+help, accessibility and the main session/selection details.
 
-Focused deterministic checks cover command availability, finite seek bounds,
-unchanged/changed/reverted/stale track drafts, missing-engine recovery and the
-production/test icon representations. The strict whole-project gate passed for
-the first integrated candidate, including the native Vision tests, localization,
-large-file server checks and the Swift 6 warnings-as-errors build. Native
-interaction review subsequently found a defect; there is no release-readiness
-claim yet.
+Production adaptations preserve the existing AppKit Playlist table, fixed row
+rhythm, drag/autoscroll and keyboard reordering. The fictional fixtures and
+scenario controls are not part of the app. Diagnostics remain in an explicit
+popover. Internal GUI builds use the [test icon](TEST_APP_ICON.md); production
+artwork is unchanged. Internal builds have no update feed or file associations
+and are not a data sandbox.
 
-The first local gate stopped at a sandbox-restricted pip-tools cache. After its
-cache/network permissions were granted, the second reached unchanged Apple Vision
-tests but could not create a pixel buffer inside the sandbox. These are retained
-as failed attempts, not ignored checks. The first unrestricted run then caught a
-Swift binding error in the pairing sheet. An explicit binding corrected that
-error; the subsequent unrestricted run passed without weakening tests or engines.
+## State and safety
 
-The first actual native review loaded a synthetic movie without starting playback
-and confirmed its full title, duration, original-audio summary and transport
-accessibility values. Opening the inspector then caused an AppKit constraint
-update loop and terminated the test app on macOS 27. Keeping its content present
-while hidden passed the local gate but did not fix the native crash; that failed
-attempt is retained. Moving the inspector inside the split view's detail, as in
-the approved prototype, removed the crash but exposed vertical cropping across
-the columns. A finite inspector viewport now keeps the editor's intrinsic height
-from resizing the enclosing split layout.
+- Library selection does not load a movie. Activation and playback remain explicit.
+- Buttons, menus and shortcuts share command availability. Unknown authorization
+  permits the first Play; an actual check, pairing or conversion decision prevents
+  duplicate commands. Unmodified arrows remain available to native controls.
+- Stop cancels analysis and the UUID-owned pending automatic start. An obsolete
+  task cannot clear a replacement movie's wait; updates are deferred during it.
+- A nonfatal error does not remove active transport or preparation cancellation.
+  Error detail remains visible. The session header derives normal phases from
+  session state, so a library message cannot replace the playback label.
+- Unchanged, stale, busy and different-file track drafts cannot apply. Changing
+  audio tracks retains the original-output default. Cancel discards the draft.
+- Bulk removal requires confirmation. Subtitle-search errors are distinct from
+  completed empty results. Missing-engine recovery directs users to reinstall
+  the bundled app.
 
-The final viewport candidate passed opening, editing, Cancel, reopening and
-native half/quarter-window tiling with a long synthetic filename. Cancel restored
-the +0.00 audio draft, and unchanged Apply remained disabled. The header, session,
-transport and pinned inspector footer were visible in the compact window; the
-editor exposed a native scroll area for remaining options. Spanish dark appearance
-and the real accessibility tree were inspected. No playback was started during
-this UI review. The installed 0.13.0 application is unchanged.
-These native observations used the final interface sources before the candidate's
-version metadata advanced to 0.14.0 (61); no interface or playback code changed
-after those observations.
+Neither packager, subtitle preparation, HTTP delivery, runtime locks nor
+credential allowlists change in this delivery. The deferred SDR HLS manual-audio
+offset defect remains outside its scope.
 
-A separate source review found that Stop could be disabled during the bounded
-post-analysis network wait even though automatic playback was still pending.
-The correction now starts an observable, UUID-owned wait before analysis ends;
-Stop cancels it, and stale task cleanup cannot clear a newer movie's wait. The
-focused strict Swift test passes cancellation, replacement and single handoff.
-Updates are also deferred during that wait. The final whole-project gate passed
-for 0.14.0 (61), including this correction and the finite inspector viewport.
-Signing and the existing 165 MB budget also passed. This is local evidence, not
-an installation or a substitute for receiver acceptance.
+## Local and native evidence
 
-Native review was interrupted again when the Mac locked. English/light appearance
-and the remaining interactive library checks are still pending. The idle GUI
-candidate was terminated by its verified process identity before rebuilding the
-separate playback-check app; the two internal apps must not run together. The
-six-case receiver batch was built from the frozen 0.14.0 (61) inputs.
+Earlier strict checks passed, but actual inspector opening then exposed an AppKit
+constraint-update crash. Keeping hidden content mounted did not fix it. Moving
+the inspector into the split view's detail removed the crash but exposed vertical
+cropping. The retained finite inspector viewport bounds its content without
+resizing the enclosing columns. Failed attempts remain recorded separately; those
+earlier builds are not the final design candidate.
 
-Its first live attempt stopped at capture readiness, before credentials, fixture
-preparation or playback. The approved source was verified and its capture session
-started, but no initial frame arrived within 20 seconds. Cleanup completed and
-the daily application stayed unchanged. The capture tools are byte-identical to
-the successful 0.13.0 run; this failure does not establish a media or UI defect.
-A separate bounded capture-only retry reproduced the same verified-source,
-running-session, no-frame result. Its report and the first attempt are retained
-separately. Both stopped before credential access or playback, and no checker,
-helper or sampler processes remained afterwards. There were no further device
-attempts, wake requests, pairing, permission changes or alternate inputs. The
-six playback cases remain unverified for this candidate. No control-only fallback
-can pass this gate.
+The following observations used the revised candidate on macOS 27 with synthetic
+local media. They did not start television playback:
 
-Native checks must exercise compact and normal layouts, the named inspector,
-unchanged Apply, cancel, selection/activation, keyboard, English/Spanish and
-appearance. Shared command changes also need current direct MP4 and HLS receiver
-checks. Earlier physical confirmations and the prototype are not fresh evidence
-for this candidate.
+| Scenario | Observed result |
+| --- | --- |
+| Spanish, dark appearance | Empty and ready states showed the expected hierarchy, including a long filename. |
+| Compact inspector | A 265-point inspector in an 871 × 574-point window opened without a crash or cropped controls. Audio and subtitle menus were visible. |
+| Track draft | Synchronization opened; changing audio to +0.05 seconds and cancelling discarded the change. Reopening retained +0.00; unchanged Apply stayed disabled. |
+| English, light appearance | Ready state and the long-name inspector were visually inspected. Selecting an external subtitle marked the draft changed; Cancel left it unapplied. |
+| Library keyboard | Up/Down changed selection without loading a movie. Option-Command-Up/Down reordered it, and the original order was restored. |
+| Bulk removal | Cancelling the clear confirmation preserved both synthetic Playlist entries. |
+| Restoration | Spanish and dark appearance were restored after the language/appearance checks. |
 
-No new format support, end-to-end speed, physical HDR/Atmos, complete VoiceOver,
-macOS 14 runtime or whole-movie-reliability claim follows from this interface work.
-Publication and daily installation remain separate gates.
+The drag automation produced no reorder, so it does **not** establish new drag
+validation. Complete keyboard/focus traversal, VoiceOver, accessibility appearance
+settings and execution on macOS 14 remain outside these observations. The compact
+check above does not certify every state at the declared 720 × 520 minimum.
 
-The implementation is a release candidate, not an accepted release. Keep GitHub
-Latest and the daily installation at 0.13.0 until the outstanding interface review
-and current receiver/captured-output checks are complete. Package signing,
-release-tag CI, public assets and the real Sparkle update are not established by
-the local check result.
+Review also corrected unknown authorization being presented as active waiting,
+nonfatal errors hiding active controls, chapter-row overflow at narrow widths,
+and library status text replacing the session header. Deterministic phase and
+command tests cover pending/active/error precedence and cancellation ownership;
+draft and recovery tests remain in the strict gate. The final header-copy and
+localized close-label adjustments followed the native review. The final
+whole-project gate then passed, including strict Swift 6 compilation, Vision,
+localization, simulation and distribution-content checks. The signed local app
+measured 155,694,108 logical bytes against the existing 165 MB limit. A preceding
+sandbox-restricted pip-tools cache attempt is retained separately. This final
+gate does not substitute for native checks of changed labels or receiver output.
+
+## Receiver and release status
+
+The previous six-case receiver attempt stopped at capture readiness, before
+credentials, fixtures or playback. The approved digital source was verified and
+its session started, but no initial frame arrived within 20 seconds. One bounded
+capture-only retry reproduced that result. Both reports and cleanup results are
+preserved; neither attempt validates playback or demonstrates a media defect.
+No wake, pairing, permission changes, alternate capture source, camera or
+microphone was used. No test or capture processes remained afterwards.
+
+A later capture-only attempt again received no frames. The maintainer then
+confirmed the Apple TV had been asleep and woke it. The next bounded readiness
+check received a verified frame of its Home screen and closed cleanly. It used
+the same approved source and unchanged capture tools, without credentials or
+movie playback. All preceding failures remain in the private record.
+
+The rebuilt 0.14.0 (61) checker completed the seven-case batch on 20 September
+2026. Executable SHA-256:
+`8dcf6a930b1614e63445ec9fde6f44ff7a2c6e0faea722a9b27a7dfbbdb619fd`.
+Source inputs, capture tools and the installed app remained byte-identical
+throughout the run. The original six-case configuration was retained separately.
+
+| Current case | Receiver/control evidence | Captured digital output |
+| --- | --- | --- |
+| Direct HDR MP4 with selectable subtitles | Progress, pause/resume, seeks and Stop/cleanup passed. | 29 sampled frames, confirmed motion, 29 cue detections and non-silent audio. |
+| HLS with subtitles | Same bounded controls passed. | 28 frames with 28 cue detections and non-silent audio. |
+| HLS without subtitles | Same bounded controls passed. | 28 frames, no expected cue and non-silent audio. |
+| Direct subtitle replacement | Applied through the coordinator and cleaned up. | Initial and replacement cues were separately detected with motion/audio. |
+| HLS track changes | Subtitle replacement, original-audio change and subtitles off passed. | Four phases retained motion/audio; the audio tone changed from 880 to 440 Hz, and cues disappeared only in the Off phase. |
+| Cancel preparation | A running FFmpeg preparation stopped, followed by three seconds without delayed playback. | Negative case; no audiovisual-output claim. |
+| Playlist transition | Receiver completion led to loads 1 then 2 exactly once, followed by cleanup. | The next clip supplied eight sampled frames and non-silent audio without subtitles. |
+
+All selected checks completed without evidence gaps; all checker/capture/helper
+processes closed. The real playback window was also inspected read-only during
+the direct case: its phase, format/track summary, moving timeline, elapsed/total
+times, circular Pause and both ten-second skips matched the chosen design.
+This Mac-window observation is separate from the Apple TV capture above.
+
+Six-minute pauses, bitmap OCR and physical remote scenarios were not repeated:
+their preparation, remote protocol, buffering and sleep-prevention paths are
+unchanged from the recorded prior versions. No new physical HDR/Atmos, speaker,
+remote, whole-movie or startup-speed claim follows from this interface work.
+
+The public ad hoc build measured 155,616,379 logical bytes. Its full ZIP and delta
+from official build 60 produced identical extracted bundles, including modes,
+symlinks and signatures. Sparkle signatures for the feed, full archive and delta
+passed verification. The production identity, artwork and update key are
+unchanged; internal-test and local credential-service markers are absent.
+Sparkle's identity warning reflects the different code hashes in these two ad hoc
+signatures. This is not Developer ID signing or notarization, and the actual
+update remains a separate check.
+
+The normal GUI candidate reopened at the intended default size with the final
+header and named inspector. Before its real Stop/replay/quit sequence could
+begin, the Mac locked. The first Play action returned a locked-session error;
+that sequence is not a passed test. Native interaction stopped and the maintainer
+was asked to unlock manually. No alternate input was used. The successful
+seven-case batch remains separate evidence.
+
+Publication and installation have not occurred. GitHub Latest and the daily app
+remain at 0.13.0. Real GUI Stop/replay/quit, exact release CI and the installed
+update must be established separately before this candidate is called complete.

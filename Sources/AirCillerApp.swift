@@ -16,9 +16,9 @@ struct AirCillerApp: App {
     var body: some Scene {
         Window("AirCiller", id: "main") {
             ContentView(coordinator: coordinator, appDelegate: appDelegate)
-                .frame(minWidth: 760, minHeight: 560)
+                .frame(minWidth: 720, minHeight: 520)
         }
-        .defaultSize(width: 1_000, height: 700)
+        .defaultSize(width: 960, height: 650)
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .appInfo) {
@@ -335,24 +335,17 @@ struct LibrarySidebar: View {
             }
             .labelsHidden()
             .pickerStyle(.segmented)
-            .padding(.horizontal, 9)
+            .padding(.horizontal, 13)
             .padding(.top, 12)
-            .padding(.bottom, 12)
-
-            Divider()
+            .padding(.bottom, 8)
 
             HStack {
-                Text(L10n.text(selectedTab.rawValue))
+                Text(selectedTab == .playlist ? "Películas" : "Reproducidas recientemente")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Spacer()
-                Text("\(selectedTab == .playlist ? coordinator.queueItems.count : coordinator.recentItems.count)")
-                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 14)
-            .padding(.top, 13)
+            .padding(.top, 8)
             .padding(.bottom, 7)
 
             if selectedTab == .recent {
@@ -459,15 +452,21 @@ struct LibrarySidebar: View {
                 Button {
                     coordinator.addToQueue()
                 } label: {
-                    Label("Añadir", systemImage: "plus")
+                    Label("Añadir película…", systemImage: "plus")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if !coordinator.queueItems.isEmpty {
-                    Button("Vaciar", role: .destructive) { confirmingClearQueue = true }
+                    Button {
+                        confirmingClearQueue = true
+                    } label: {
+                        Label("Vaciar", systemImage: "trash").labelStyle(.iconOnly)
+                    }
+                    .help("Vaciar")
                 }
             }
-            .buttonStyle(.bordered)
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .padding(15)
         }
         .frame(maxHeight: .infinity)
     }
@@ -544,6 +543,9 @@ struct TrackSettingsView: View {
     @Bindable var coordinator: StreamCoordinator
     @Binding var isPresented: Bool
     @AirCillerState private var showingOpenSubtitles = false
+    @AirCillerState private var showingSynchronization = false
+    @AirCillerState private var showingAudioOptions = false
+    @AirCillerState private var showingSubtitleOptions = false
     @AirCillerState private var draft: TrackSettings
     @AirCillerState private var original: TrackSettings
     private let videoURL: URL?
@@ -570,17 +572,10 @@ struct TrackSettingsView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("Audio y subtítulos").font(.headline)
-                    Text(videoURL?.lastPathComponent.softWrappedFilename ?? "")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
-                }
-                Spacer(minLength: 8)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Audio y subtítulos").font(.headline)
+                Spacer()
                 Button {
                     isPresented = false
                 } label: {
@@ -588,106 +583,129 @@ struct TrackSettingsView: View {
                         .labelStyle(.iconOnly)
                 }
                 .buttonStyle(.borderless)
-                .help("Cerrar")
+                .accessibilityLabel(L10n.text("Cerrar"))
+                .help(L10n.text("Cerrar"))
             }
-            .padding(16)
-            Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Audio").font(.headline)
-                        Picker("Pista de audio", selection: selectedAudio) {
-                            Text("Sin audio").tag(String?.none)
-                            ForEach(coordinator.audioTracks) { track in
-                                Text("\(L10n.text(track.displayName)) · \(L10n.text(track.technicalDescription))")
-                                    .tag(Optional(track.id))
-                            }
+            .padding(.horizontal, 18)
+            .padding(.top, 21)
+            .padding(.bottom, 7)
+            Text(videoURL?.lastPathComponent.softWrappedFilename ?? "")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(3)
+                .textSelection(.enabled)
+                .help(videoURL?.lastPathComponent ?? "")
+                .accessibilityLabel(videoURL?.lastPathComponent ?? "")
+                .padding(.horizontal, 18)
+                .padding(.bottom, 10)
+            Form {
+                Section {
+                    Picker("Audio", selection: selectedAudio) {
+                        Text("Sin audio").tag(String?.none)
+                        ForEach(coordinator.audioTracks) { track in
+                            Text("\(L10n.text(track.displayName)) · \(L10n.text(track.technicalDescription))")
+                                .tag(Optional(track.id))
                         }
-                        .pickerStyle(.menu)
-                        Picker("Formato de salida", selection: $draft.audioOutputMode) {
-                            ForEach(AudioOutputMode.allCases) { mode in
-                                Text(mode.title).tag(mode)
-                            }
+                    }
+                    .pickerStyle(.menu)
+                    .help(selectedAudioDescription)
+                    .accessibilityValue(selectedAudioDescription)
+                    Picker("Subtítulos", selection: $draft.subtitleID) {
+                        Text("Desactivados").tag(String?.none)
+                        ForEach(coordinator.subtitleTracks) { track in
+                            Text(L10n.text(track.displayName)).tag(Optional(track.id))
                         }
-                        .pickerStyle(.menu)
-                        .disabled(draft.audioID == nil)
+                    }
+                    .pickerStyle(.menu)
+                    .help(selectedSubtitle?.displayName ?? L10n.text("Desactivados"))
+                    .accessibilityValue(selectedSubtitle?.displayName ?? L10n.text("Desactivados"))
+                    if draft.audioID != nil && draft.audioOutputMode != .original {
                         Text(draft.audioOutputMode.explanation)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                        delayControl(value: $draft.audioDelay, range: -5...5, step: 0.05)
-                        Text("Valores positivos retrasan el audio; negativos lo adelantan.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    Divider()
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Subtítulos").font(.headline)
-                        Picker("Pista", selection: $draft.subtitleID) {
-                            Text("Desactivados").tag(String?.none)
-                            ForEach(coordinator.subtitleTracks) { track in
-                                Text(L10n.text(track.displayName)).tag(Optional(track.id))
-                            }
-                        }
-                        .pickerStyle(.menu)
-                        Button {
-                            if let track = coordinator.chooseExternalSubtitle() {
-                                draft.subtitleID = track.id
-                            }
-                        } label: {
-                            Label("Añadir archivo de subtítulos…", systemImage: "plus")
-                        }
-                        Button {
-                            showingOpenSubtitles = true
-                        } label: {
-                            Label("Buscar en OpenSubtitles…", systemImage: "magnifyingglass")
-                        }
-                        .disabled(videoURL == nil)
-                        if let reason = selectedSubtitle?.unsupportedReason {
-                            Label(L10n.text(reason), systemImage: "exclamationmark.triangle")
-                                .font(.callout)
-                                .foregroundStyle(.orange)
-                        } else if let notice = selectedSubtitle?.stylingNotice {
-                            Text(L10n.text(notice))
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                        delayControl(value: $draft.subtitleDelay, range: -10...10, step: 0.1)
-                        Text(
-                            L10n.text(
-                                selectedSubtitle?.usesBitmapOCR == true
-                                    ? "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones."
-                                    : selectedSubtitle?.usesAdvancedTextStyling == true
-                                        ? (coordinator.probeInfo?.isHDR == true
-                                            ? "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS."
-                                            : "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad.")
-                                        : "El tamaño y la posición los controla Apple TV desde sus preferencias de accesibilidad."
-                            )
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        Text("SDH incluye diálogo, identificación del hablante y descripciones de sonidos o música.")
+                    if let reason = selectedSubtitle?.unsupportedReason {
+                        Label(L10n.text(reason), systemImage: "exclamationmark.triangle")
+                            .font(.callout)
+                            .foregroundStyle(.orange)
+                    } else if let notice = selectedSubtitle?.stylingNotice {
+                        Text(L10n.text(notice))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
-                .buttonStyle(.bordered)
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                DisclosureGroup("Sincronización", isExpanded: $showingSynchronization) {
+                    delayControl("Audio (s)", value: $draft.audioDelay, range: -5...5, step: 0.05)
+                    delayControl("Subtítulos (s)", value: $draft.subtitleDelay, range: -10...10, step: 0.1)
+                    Text("Un valor positivo retrasa la pista; uno negativo la adelanta.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                DisclosureGroup("Opciones de audio", isExpanded: $showingAudioOptions) {
+                    Picker("Formato de salida", selection: $draft.audioOutputMode) {
+                        ForEach(AudioOutputMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .disabled(draft.audioID == nil)
+                    Text(draft.audioOutputMode.explanation)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                DisclosureGroup("Opciones de subtítulos", isExpanded: $showingSubtitleOptions) {
+                    Button {
+                        if let track = coordinator.chooseExternalSubtitle() {
+                            draft.subtitleID = track.id
+                        }
+                    } label: {
+                        Label("Añadir archivo de subtítulos…", systemImage: "plus")
+                    }
+                    Button {
+                        showingOpenSubtitles = true
+                    } label: {
+                        Label("Buscar en OpenSubtitles…", systemImage: "magnifyingglass")
+                    }
+                    .disabled(videoURL == nil)
+                    Text(
+                        L10n.text(
+                            selectedSubtitle?.usesBitmapOCR == true
+                                ? "El primer uso puede tardar mientras se reconoce la pista completa. El resultado queda en una caché local para las siguientes reproducciones."
+                                : selectedSubtitle?.usesAdvancedTextStyling == true
+                                    ? (coordinator.probeInfo?.isHDR == true
+                                        ? "En HDR se conserva como pista seleccionable, pero Apple TV simplifica el diseño ASS."
+                                        : "Se conserva la posición ASS. Apple TV mantiene el control final de tamaño y accesibilidad.")
+                                    : "El tamaño y la posición los controla Apple TV desde sus preferencias de accesibilidad."
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    Text("SDH incluye diálogo, identificación del hablante y descripciones de sonidos o música.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
+            .formStyle(.grouped)
             .disabled(!coordinator.commandAvailability.canEditTracks)
-            Divider()
-            VStack(alignment: .leading, spacing: 10) {
-                if canApply && coordinator.isStreaming {
+            VStack(alignment: .leading, spacing: 12) {
+                if draft == original {
+                    Text("No hay cambios pendientes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if coordinator.isStreaming {
                     Text("La película se preparará con estas pistas y continuará desde la posición actual.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Los cambios se aplicarán al iniciar la reproducción.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 HStack {
+                    Spacer()
                     Button("Cancelar") { isPresented = false }
                         .keyboardShortcut(.cancelAction)
-                    Spacer()
                     Button("Aplicar cambios") {
                         guard canApply else { return }
                         coordinator.trackSettings = draft
@@ -698,7 +716,7 @@ struct TrackSettingsView: View {
                     .disabled(!canApply || selectedSubtitle?.isSelectable == false)
                 }
             }
-            .padding(16)
+            .padding(18)
         }
         .sheet(isPresented: $showingOpenSubtitles) {
             if let videoURL {
@@ -712,20 +730,35 @@ struct TrackSettingsView: View {
         .onChange(of: coordinator.selectedURL) { _, _ in isPresented = false }
     }
 
-    private func delayControl(value: Binding<Double>, range: ClosedRange<Double>, step: Double) -> some View {
-        HStack {
-            Stepper(value: value, in: range, step: step) {
-                Text(L10n.format("Sincronía: %@ s", String(format: "%+.2f", value.wrappedValue)))
-                    .monospacedDigit()
+    private var selectedAudioDescription: String {
+        guard let track = coordinator.audioTracks.first(where: { $0.id == draft.audioID }) else {
+            return L10n.text("Sin audio")
+        }
+        return "\(L10n.text(track.displayName)) · \(L10n.text(track.technicalDescription))"
+    }
+
+    private func delayControl(
+        _ title: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double
+    ) -> some View {
+        LabeledContent {
+            HStack(spacing: 6) {
+                Stepper(value: value, in: range, step: step) {
+                    Text(String(format: "%+.2f", value.wrappedValue))
+                        .monospacedDigit()
+                }
+                .accessibilityLabel(L10n.text(title))
+                Button {
+                    value.wrappedValue = 0
+                } label: {
+                    Label("Restablecer", systemImage: "arrow.counterclockwise")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.borderless)
+                .help("Restablecer")
+                .disabled(value.wrappedValue == 0)
             }
-            Button {
-                value.wrappedValue = 0
-            } label: {
-                Label("Restablecer", systemImage: "arrow.counterclockwise")
-                    .labelStyle(.iconOnly)
-            }
-            .help("Restablecer")
-            .disabled(value.wrappedValue == 0)
+        } label: {
+            Text(L10n.text(title))
         }
     }
 

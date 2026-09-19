@@ -14,6 +14,8 @@ struct ContentView: View {
     @WindowState private var showingStreamInfo = false
     @WindowState private var isScrubbing = false
     @WindowState private var scrubTime: Double = 0
+    @FocusState private var focusedControl: Control?
+    private enum Control: Hashable { case play, open, selection }
 
     var body: some View {
         NavigationSplitView {
@@ -22,7 +24,7 @@ struct ContentView: View {
                 selectedTab: $libraryTab,
                 selectedRecentID: $selectedRecentID
             )
-            .navigationSplitViewColumnWidth(min: 240, ideal: 280, max: 380)
+            .navigationSplitViewColumnWidth(min: 190, ideal: 225, max: 310)
         } detail: {
             mainContent
                 .background(.background)
@@ -34,19 +36,10 @@ struct ContentView: View {
                             .id(trackEditingID)
                             .frame(width: viewport.size.width, height: viewport.size.height)
                     }
-                    .inspectorColumnWidth(min: 310, ideal: 340, max: 410)
+                    .inspectorColumnWidth(min: 245, ideal: 265, max: 310)
                 }
                 .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        AirPlayDevicePicker(controller: coordinator.airPlay)
-                    }
                     ToolbarItemGroup(placement: .primaryAction) {
-                        Button {
-                            coordinator.chooseVideos()
-                        } label: {
-                            Label("Abrir película", systemImage: "plus")
-                        }
-                        .help("Abrir película")
                         Button {
                             coordinator.togglePlayback()
                         } label: {
@@ -65,7 +58,16 @@ struct ContentView: View {
                         .help("Detener")
                         .disabled(!coordinator.commandAvailability.canStop)
                     }
+                    ToolbarItem(placement: .primaryAction) {
+                        AirPlayDevicePicker(controller: coordinator.airPlay)
+                    }
                     ToolbarItemGroup(placement: .primaryAction) {
+                        Button {
+                            coordinator.chooseVideos()
+                        } label: {
+                            Label("Abrir película", systemImage: "plus")
+                        }
+                        .help("Abrir película")
                         Button {
                             showingStreamInfo.toggle()
                         } label: {
@@ -124,6 +126,9 @@ struct ContentView: View {
             showingTracks = false
             isScrubbing = false
         }
+        .onChange(of: showingTracks) { _, shown in
+            if !shown { focusedControl = coordinator.selectedURL == nil ? .open : .play }
+        }
         .dropDestination(for: URL.self) { urls, _ in
             coordinator.handleURLs(urls)
             return !urls.isEmpty
@@ -144,94 +149,164 @@ struct ContentView: View {
 
     private var mainContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                if let url = coordinator.selectedURL {
-                    sessionHeader(url)
-                    session
-                    if coordinator.probeInfo != nil {
-                        trackSummary
-                    }
-                } else {
-                    ContentUnavailableView {
-                        Label("Elige una película", systemImage: "airplayvideo")
-                    } description: {
-                        Text("Abre una película o arrástrala aquí. AirCiller conserva el vídeo original.")
-                    } actions: {
-                        Button("Abrir película…") { coordinator.chooseVideos() }
-                            .buttonStyle(.borderedProminent)
-                    }
-                    .frame(minHeight: 250)
-                }
+            VStack(alignment: .leading, spacing: 0) {
+                sessionHeader
+                    .padding(.bottom, 28)
+                session
+                    .frame(maxWidth: .infinity, minHeight: 220)
                 if let selectedLibraryURL {
+                    Divider().padding(.top, 30).padding(.bottom, 16)
                     selectionDetail(selectedLibraryURL)
                 }
             }
-            .padding(24)
-            .frame(maxWidth: 760)
+            .padding(30)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
-    private func sessionHeader(_ url: URL) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(L10n.text(coordinator.status), systemImage: sessionSymbol)
+    private var presentation: SessionPresentation {
+        SessionPresentation(
+            hasFile: coordinator.selectedURL != nil, hasProbe: coordinator.probeInfo != nil,
+            hasError: coordinator.hasError, isAnalyzing: coordinator.isAnalyzing,
+            isWaiting: coordinator.isWaitingToStart || coordinator.airPlay.authorizationState == .checking
+                || coordinator.airPlay.isPairingPresented || coordinator.showConversionAlert,
+            isPreparing: coordinator.isPreparing, isStreaming: coordinator.isStreaming,
+            isPlaying: coordinator.isPlaying
+        )
+    }
+
+    private var sessionHeader: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(sessionEyebrow)
                 .font(.subheadline)
                 .foregroundStyle(coordinator.hasError ? Color.orange : Color.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(url.deletingPathExtension().lastPathComponent.softWrappedFilename)
-                .font(.title.weight(.semibold))
+            Text(
+                coordinator.selectedURL?.deletingPathExtension().lastPathComponent.softWrappedFilename
+                    ?? L10n.text("Elige tu próxima película")
+            )
+            .font(.system(size: 30, weight: .semibold))
+            .tracking(-0.6)
+            .fixedSize(horizontal: false, vertical: true)
+            .textSelection(.enabled)
+            .accessibilityAddTraits(.isHeader)
+            Text(sessionMetadata)
+                .font(.subheadline).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
-                .accessibilityAddTraits(.isHeader)
-            if coordinator.probeInfo != nil {
-                Text(
-                    ([TimeFormatting.duration(coordinator.duration)]
-                        + coordinator.mediaBadges
-                        .filter { ["resolution", "dynamic-range"].contains($0.id) }
-                        .map { L10n.text($0.value) })
-                        .joined(separator: " · ")
-                )
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if coordinator.selectedAudio != nil,
+                coordinator.audioOutputMode != .original || coordinator.selectedAudio?.canPassThrough == false
+            {
+                Text(L10n.text(coordinator.audioPlan))
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
+    private var sessionEyebrow: String {
+        if coordinator.hasError { return L10n.text(coordinator.status) }
+        switch presentation {
+        case .empty:
+            return L10n.text("Tu biblioteca, en Apple TV")
+        case .ready:
+            return L10n.text("Lista para reproducir")
+        case .playing:
+            return L10n.format("Reproduciendo en %@", coordinator.airPlay.selectedDevice?.name ?? "Apple TV")
+        case .paused:
+            return L10n.format("En pausa en %@", coordinator.airPlay.selectedDevice?.name ?? "Apple TV")
+        case .unprepared, .analyzing, .waiting, .preparing, .error:
+            return L10n.text(coordinator.status)
+        }
+    }
+
+    private var sessionMetadata: String {
+        guard coordinator.selectedURL != nil else {
+            return L10n.text("Abre una película o arrástrala aquí.")
+        }
+        guard coordinator.probeInfo != nil else { return L10n.text(coordinator.detail) }
+        var parts = coordinator.mediaBadges
+            .filter { ["resolution", "dynamic-range"].contains($0.id) }
+            .map { L10n.text($0.value) }
+        if let audio = coordinator.selectedAudio {
+            parts.append(
+                [
+                    audio.interpretedName, coordinator.audioOutputMode == .original ? L10n.text("Original") : nil,
+                    audio.isAtmos ? "Atmos" : audio.channelDescription,
+                ]
+                .compactMap { $0 }.joined(separator: " ")
+            )
+        } else {
+            parts.append(L10n.text("Sin audio"))
+        }
+        parts.append(
+            coordinator.selectedSubtitle.map { L10n.format("Subtítulos: %@", $0.interpretedName) }
+                ?? L10n.text("Sin subtítulos"))
+        return parts.joined(separator: " · ")
+    }
+
     @ViewBuilder
     private var session: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            if coordinator.isAnalyzing {
-                HStack(spacing: 12) {
+        VStack(spacing: 20) {
+            switch presentation {
+            case .empty:
+                Image(systemName: "folder")
+                    .font(.system(size: 38)).foregroundStyle(.tertiary).accessibilityHidden(true)
+                Text("Tus películas se quedan en tus dispositivos.").foregroundStyle(.secondary)
+                Button("Abrir película…") { coordinator.chooseVideos() }
+                    .buttonStyle(.borderedProminent).focused($focusedControl, equals: .open)
+            case .analyzing, .waiting, .preparing:
+                if presentation == .preparing,
+                    coordinator.preparationProgress > 0, coordinator.preparationProgress < 1
+                {
+                    ProgressView(value: coordinator.preparationProgress)
+                        .frame(maxWidth: 360)
+                        .accessibilityLabel(Text(L10n.text(coordinator.status)))
+                } else {
                     ProgressView().controlSize(.small)
-                    Text(L10n.text(coordinator.detail))
-                        .foregroundStyle(.secondary)
                 }
-                Button("Cancelar") { coordinator.stop() }
-            } else if coordinator.isPreparing {
-                ProgressView(value: coordinator.preparationProgress)
-                    .accessibilityLabel(Text(L10n.text(coordinator.status)))
+                Text(L10n.text(coordinator.status)).fontWeight(.medium)
                 Text(L10n.text(coordinator.detail))
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).frame(maxWidth: 360)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Cancelar") { coordinator.stop() }
-            } else if coordinator.probeInfo == nil {
+                    .focused($focusedControl, equals: .play)
+            case .unprepared, .error:
+                Image(systemName: coordinator.hasError ? "exclamationmark.triangle" : "doc.text.magnifyingglass")
+                    .font(.title).foregroundStyle(.secondary).accessibilityHidden(true)
                 Text(L10n.text(coordinator.detail))
-                    .foregroundStyle(.secondary)
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).frame(maxWidth: 360)
                     .fixedSize(horizontal: false, vertical: true)
                 if let url = coordinator.selectedURL {
-                    Button("Volver a analizar") { coordinator.loadVideo(url, autoStart: false) }
+                    if coordinator.probeInfo == nil {
+                        Button("Volver a analizar") { coordinator.loadVideo(url, autoStart: false) }
+                            .buttonStyle(.borderedProminent).focused($focusedControl, equals: .play)
+                    } else {
+                        Button("Reproducir en Apple TV") { coordinator.togglePlayback() }
+                            .buttonStyle(.borderedProminent).focused($focusedControl, equals: .play)
+                            .disabled(!coordinator.commandAvailability.canTogglePlayback)
+                    }
                 }
-            } else {
+            case .ready:
+                Label("Todo listo para preparar la reproducción", systemImage: "airplayvideo")
+                    .foregroundStyle(.secondary)
+                Button("Reproducir en Apple TV") { coordinator.togglePlayback() }
+                    .buttonStyle(.borderedProminent).focused($focusedControl, equals: .play)
+                    .disabled(!coordinator.commandAvailability.canTogglePlayback)
+                if coordinator.currentTime > 0 {
+                    Text(L10n.format("Continuar en %@", TimeFormatting.duration(coordinator.currentTime)))
+                        .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                } else {
+                    Text(TimeFormatting.duration(coordinator.duration))
+                        .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                }
+            case .playing, .paused:
+                transport
                 if coordinator.hasError {
                     Text(L10n.text(coordinator.detail))
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                transport
-                if !coordinator.isStreaming {
-                    Text(L10n.text(coordinator.detail))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).frame(maxWidth: 360)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -244,87 +319,129 @@ struct ContentView: View {
                 .buttonStyle(.link)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var transport: some View {
-        VStack(spacing: 18) {
-            HStack(spacing: 18) {
-                Spacer(minLength: 0)
-                transportButton(
-                    "Capítulo anterior", symbol: "backward.end.fill",
-                    disabled: !coordinator.commandAvailability.canChangeChapter
-                ) {
-                    coordinator.previousChapter()
-                }
-                transportButton(
-                    "Retroceder 10 segundos", symbol: "gobackward.10",
-                    disabled: !coordinator.commandAvailability.canSeek
-                ) {
-                    coordinator.skip(by: -10)
-                }
-                Button {
-                    coordinator.togglePlayback()
-                } label: {
-                    Image(systemName: coordinator.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 30, weight: .medium))
-                        .frame(width: 56, height: 52)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(coordinator.isPlaying ? Text("Pausa") : Text("Reproducir"))
-                .help(L10n.text(coordinator.isPlaying ? "Pausa" : "Reproducir"))
-                .disabled(!coordinator.commandAvailability.canTogglePlayback)
-                transportButton(
-                    "Avanzar 10 segundos", symbol: "goforward.10",
-                    disabled: !coordinator.commandAvailability.canSeek
-                ) {
-                    coordinator.skip(by: 10)
-                }
-                transportButton(
-                    "Capítulo siguiente", symbol: "forward.end.fill",
-                    disabled: !coordinator.commandAvailability.canChangeChapter
-                ) {
-                    coordinator.nextChapter()
-                }
-                Spacer(minLength: 0)
-            }
-            VStack(spacing: 4) {
-                Slider(
-                    value: Binding(
-                        get: { isScrubbing ? scrubTime : coordinator.currentTime },
-                        set: { scrubTime = $0 }
-                    ),
-                    in: 0...max(coordinator.duration, 1),
-                    onEditingChanged: { editing in
-                        if editing {
-                            scrubTime = coordinator.currentTime
-                            isScrubbing = true
-                        } else {
-                            isScrubbing = false
-                            coordinator.seek(to: scrubTime)
+        VStack(spacing: 20) {
+            Label(
+                coordinator.isPlaying ? "La película se reproduce en Apple TV" : "Continúa cuando quieras",
+                systemImage: coordinator.isPlaying ? "airplayvideo" : "pause"
+            )
+            .foregroundStyle(.secondary).font(.subheadline)
+            timeline.frame(maxWidth: 440)
+            if coordinator.chapters.isEmpty {
+                transportControls
+            } else {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 26) {
+                        previousChapterButton
+                        transportControls
+                        nextChapterButton
+                    }
+                    VStack(spacing: 14) {
+                        transportControls
+                        HStack(spacing: 26) {
+                            previousChapterButton
+                            nextChapterButton
                         }
                     }
-                )
-                .accessibilityLabel("Posición de reproducción")
-                .accessibilityValue(
-                    L10n.format(
-                        "%@ de %@", TimeFormatting.duration(isScrubbing ? scrubTime : coordinator.currentTime),
-                        TimeFormatting.duration(coordinator.duration))
-                )
-                .disabled(!coordinator.commandAvailability.canSeek)
-                HStack {
-                    Text(TimeFormatting.duration(isScrubbing ? scrubTime : coordinator.currentTime))
-                    Spacer()
-                    Text(
-                        "−\(TimeFormatting.duration(max(0, coordinator.duration - (isScrubbing ? scrubTime : coordinator.currentTime))))"
-                    )
                 }
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 12)
+    }
+
+    private var transportControls: some View {
+        HStack(spacing: 26) {
+            transportButton(
+                "Retroceder 10 segundos", symbol: "gobackward.10",
+                disabled: !coordinator.commandAvailability.canSeek
+            ) {
+                coordinator.skip(by: -10)
+            }
+            playButton
+            transportButton(
+                "Avanzar 10 segundos", symbol: "goforward.10",
+                disabled: !coordinator.commandAvailability.canSeek
+            ) {
+                coordinator.skip(by: 10)
+            }
+        }
+    }
+
+    private var previousChapterButton: some View {
+        transportButton(
+            "Capítulo anterior", symbol: "backward.end.fill",
+            disabled: !coordinator.commandAvailability.canChangeChapter
+        ) {
+            coordinator.previousChapter()
+        }
+    }
+
+    private var nextChapterButton: some View {
+        transportButton(
+            "Capítulo siguiente", symbol: "forward.end.fill",
+            disabled: !coordinator.commandAvailability.canChangeChapter
+        ) {
+            coordinator.nextChapter()
+        }
+    }
+
+    @ViewBuilder
+    private var playButton: some View {
+        if #available(macOS 26.0, *) {
+            primaryTransportButton.buttonStyle(.glassProminent)
+        } else {
+            primaryTransportButton.buttonStyle(.borderedProminent)
+        }
+    }
+
+    private var primaryTransportButton: some View {
+        Button {
+            coordinator.togglePlayback()
+        } label: {
+            Image(systemName: coordinator.isPlaying ? "pause.fill" : "play.fill")
+                .font(.title3).frame(width: 26, height: 32)
+        }
+        .buttonBorderShape(.circle).controlSize(.large)
+        .accessibilityLabel(coordinator.isPlaying ? Text("Pausa") : Text("Reproducir"))
+        .help(L10n.text(coordinator.isPlaying ? "Pausa" : "Reproducir"))
+        .focused($focusedControl, equals: .play)
+        .disabled(!coordinator.commandAvailability.canTogglePlayback)
+    }
+
+    private var timeline: some View {
+        VStack(spacing: 3) {
+            Slider(
+                value: Binding(
+                    get: { isScrubbing ? scrubTime : coordinator.currentTime },
+                    set: { scrubTime = $0 }
+                ),
+                in: 0...(coordinator.duration.isFinite ? max(coordinator.duration, 1) : 1),
+                onEditingChanged: { editing in
+                    if editing {
+                        scrubTime = coordinator.currentTime
+                        isScrubbing = true
+                    } else {
+                        isScrubbing = false
+                        coordinator.seek(to: scrubTime)
+                    }
+                }
+            )
+            .accessibilityLabel("Posición de reproducción")
+            .accessibilityValue(
+                L10n.format(
+                    "%@ de %@", TimeFormatting.duration(isScrubbing ? scrubTime : coordinator.currentTime),
+                    TimeFormatting.duration(coordinator.duration))
+            )
+            .disabled(!coordinator.commandAvailability.canSeek)
+            HStack {
+                Text(TimeFormatting.duration(isScrubbing ? scrubTime : coordinator.currentTime))
+                Spacer()
+                Text(TimeFormatting.duration(coordinator.duration))
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+        }
     }
 
     private func transportButton(
@@ -333,28 +450,14 @@ struct ContentView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.title3)
+                .font(.title2)
                 .frame(width: 28, height: 36)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.plain)
         .help(L10n.text(title))
         .accessibilityLabel(L10n.text(title))
         .disabled(disabled)
-    }
-
-    private var trackSummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Divider()
-            Label(L10n.text(coordinator.audioPlan), systemImage: "speaker.wave.2")
-                .fixedSize(horizontal: false, vertical: true)
-            Label(L10n.text(coordinator.subtitlePlan), systemImage: "captions.bubble")
-                .fixedSize(horizontal: false, vertical: true)
-            Button("Audio y subtítulos…") { presentTracks() }
-                .disabled(!coordinator.commandAvailability.canEditTracks)
-        }
-        .font(.callout)
-        .foregroundStyle(.secondary)
     }
 
     private var selectedLibraryURL: URL? {
@@ -365,40 +468,48 @@ struct ContentView: View {
     }
 
     private func selectionDetail(_ url: URL) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Divider()
-            Text("Selección en la biblioteca")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text(url.lastPathComponent.softWrappedFilename)
-                .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
-            if url == coordinator.selectedURL {
-                Text("Esta es la película de la sesión actual.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            } else {
-                Button("Reproducir esta película") {
-                    if libraryTab == .playlist,
-                        let item = coordinator.queueItems.first(where: { $0.url == url })
-                    {
-                        coordinator.playQueueItem(item)
-                    } else if let item = coordinator.recentItems.first(where: { $0.url == url }) {
-                        coordinator.playRecent(item)
-                    }
-                }
-                .disabled(coordinator.isPreparing || coordinator.isAnalyzing)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 18) {
+                selectionText(url)
+                Spacer(minLength: 10)
+                selectionButton(url)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                selectionText(url)
+                selectionButton(url)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var sessionSymbol: String {
-        if coordinator.hasError { return "exclamationmark.triangle" }
-        if coordinator.isAnalyzing { return "magnifyingglass" }
-        if coordinator.isPreparing { return "hourglass" }
-        if coordinator.isStreaming { return coordinator.isPlaying ? "airplayvideo" : "pause.circle" }
-        return coordinator.probeInfo == nil ? "film" : "play.circle"
+    private func selectionText(_ url: URL) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Selección en la biblioteca")
+                .font(.caption).foregroundStyle(.secondary)
+            Text(url.lastPathComponent.softWrappedFilename)
+                .font(.subheadline.weight(.medium))
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func selectionButton(_ url: URL) -> some View {
+        Button(url == coordinator.selectedURL ? "Volver a la sesión" : "Reproducir esta película") {
+            if url == coordinator.selectedURL {
+                focusedControl = .play
+            } else {
+                if libraryTab == .playlist,
+                    let item = coordinator.queueItems.first(where: { $0.url == url })
+                {
+                    coordinator.playQueueItem(item)
+                } else if let item = coordinator.recentItems.first(where: { $0.url == url }) {
+                    coordinator.playRecent(item)
+                }
+                focusedControl = .play
+            }
+        }
+        .disabled(presentation.isBusy)
+        .focused($focusedControl, equals: .selection)
     }
 
     private var streamNeedsAttention: Bool {
