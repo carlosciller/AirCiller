@@ -14,9 +14,13 @@ enum AirCillerError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .ffmpegMissing:
-            return L10n.text("No se encuentra FFmpeg. Instálalo con Homebrew para usar AirCiller.")
+            return L10n.text(
+                "La instalación de AirCiller está incompleta: falta FFmpeg. Vuelve a descargar e instalar AirCiller."
+            )
         case .ffprobeMissing:
-            return L10n.text("No se encuentra ffprobe. Se instala junto con FFmpeg.")
+            return L10n.text(
+                "La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller."
+            )
         case .probeFailed(let message):
             return L10n.format("No se pudo leer el archivo: %@", message)
         case .noVideo:
