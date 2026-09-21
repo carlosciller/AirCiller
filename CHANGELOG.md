@@ -2,6 +2,12 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## Unreleased
+
+- Fixed Check for Updates staying disabled in the menu after the updater becomes ready. Menu and Settings availability follow the same state; checks remain unavailable while a movie is preparing or playing.
+
+Candidate validation is tracked in the [bug-fix record](Docs/BUGFIXES_0.14.1.md).
+
 ## 0.14.0 (20 September 2026)
 
 AirCiller's main window has been redesigned around the movie playing on your Apple TV.

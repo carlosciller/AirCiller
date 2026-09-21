@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import Observation
 @preconcurrency import Sparkle
@@ -15,6 +16,7 @@ final class UpdateController {
     @ObservationIgnored private let configuration: UpdateConfiguration
     @ObservationIgnored private let updaterDelegate: UpdateControllerDelegate
     @ObservationIgnored private let updaterController: SPUStandardUpdaterController
+    private let availability: UpdateAvailability
 
     init(bundle: Bundle = .main) {
         let updaterDelegate = UpdateControllerDelegate()
@@ -24,6 +26,10 @@ final class UpdateController {
             startingUpdater: false,
             updaterDelegate: updaterDelegate,
             userDriverDelegate: nil
+        )
+        availability = UpdateAvailability(
+            publisher: updaterController.updater.publisher(for: \.canCheckForUpdates)
+                .eraseToAnyPublisher()
         )
     }
 
@@ -36,9 +42,9 @@ final class UpdateController {
     }
 
     var canCheckForUpdates: Bool {
-        isConfigured
-            && !isPlaybackBusy
-            && (!isStarted || updaterController.updater.canCheckForUpdates)
+        availability.allowsChecking(
+            configured: isConfigured, started: isStarted, playbackBusy: isPlaybackBusy
+        )
     }
 
     func start() {
