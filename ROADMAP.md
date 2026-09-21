@@ -6,11 +6,34 @@ The 0.12.1 stability release covers playback controls, authorization, track edit
 
 [The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. Release and signing steps are documented in [Distribution](DISTRIBUTION.md); user-facing changes are in the [release notes](CHANGELOG.md).
 
+## Next: 0.14.1 bug fixes and polish
+
+Keep the 0.14.0 design, bundled engines and supported formats. Work from reproduced
+failures, with a regression check for each correction; do not turn this patch
+into another redesign or dependency upgrade.
+
+1. Correct Check for Updates becoming stuck disabled in the menu after Sparkle
+   changes its availability. The observation bridge is implemented; local
+   regression and native menu/Settings checks pass. It is not yet released.
+2. Check the new inspector and library at the declared minimum window size,
+   including long filenames, focus after Cancel/Apply and English/Spanish labels.
+   Address reproduced layout and focus failures.
+3. Review recovery after failed operations and repeated commands, preserving
+   selection, original tracks and saved progress. Any playback-affecting change
+   needs the applicable receiver checks, separately by path.
+
+The known SDR HLS manual-audio-offset defect remains a separate repair with its
+own preparation and audiovisual acceptance. It is not fixed by UI polish and
+is not promised for this patch. See the [existing investigation](Docs/HLS_AUDIO_TIMING.md).
+
+Track current evidence in [the bug-fix record](Docs/BUGFIXES_0.14.1.md). No patch
+version, publication or daily-app replacement until the candidate is accepted.
+
 ## 0.14.0: Mac essential interface
 
 The selected **A. Mac essential** composition is integrated against 0.13.0, preserving its playback engines and preparation paths. It includes the named session, timeline and circular transport, native library, grouped tracks inspector, compact sizing, shared command availability and common internal-app icon.
 
-Native English/Spanish and light/dark checks and the seven-case Apple TV batch have passed their recorded scope. Remaining distribution steps and evidence limits are recorded in [native interface integration](Docs/NATIVE_UI_INTEGRATION.md). The earlier [prototype](Docs/NATIVE_DESIGN_PROTOTYPE.md) is design evidence only. Publication and daily installation are separate from implementation.
+Published and installed on 20 September 2026. Native English/Spanish and light/dark checks and the seven-case Apple TV batch passed their recorded scope. Main and tag CI, anonymous signed-asset verification and the actual Sparkle update from 0.13.0 also passed. Evidence limits are recorded in [native interface integration](Docs/NATIVE_UI_INTEGRATION.md). The earlier [prototype](Docs/NATIVE_DESIGN_PROTOTYPE.md) is design evidence only.
 
 ## 0.12.6: library and reliability
 

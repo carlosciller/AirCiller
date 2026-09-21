@@ -117,6 +117,9 @@ compile_and_run capture-policy \
 compile_and_run update-configuration \
   "$project_dir/Sources/UpdateConfiguration.swift" \
   "$project_dir/Tests/UpdateConfigurationSmokeTest.swift"
+compile_and_run update-availability \
+  "$project_dir/Sources/UpdateAvailability.swift" \
+  "$project_dir/Tests/UpdateAvailabilitySmokeTest.swift"
 compile_and_run power-assertion \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/PlaybackPowerAssertion.swift" \
