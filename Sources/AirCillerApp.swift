@@ -636,6 +636,18 @@ struct TrackSettingsView: View {
                 }
                 DisclosureGroup("Sincronización", isExpanded: $showingSynchronization) {
                     delayControl("Audio (s)", value: $draft.audioDelay, range: -5...5, step: 0.05)
+                    if draft.hasKnownAudioTimingLimitation(
+                        isHDR: coordinator.probeInfo?.isHDR,
+                        hasSelectedAudio: coordinator.audioTracks.contains { $0.id == draft.audioID }
+                    ) {
+                        Label(
+                            "El ajuste de audio puede no aplicarse en esta película. La sincronización de subtítulos es independiente.",
+                            systemImage: "exclamationmark.triangle"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
                     delayControl("Subtítulos (s)", value: $draft.subtitleDelay, range: -10...10, step: 0.1)
                     Text("Un valor positivo retrasa la pista; uno negativo la adelanta.")
                         .font(.caption)

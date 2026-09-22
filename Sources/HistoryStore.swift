@@ -3,7 +3,7 @@ import Foundation
 enum HistoryStore {
     static let recentKey = "AirCiller.recent.v1"
     static let queueKey = "AirCiller.queue.v1"
-    private static let maximumRecentItems = 30
+    static let maximumRecentItems = 30
 
     static func isAvailable(_ url: URL) -> Bool {
         guard url.isFileURL,

@@ -7,8 +7,8 @@ private typealias WindowState<Value> = SwiftUI.State<Value>
 struct ContentView: View {
     @Bindable var coordinator: StreamCoordinator
     let appDelegate: AirCillerAppDelegate
+    @Environment(\.undoManager) private var undoManager
     @WindowState private var libraryTab: LibraryTab = .playlist
-    @WindowState private var selectedRecentID: String?
     @WindowState private var showingTracks = false
     @WindowState private var trackEditingID = UUID()
     @WindowState private var showingStreamInfo = false
@@ -22,7 +22,7 @@ struct ContentView: View {
             LibrarySidebar(
                 coordinator: coordinator,
                 selectedTab: $libraryTab,
-                selectedRecentID: $selectedRecentID
+                selectedRecentID: $coordinator.focusedRecentItemID
             )
             .navigationSplitViewColumnWidth(min: 190, ideal: 225, max: 310)
         } detail: {
@@ -108,12 +108,16 @@ struct ContentView: View {
             AirPlayPairingView(controller: coordinator.airPlay)
         }
         .onAppear {
+            coordinator.setLibraryUndoManager(undoManager)
             appDelegate.installOpenHandler { coordinator.handleURLs($0) }
             synchronizeUpdateAvailability()
         }
         .onDisappear {
             appDelegate.removeOpenHandler()
             coordinator.stop(resetStatus: false)
+        }
+        .onChange(of: undoManager) { _, manager in
+            coordinator.setLibraryUndoManager(manager)
         }
         .onChange(of: coordinator.isPreparing) { _, _ in synchronizeUpdateAvailability() }
         .onChange(of: coordinator.isStreaming) { _, _ in synchronizeUpdateAvailability() }
@@ -464,7 +468,7 @@ struct ContentView: View {
         if libraryTab == .playlist {
             return coordinator.queueItems.first { $0.id == coordinator.focusedQueueItemID }?.url
         }
-        return coordinator.recentItems.first { $0.id == selectedRecentID }?.url
+        return coordinator.recentItems.first { $0.id == coordinator.focusedRecentItemID }?.url
     }
 
     private func selectionDetail(_ url: URL) -> some View {

@@ -21,6 +21,32 @@ into another redesign or dependency upgrade.
 3. Review recovery after failed operations and repeated commands, preserving
    selection, original tracks and saved progress. Any playback-affecting change
    needs the applicable receiver checks, separately by path.
+4. Report failed cache cleanup, allow retry and clear obsolete size-read errors.
+   Keep active-session directories protected and test failures with disposable files.
+5. Add native Undo/Redo for Playlist removal, clearing and reordering, and for
+   Recents removal and clearing. Preserve current playback and newer saved progress.
+   Validate the real Edit menu and text-field undo before accepting the feature.
+6. Show the known SDR audio-adjustment limitation beside the affected control.
+   This notice must not change routing, audio output or subtitle timing.
+
+Follow-up from the library review: align live Recents with its persisted 30-entry
+limit. New Undo actions reserve space for newer progress but do not prune an
+already oversized live list. Reproduce the opening-of-a-31st-file case separately
+before changing that existing behavior.
+
+After this maintenance candidate, work in separate deliveries:
+
+1. Repair SDR HLS audio adjustment. Establish a shared presentation clock without
+   skipping the opening video or depending on MP4 edit lists; verify positive and
+   negative offsets, seeks, final audio and subtitle timing with the pinned engine.
+   A local packet comparison is the first gate, followed by Apple TV output.
+2. Investigate the brief subtitle gap after seeks using known cues, separating
+   individual and rapid commands and Mac/receiver controls. Do not repeat the
+   previous segment experiments without a new explanation to test.
+3. Extend original FLAC channel-layout support only when a concrete sample can be
+   remuxed without relabeling speakers. Keep other format additions sample-led.
+4. Measure complete startup latency before the next performance changes. Local
+   cache preparation savings do not establish earlier picture or sound on Apple TV.
 
 The known SDR HLS manual-audio-offset defect remains a separate repair with its
 own preparation and audiovisual acceptance. It is not fixed by UI polish and
@@ -87,9 +113,11 @@ OCR and conversion to selectable text are separate from original audio/video pas
 
 ## Later
 
-- An App Intent or Shortcut to send a file to Apple TV.
 - Reliable title and artwork on the iPhone Lock Screen. Working remote control takes priority.
 - DVB and XSUB subtitle OCR with suitable samples.
+
+The maintainer excluded an App Intent/Shortcut from the current work. Do not add
+Finder Quick Actions, Services entries or other system integrations for it.
 
 AV1 passthrough remains research only. A device decoder does not establish support in its AirPlay video receiver.
 
@@ -125,6 +153,12 @@ Acceptance: reproduce before/after results against a pinned baseline and disclos
 Playback engines stay pinned and bundled with the app. Dependency updates require a regenerated lock, import and packaging checks, and applicable hardware tests. Proposals that only change `requirements.in` are incomplete.
 
 Builds now report component sizes and enforce a 165 MB logical-file budget. Review unused Python development and GUI components before considering a smaller runtime, with measured savings and complete runtime checks. No trimming has been applied to the tested engine.
+
+The incomplete protobuf and zeroconf proposals (#5 and #6) were closed without
+merging on 22 September 2026. Both changed only `requirements.in`; their CI failed
+the lock reproducibility check. Their failure is not evidence that the shipped
+runtime is broken. A future engine update still needs the complete validation
+above; no dependency or security-alert setting was changed by this cleanup.
 
 Developer ID and notarization are blocked until an Apple Developer Program membership is available. Sparkle signatures do not replace notarization.
 
