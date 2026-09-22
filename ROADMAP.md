@@ -29,10 +29,23 @@ into another redesign or dependency upgrade.
 6. Show the known SDR audio-adjustment limitation beside the affected control.
    This notice must not change routing, audio output or subtitle timing.
 
-Follow-up from the library review: align live Recents with its persisted 30-entry
-limit. New Undo actions reserve space for newer progress but do not prune an
-already oversized live list. Reproduce the opening-of-a-31st-file case separately
-before changing that existing behavior.
+The live/persisted Recents limit is now aligned at 30 entries. The regression
+reproduced opening a 31st file and checks reopening, focus and Undo with a full
+history. This correction is still part of the unreleased candidate.
+
+## In progress: Apple Shortcuts
+
+Authorized on 22 September. Add actions inside Shortcuts to open a movie, send it
+to Apple TV, add it to Playlist, pause, resume and stop. Do not install Finder
+Quick Actions or Services. Keep the current app, playback routes and explicit
+conversion/authorization prompts.
+
+The action bridge and definitions are implemented locally. Packaging requires
+Xcode's App Intents metadata processor, which is unavailable in Command Line
+Tools alone. Real discovery and execution from Shortcuts, cold launch, protected
+file access and both receiver paths remain acceptance gates. See
+[Shortcuts implementation and checks](Docs/SHORTCUTS.md). Choose the release
+version only after the combined candidate is accepted.
 
 After this maintenance candidate, work in separate deliveries:
 
@@ -116,8 +129,8 @@ OCR and conversion to selectable text are separate from original audio/video pas
 - Reliable title and artwork on the iPhone Lock Screen. Working remote control takes priority.
 - DVB and XSUB subtitle OCR with suitable samples.
 
-The maintainer excluded an App Intent/Shortcut from the current work. Do not add
-Finder Quick Actions, Services entries or other system integrations for it.
+Shortcuts actions are in progress above. Finder Quick Actions and Services remain
+outside the requested scope.
 
 AV1 passthrough remains research only. A device decoder does not establish support in its AirPlay video receiver.
 

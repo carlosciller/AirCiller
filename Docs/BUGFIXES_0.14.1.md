@@ -75,9 +75,12 @@ paths cannot be resurrected; unrelated text actions remain intact.
 
 Restoration respects Recents' 30-entry capacity. Entries opened or updated since
 a clear take priority, and older removed entries fill only the remaining space.
-An existing live history can exceed the persisted limit because `touchRecent`
-does not trim its in-memory array. Undo does not silently prune those current
-entries; that pre-existing memory/persistence discrepancy remains a follow-up.
+The initial maintenance candidate left a pre-existing live history discrepancy:
+`touchRecent` could exceed the persisted 30-entry limit. The subsequent regression
+reproduced opening a 31st file. Live insertion and decoded history now use the
+same limit, and clear focus if the focused oldest entry is evicted. Reopening an
+existing entry keeps its order and current progress. The real coordinator test
+also checks Undo after newer entries fill the history; no playback is started.
 The local
 test covers native UndoManager execution, selection, redo, updated progress,
 new entries, unavailable paths, malformed duplicate IDs and target-only action
@@ -116,6 +119,12 @@ The daily executable's SHA-256 remains identical to the installed 0.14.0 record.
 The Mac was locked when native verification was attempted on 22 September. No
 automatic unlock, Apple TV session or camera/microphone access was attempted.
 The daily app and release version remain unchanged.
+
+A later Shortcuts implementation attempt on the same date did request the
+product's supported locked-Mac access. The tool reported that automatic unlock
+failed; manual unlock was requested. This is separate from the earlier attempt
+above. No camera or microphone was accessed. The new source, build-tool and
+runtime acceptance boundaries are recorded in [Shortcuts](SHORTCUTS.md).
 
 The manual SDR HLS audio timing repair remains separate. Do not mark it fixed
 or widen either packager as part of this menu correction.

@@ -4,6 +4,8 @@ Changes you can see or use. The [testing record](TESTING.md) keeps engineering a
 
 ## Unreleased
 
+- Apple Shortcuts actions are being prepared for opening movies, adding them to Playlist, sending them to Apple TV, pausing, resuming and stopping. Availability in Shortcuts is still being validated; these actions are not in the installed release.
+- Recents now keeps the same 30 movies while the app is open and after restarting, including after Undo restores removed entries.
 - Fixed Check for Updates staying disabled in the menu after the updater becomes ready. Menu and Settings availability follow the same state; checks remain unavailable while a movie is preparing or playing.
 - Added Undo and Redo for removing or reordering Playlist entries and removing entries from Recents. Restoring history keeps any newer playback progress.
 - Failed cache cleanup now shows an explanation and lets you retry. A successful size refresh clears an earlier reading error without hiding a cleanup failure.

@@ -7,6 +7,23 @@ test_dir="$build_dir/tests"
 module_cache="$build_dir/test-module-cache"
 swiftc_path="$(xcrun --find swiftc)"
 sdk_path="$(xcrun --sdk macosx --show-sdk-path)"
+build_arguments=()
+checked_app="$build_dir/AirCiller.app"
+limited_shortcuts_check=false
+if [[ $# == 1 && "$1" == "--without-shortcuts" ]]; then
+  limited_shortcuts_check=true
+  build_arguments=(--candidate --without-shortcuts)
+  checked_app="$build_dir/AirCiller Test.app"
+  echo "Limited local gate: all source tests, but no packaged Shortcuts metadata or discovery acceptance." >&2
+elif [[ $# != 0 ]]; then
+  echo "Usage: ./Scripts/check.sh [--without-shortcuts]" >&2
+  exit 2
+fi
+if ! $limited_shortcuts_check && ! xcrun --find appintentsmetadataprocessor >/dev/null 2>&1; then
+  echo "The full check requires Xcode's App Intents metadata processor. See Docs/SHORTCUTS.md." >&2
+  echo "Use --without-shortcuts only for the explicitly limited local gate." >&2
+  exit 2
+fi
 
 if [[ ! -f "$project_dir/VendorPython/.airciller-python-executable" ]]; then
   echo "VendorPython is missing. Run ./Scripts/bootstrap_dependencies.sh." >&2
@@ -53,7 +70,9 @@ plutil -lint \
   "$project_dir/Resources/en.lproj/Localizable.strings" \
   "$project_dir/Resources/es.lproj/Localizable.strings" \
   "$project_dir/Resources/en.lproj/InfoPlist.strings" \
-  "$project_dir/Resources/es.lproj/InfoPlist.strings"
+  "$project_dir/Resources/es.lproj/InfoPlist.strings" \
+  "$project_dir/Resources/en.lproj/Shortcuts.strings" \
+  "$project_dir/Resources/es.lproj/Shortcuts.strings"
 xcrun swift-format lint --strict --recursive \
   "$project_dir/Sources" \
   "$project_dir/Tests" \
@@ -62,6 +81,10 @@ xcrun swift-format lint --strict --recursive \
 compile_and_run authorization \
   "$project_dir/Sources/AirPlayAuthorizationRetryPolicy.swift" \
   "$project_dir/Tests/AirPlayAuthorizationRetryPolicySmokeTest.swift"
+compile_and_run shortcuts-controller \
+  "$project_dir/Sources/MediaFileTypes.swift" \
+  "$project_dir/Sources/ShortcutsController.swift" \
+  "$project_dir/Tests/ShortcutsControllerSmokeTest.swift"
 compile_and_run pairing-intent \
   "$project_dir/Sources/AirPlayPairingIntent.swift" \
   "$project_dir/Tests/AirPlayPairingIntentSmokeTest.swift"
@@ -377,6 +400,8 @@ compile_and_run flac-manifest \
   "$project_dir/Tests/FLACManifestSmokeTest.swift"
 
 python_path="$(< "$project_dir/VendorPython/.airciller-python-executable")"
+PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/test_app_intents_metadata.py"
+PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/ShortcutsLocalizationSmokeTest.py"
 PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/BundleSizeSmokeTest.py"
 PYTHONPATH="$project_dir/VendorPython" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
@@ -423,22 +448,39 @@ compile_and_run playback-keychain-ui \
 # Compile the standalone capture tools without discovering or opening devices.
 /bin/zsh "$project_dir/Scripts/build_playback_capture.sh"
 "$project_dir/Scripts/check_publication.sh"
-"$project_dir/build.sh"
+if $limited_shortcuts_check; then
+  # The limited bundle omits action metadata. Still typecheck the production
+  # App entry point and its actual intent/controller integration, without stubs.
+  "$swiftc_path" "${common_swift_arguments[@]}" \
+    -typecheck -F "$project_dir/.build/dependencies/Sparkle-2.9.6" \
+    -framework AppIntents "$project_dir"/Sources/*.swift
+fi
+"$project_dir/build.sh" "${build_arguments[@]}"
 
-test -f "$project_dir/.build/AirCiller.app/Contents/Resources/en.lproj/Localizable.strings"
-test -f "$project_dir/.build/AirCiller.app/Contents/Resources/es.lproj/Localizable.strings"
-test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/ffmpeg"
-test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/ffprobe"
-test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/bin/python3"
-test "$(plutil -extract ACBundledEngineRequired raw "$project_dir/.build/AirCiller.app/Contents/Info.plist")" = "true"
-test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/LICENSES/FFmpeg-LGPL-2.1.txt"
-test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/lib/python3.13/LICENSE.txt"
-test "$(< "$project_dir/.build/AirCiller.app/Contents/Resources/VendorPython/.airciller-python-executable")" \
+test -f "$checked_app/Contents/Resources/en.lproj/Localizable.strings"
+test -f "$checked_app/Contents/Resources/es.lproj/Localizable.strings"
+test -f "$checked_app/Contents/Resources/en.lproj/Shortcuts.strings"
+test -f "$checked_app/Contents/Resources/es.lproj/Shortcuts.strings"
+test -x "$checked_app/Contents/Resources/Engine/ffmpeg/bin/ffmpeg"
+test -x "$checked_app/Contents/Resources/Engine/ffmpeg/bin/ffprobe"
+test -x "$checked_app/Contents/Resources/Engine/airplay/python/bin/python3"
+test "$(plutil -extract ACBundledEngineRequired raw "$checked_app/Contents/Info.plist")" = "true"
+test -f "$checked_app/Contents/Resources/Engine/ffmpeg/LICENSES/FFmpeg-LGPL-2.1.txt"
+test -f "$checked_app/Contents/Resources/Engine/airplay/python/lib/python3.13/LICENSE.txt"
+test "$(< "$checked_app/Contents/Resources/VendorPython/.airciller-python-executable")" \
   = "Engine/airplay/python/bin/python3"
-test -d "$project_dir/.build/AirCiller.app/Contents/Frameworks/Sparkle.framework"
-test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Legal/Sparkle-LICENSE.txt"
-otool -L "$project_dir/.build/AirCiller.app/Contents/MacOS/AirCiller" | \
+test -d "$checked_app/Contents/Frameworks/Sparkle.framework"
+test -f "$checked_app/Contents/Resources/Legal/Sparkle-LICENSE.txt"
+otool -L "$checked_app/Contents/MacOS/AirCiller" | \
   grep -Eq '@rpath/Sparkle.framework/'
-codesign --verify --deep --strict "$project_dir/.build/AirCiller.app"
+codesign --verify --deep --strict "$checked_app"
 
-echo "AirCiller local checks: OK"
+if $limited_shortcuts_check; then
+  test "$(plutil -extract ACShortcutsAvailable raw "$checked_app/Contents/Info.plist")" = "false"
+  test ! -e "$checked_app/Contents/Resources/Metadata.appintents"
+  echo "AirCiller limited local checks: OK; Shortcuts metadata and runtime acceptance remain pending."
+else
+  test "$(plutil -extract ACShortcutsAvailable raw "$checked_app/Contents/Info.plist")" = "true"
+  test -s "$checked_app/Contents/Resources/Metadata.appintents/extract.actionsdata"
+  echo "AirCiller local checks: OK"
+fi

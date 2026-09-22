@@ -50,7 +50,7 @@ Found a problem? [Open an issue](https://github.com/carlosciller/AirCiller/issue
 
 The app uses Swift 6, SwiftUI and AppKit. A bundled Python bridge provides AirPlay 2 through pyatv. FFmpeg prepares compatible media and Apple Vision recognizes bitmap subtitles.
 
-On an Apple silicon Mac with the Swift 6 Command Line Tools:
+On an Apple silicon Mac with full Xcode and Swift 6 selected:
 
 ```sh
 brew bundle
@@ -61,6 +61,12 @@ brew bundle
 ```
 
 The checks build `.build/AirCiller.app` without replacing or launching an installed copy. Use `./build.sh` for subsequent development builds.
+
+The work-in-progress Shortcuts integration requires Xcode's App Intents metadata
+processor. Command Line Tools alone can run the explicitly limited
+`./Scripts/check.sh --without-shortcuts` check, which builds an isolated UI
+candidate without discoverable actions. It does not satisfy Shortcuts acceptance.
+See [the implementation record](Docs/SHORTCUTS.md).
 
 [Contributing](CONTRIBUTING.md) · [Architecture](ARCHITECTURE.md) · [Testing](TESTING.md) · [Distribution](DISTRIBUTION.md)
 
