@@ -128,3 +128,35 @@ runtime acceptance boundaries are recorded in [Shortcuts](SHORTCUTS.md).
 
 The manual SDR HLS audio timing repair remains separate. Do not mark it fixed
 or widen either packager as part of this menu correction.
+
+## Native maintenance checks (22 September, unlocked Mac)
+
+The prepared CI candidate described in [Shortcuts](SHORTCUTS.md#native-registration-check-22-september)
+was exercised on macOS 27.0 (26A428), using its separate, initially empty library
+and two existing synthetic movie fixtures. No movie was sent to Apple TV.
+
+- Removing the first Playlist entry selected the survivor. The real Edit menu's
+  Undo command restored both entries in their original order and restored the
+  selection. Command-Shift-Z removed the entry again; Command-Z restored it.
+- Moving the selected first entry down through its context menu preserved its
+  selection. Undo restored the previous order and selection.
+- Confirming Clear Playlist removed both entries; Undo restored both and their
+  order. No source files were deleted.
+- Opening the long-named fixture through the native file panel analyzed it
+  without playback. Clearing Recents and undoing the clear restored the entry
+  and displayed duration without changing the loaded movie.
+- Selecting an external subtitle in the inspector enabled Apply, but Cancel
+  left the session without subtitles. Reopening showed the original disabled
+  subtitle selection, no pending changes and disabled Apply.
+- Incrementing the draft SDR audio offset displayed the contextual limitation
+  beside the control. Cancel discarded the adjustment; reopening again showed
+  no pending changes. This tests the notice, not corrected audio timing.
+
+The inspector displayed the complete synthetic filename at the observed
+960-by-650 window size. A resize attempt did not alter the observed dimensions,
+so the declared minimum size is still unverified. English, independent text-field
+Undo, applied-track focus and live-session preservation remain separate checks.
+The observed Edit menu used generic Undo/Redo labels without operation names;
+functional recovery passed, but operation-specific menu wording is not
+accepted by this observation. No appearance, language or security setting was
+changed, and the daily app executable remained byte-identical.
