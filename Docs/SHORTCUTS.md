@@ -187,3 +187,62 @@ credential reset was performed. The six actions and their receiver cases remain
 unaccepted despite successful compilation and metadata validation. One empty,
 clearly named QA shortcut was created in the editor; no Finder action, automation
 or system shortcut was enabled.
+
+## Development-signing setup (22 September)
+
+The maintainer authorized trying Xcode with a free Personal Team. Xcode 27.0
+(27A266a) was installed from Apple's Mac App Store. Only the built-in macOS
+platform was selected; optional iOS, watchOS, tvOS and visionOS downloads were
+left off. Additional external-agent access was not enabled. An explicit
+`DEVELOPER_DIR` check found `appintentsmetadataprocessor`; the globally selected
+Command Line Tools path was retained.
+
+The maintainer completed Apple account sign-in. Xcode recognizes a free Personal
+Team, but its certificate manager lists no signing certificates and the Apple
+Development creation item is disabled. This does not establish a paid-membership
+requirement: Apple's [macOS development-signing guidance](https://developer.apple.com/forums/thread/763141)
+explicitly permits Personal Team development signing. The cause of the disabled
+item remains unverified.
+
+After the maintainer explicitly authorized creating development credentials,
+automatic signing in the isolated project succeeded. Xcode created a development
+key and certificate, and the resulting signature verifies through Apple's
+development certificate chain with a real TeamIdentifier. No trust setting was
+changed. The initial sandboxed signature check could not resolve certificate
+trust; the same strict/deep verification outside that tool sandbox passed.
+This follows [Xcode's signing workflow](https://help.apple.com/xcode/mac/current/en.lproj/dev60b6fbbc7.html),
+not a change to AirCiller's local signing or credential-service policy.
+
+The isolated app contains one no-input intent and a visible in-memory counter.
+It has no AirCiller coordinator, network/file permissions, credential access,
+AirPlay code, camera or microphone access. The ordinary coordinator was
+deliberately excluded because it starts receiver discovery and can read
+credentials during startup.
+
+The same project was checked in the native Shortcuts editor under two signing
+setups, retaining the ad hoc bundle separately:
+
+| Check | Ad hoc | Apple Development |
+| --- | --- | --- |
+| Action discoverable in Shortcuts | Yes | Yes |
+| Native dispatch | Communication error; counter stayed at 0 | Cold launch incremented counter to 1; a second run with the app open incremented it to 2 |
+| Scoped `linkd` evidence | `Unable to get teamId` | Accepted application and mediator connections; runtime policy allowed |
+
+The source and generated intent catalog were unchanged. Xcode also enabled the
+configured hardened runtime for the development-signed build. This comparison
+establishes that the development-signing setup permits this probe's discovery
+and dispatch on the tested Mac. It does not establish public distribution,
+universal OS behavior, AirCiller's six actions or receiver playback. In
+particular, the probe's ad hoc discovery succeeds, so the earlier candidate's
+missing search results must not be attributed solely to its missing Team ID.
+
+Evidence, source, project, baseline bundle and build logs are retained privately
+under `.build/shortcuts-signing-probe/`. The existing QA shortcut now contains
+only this diagnostic action, with its result display disabled after the first
+successful run. No Finder action or automation was enabled.
+
+AirCiller's installed 0.14.0 executable, signing identity and pinned credential
+service remain unchanged. Integrating a different signer into the real app
+requires a separately reviewed credential-service migration; simply re-signing
+the candidate would fail the current caller check. No receiver playback,
+pairing or capture was performed during this comparison.
