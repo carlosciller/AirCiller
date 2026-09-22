@@ -5,6 +5,9 @@ Changes you can see or use. The [testing record](TESTING.md) keeps engineering a
 ## Unreleased
 
 - Fixed Check for Updates staying disabled in the menu after the updater becomes ready. Menu and Settings availability follow the same state; checks remain unavailable while a movie is preparing or playing.
+- Added Undo and Redo for removing or reordering Playlist entries and removing entries from Recents. Restoring history keeps any newer playback progress.
+- Failed cache cleanup now shows an explanation and lets you retry. A successful size refresh clears an earlier reading error without hiding a cleanup failure.
+- The audio timing control now warns when the known SDR playback limitation may leave an adjustment unapplied. The underlying audio-timing repair is still pending.
 
 Candidate validation is tracked in the [bug-fix record](Docs/BUGFIXES_0.14.1.md).
 

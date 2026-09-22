@@ -181,6 +181,13 @@ compile_and_run history-store \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/HistoryStore.swift" \
   "$project_dir/Tests/HistoryStoreSmokeTest.swift"
+compile_and_run library-list-undo \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/HistoryStore.swift" \
+  "$project_dir/Sources/LibraryListUndo.swift" \
+  "$project_dir/Tests/LibraryListUndoSmokeTest.swift"
+"$project_dir/Scripts/check_library_coordinator.sh"
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"
@@ -192,6 +199,12 @@ compile_and_run storage \
   "$project_dir/Sources/AirCillerError.swift" \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Tests/AirCillerStorageSmokeTest.swift"
+compile_and_run storage-recovery \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Sources/PreparedCacheSettingsState.swift" \
+  "$project_dir/Tests/StorageRecoverySmokeTest.swift"
 compile_and_run subtitle-ocr-text \
   "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
   "$project_dir/Tests/SubtitleOCRTextNormalizerSmokeTest.swift"

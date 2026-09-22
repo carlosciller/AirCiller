@@ -47,11 +47,75 @@ covered locally. No Apple TV test is claimed or required by this observation-onl
 change; a later playback change has its own test scope. Publication and the
 next installed-app update remain separate steps.
 
-## Next checks
+## Cache recovery and library Undo (22 September)
+
+The temporary-cache regression first created a disposable read-only directory.
+The previous cleanup returned successfully even though its file remained. Explicit
+cleanup now reports the failure and still attempts other eligible directories.
+The active session and its symbolic aliases remain excluded. Startup cleanup
+keeps its existing best-effort behavior; it does not display a blocking dialog.
+
+Settings reports subtitle, temporary-session and reusable-movie cache errors in
+their own sections. Successful size reads clear old read errors without erasing a
+failed cleanup. Clear remains available after a failed attempt even if an
+approximate size read returns zero; playback/preparation still disables it.
+Changing the subtitle-cache limit reports a failed trim after saving the limit.
+The existing approximate subtitle/temporary size accounting is not replaced.
+
+The new isolated storage regression exercises denied deletion, partial completion,
+retry, missing enumeration roots, active-directory exclusion, subtitle-cache
+failure and size/operation state recovery. The existing storage regression also
+passes. Neither test clears the user's cache.
+
+Library edits register named actions with the native window UndoManager. Undo
+changes membership and order without rolling surviving entries back to stale
+progress or metadata. No source movie is removed and Undo does not call playback.
+Relinking a file invalidates this coordinator's earlier undo actions so obsolete
+paths cannot be resurrected; unrelated text actions remain intact.
+
+Restoration respects Recents' 30-entry capacity. Entries opened or updated since
+a clear take priority, and older removed entries fill only the remaining space.
+An existing live history can exceed the persisted limit because `touchRecent`
+does not trim its in-memory array. Undo does not silently prune those current
+entries; that pre-existing memory/persistence discrepancy remains a follow-up.
+The local
+test covers native UndoManager execution, selection, redo, updated progress,
+new entries, unavailable paths, malformed duplicate IDs and target-only action
+invalidation. Real window-manager, menu and text-field interaction is a separate
+acceptance check, not established by that model test.
+
+`Scripts/check_library_coordinator.sh` additionally compiles the real coordinator
+and services into a headless UUID-identified test bundle, with its own temporary
+preferences domain. It checks removal, clearing, keyboard/drag reorder entry
+points, selection, persistence and Undo/Redo without loading media or discovering
+a receiver. Synthetic playback fields remain unchanged. The test rejects reuse
+of an existing preferences domain and is part of the general gate. It still does
+not establish that a live window supplies its UndoManager to the Edit menu.
+
+The track editor now displays a contextual notice for a nonzero SDR audio offset
+with an existing selected audio track. Tests exclude zero, absent tracks, unknown
+probe state and HDR. This is information only: no timing, packaging or routing
+code was changed and the repair remains pending.
+
+The combined contribution gate passed, then passed again after the real
+coordinator regression was added to the gate. Both runs include strict Swift 6,
+warnings-as-errors, localization, local/simulated tests, content checks and the
+development build. The final bundle contains 155,770,281 logical bytes within the
+165 MB budget. The initial restricted attempt stopped at pip-tools' cache access
+before tests and is retained separately; the complete runs used the existing
+cache with normal filesystem access. No dependencies were regenerated or updated.
+The daily executable's SHA-256 remains identical to the installed 0.14.0 record.
+
+## Remaining checks
 
 - Minimum window size and long inspector content, with English and Spanish.
 - Focus and draft preservation after Cancel and Apply.
 - Repeated commands and recovery, scoped to each reproduced failure.
+- Native Edit menu Undo/Redo, removal/clearing/reordering and independent text editing.
+
+The Mac was locked when native verification was attempted on 22 September. No
+automatic unlock, Apple TV session or camera/microphone access was attempted.
+The daily app and release version remain unchanged.
 
 The manual SDR HLS audio timing repair remains separate. Do not mark it fixed
 or widen either packager as part of this menu correction.

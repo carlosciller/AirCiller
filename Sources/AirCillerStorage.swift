@@ -55,13 +55,13 @@ enum AirCillerStorage {
         Int64(subtitleCacheLimitMB) * 1_024 * 1_024
     }
 
-    static func setSubtitleCacheLimitMB(_ value: Int) {
+    static func setSubtitleCacheLimitMB(_ value: Int) throws {
         let safeValue =
             subtitleCacheLimitOptionsMB.contains(value)
             ? value
             : defaultSubtitleCacheLimitMB
         UserDefaults.standard.set(safeValue, forKey: subtitleCacheLimitKey)
-        _ = try? pruneSubtitleCache()
+        _ = try pruneSubtitleCache()
     }
 
     static func subtitleCacheDirectory() throws -> URL {
@@ -113,19 +113,31 @@ enum AirCillerStorage {
     }
 
     static func clearSubtitleCache() throws {
-        let directory = try subtitleCacheDirectory()
+        try clearSubtitleCache(in: subtitleCacheDirectory())
+    }
+
+    static func clearSubtitleCache(in directory: URL) throws {
         guard FileManager.default.fileExists(atPath: directory.path) else { return }
         try FileManager.default.removeItem(at: directory)
     }
 
-    static func clearPreparedMedia(excluding activeDirectory: URL? = nil) {
-        let directories = preparedMediaDirectories(
-            in: FileManager.default.temporaryDirectory,
+    static func clearPreparedMedia(
+        in root: URL = FileManager.default.temporaryDirectory,
+        excluding activeDirectory: URL? = nil
+    ) throws {
+        let directories = try readPreparedMediaDirectories(
+            in: root,
             excluding: activeDirectory
         )
+        var firstError: (any Error)?
         for directory in directories {
-            try? FileManager.default.removeItem(at: directory)
+            do {
+                try FileManager.default.removeItem(at: directory)
+            } catch {
+                if firstError == nil { firstError = error }
+            }
         }
+        if let firstError { throw firstError }
     }
 
     @discardableResult
@@ -168,17 +180,24 @@ enum AirCillerStorage {
         in root: URL,
         excluding activeDirectory: URL? = nil
     ) -> [URL] {
-        let excludedPath = activeDirectory?.standardizedFileURL.path
-        let values = try? FileManager.default.contentsOfDirectory(
+        (try? readPreparedMediaDirectories(in: root, excluding: activeDirectory)) ?? []
+    }
+
+    private static func readPreparedMediaDirectories(
+        in root: URL,
+        excluding activeDirectory: URL?
+    ) throws -> [URL] {
+        let excludedPath = activeDirectory?.resolvingSymlinksInPath().standardizedFileURL.path
+        let values = try FileManager.default.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: [.isDirectoryKey],
             options: [.skipsHiddenFiles]
         )
-        return (values ?? []).filter { url in
-            let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-            return isDirectory
-                && isPreparedMediaDirectoryName(url.lastPathComponent)
-                && url.standardizedFileURL.path != excludedPath
+        return try values.filter { url in
+            guard isPreparedMediaDirectoryName(url.lastPathComponent),
+                url.resolvingSymlinksInPath().standardizedFileURL.path != excludedPath
+            else { return false }
+            return try url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true
         }
     }
 

@@ -689,4 +689,9 @@
 "Opciones de subtítulos" = "Opciones de subtítulos";
 "No hay cambios pendientes." = "No hay cambios pendientes.";
 "Cerrar" = "Cerrar";
+"Ordenar la playlist" = "Ordenar la playlist";
+"Vaciar la playlist" = "Vaciar la playlist";
+"El ajuste de audio puede no aplicarse en esta película. La sincronización de subtítulos es independiente." = "El ajuste de audio puede no aplicarse en esta película. La sincronización de subtítulos es independiente.";
+"No se pudo vaciar la caché de subtítulos. Vuelve a intentarlo." = "No se pudo vaciar la caché de subtítulos. Vuelve a intentarlo.";
+"No se pudieron eliminar todos los restos temporales. Vuelve a intentarlo." = "No se pudieron eliminar todos los restos temporales. Vuelve a intentarlo.";
 "El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada." = "El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada.";
