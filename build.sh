@@ -11,6 +11,8 @@ extra_swift_sources=()
 extra_link_inputs=()
 test_icon_arguments=()
 is_auxiliary_build=false
+shortcuts_enabled=true
+app_intents_arguments=()
 if [[ "${1:-}" == "--playback-checks" && $# == 1 ]]; then
   app_path="$build_dir/AirCiller Playback Checks.app"
   staged_app_path="$build_dir/AirCiller Playback Checks.staged.app"
@@ -28,17 +30,31 @@ if [[ "${1:-}" == "--playback-checks" && $# == 1 ]]; then
     "$project_dir/Tests/PlaybackChecks/BitmapCancellationCheck.swift"
   )
   is_auxiliary_build=true
+  shortcuts_enabled=false
   test_icon_arguments=(--test)
-elif [[ "${1:-}" == "--candidate" && $# == 1 ]]; then
+elif [[ "${1:-}" == "--candidate" && ( $# == 1 || ( $# == 2 && "${2:-}" == "--without-shortcuts" ) ) ]]; then
   app_path="$build_dir/AirCiller Test.app"
   staged_app_path="$build_dir/AirCiller Test.staged.app"
   previous_app_path="$build_dir/AirCiller Test.previous.app"
   extra_swift_arguments=(-D AIRCILLER_UI_CHECKS)
   is_auxiliary_build=true
   test_icon_arguments=(--test)
+  if [[ "${2:-}" == "--without-shortcuts" ]]; then
+    extra_swift_arguments+=(-D AIRCILLER_NO_SHORTCUTS)
+    shortcuts_enabled=false
+    echo "Building a UI-only candidate without Apple Shortcuts. This is not a Shortcuts release candidate." >&2
+  fi
 elif [[ $# != 0 ]]; then
-  echo "Usage: ./build.sh [--playback-checks | --candidate]" >&2
+  echo "Usage: ./build.sh [--playback-checks | --candidate [--without-shortcuts]]" >&2
   exit 2
+fi
+app_intents_processor=""
+if $shortcuts_enabled; then
+  if ! app_intents_processor="$(xcrun --find appintentsmetadataprocessor 2>/dev/null)"; then
+    echo "Apple Shortcuts metadata requires the full Xcode tools. Command Line Tools alone cannot package the actions." >&2
+    echo "Select Xcode through DEVELOPER_DIR, or use --candidate --without-shortcuts only for local UI checks." >&2
+    exit 2
+  fi
 fi
 signing_identity="$(/bin/zsh "$project_dir/Scripts/signing_identity.sh")"
 credential_service_path=""
@@ -56,6 +72,8 @@ runtime_marker="$vendor_path/.airciller-python-executable"
 sparkle_distribution="$build_dir/dependencies/Sparkle-2.9.6"
 sparkle_framework="$sparkle_distribution/Sparkle.framework"
 engine_path="$build_dir/dependencies/AirCillerEngine-ffmpeg-9.0.1-python-3.13.15"
+app_intents_source="$project_dir/Sources/ShortcutsIntents.swift"
+app_intents_intermediates="$build_dir/app-intents/${app_path:t:r}"
 
 if [[ ! -d "$vendor_path" || ! -f "$runtime_marker" ]]; then
   echo "The reproducible Python engine is missing. Run ./Scripts/bootstrap_dependencies.sh." >&2
@@ -103,16 +121,30 @@ mkdir -p \
   "$generated_resources/AirCiller-1024.png" \
   "$generated_resources/AirCiller.icns"
 
+if $shortcuts_enabled; then
+  "$engine_path/airplay/python/bin/python3" -B "$project_dir/Scripts/app_intents_metadata.py" prepare \
+    --source "$app_intents_source" --intermediates "$app_intents_intermediates"
+  app_intents_arguments=(
+    -emit-const-values
+    -output-file-map "$app_intents_intermediates/output-map.json"
+    -Xfrontend -const-gather-protocols-file
+    -Xfrontend "$app_intents_intermediates/protocols.json"
+    -framework AppIntents
+  )
+fi
+
 "$swiftc_path" \
   -sdk "$sdk_path" \
   -target arm64-apple-macosx14.0 \
   -module-cache-path "$module_cache" \
   -parse-as-library \
+  -module-name AirCiller \
   -swift-version 6 \
   -warn-concurrency \
   -strict-concurrency=complete \
   -warnings-as-errors \
   "${extra_swift_arguments[@]}" \
+  "${app_intents_arguments[@]}" \
   -O \
   -Xlinker -dead_strip \
   -Xlinker -rpath \
@@ -176,6 +208,21 @@ ditto "$engine_path/ffmpeg" "$contents_path/Resources/Engine/ffmpeg"
 ditto "$engine_path/airplay" "$contents_path/Resources/Engine/airplay"
 printf '%s\n' "Engine/airplay/python/bin/python3" \
   > "$contents_path/Resources/VendorPython/.airciller-python-executable"
+
+if $shortcuts_enabled; then
+  xcode_build_version="$(xcodebuild -version | awk '/^Build version / { print $3; exit }')"
+  if [[ -z "$xcode_build_version" ]]; then
+    echo "Could not identify the Xcode build for App Intents metadata." >&2
+    exit 2
+  fi
+  "$engine_path/airplay/python/bin/python3" -B "$project_dir/Scripts/app_intents_metadata.py" extract \
+    --source "$app_intents_source" --intermediates "$app_intents_intermediates" \
+    --app "$staged_app_path" --processor "$app_intents_processor" \
+    --sdk "$sdk_path" --toolchain "${swiftc_path:A:h:h:h}" --xcode-version "$xcode_build_version"
+  plutil -insert ACShortcutsAvailable -bool true "$contents_path/Info.plist"
+else
+  plutil -insert ACShortcutsAvailable -bool false "$contents_path/Info.plist"
+fi
 
 codesign --force --sign "$signing_identity" "${local_signing_options[@]}" "$staged_app_path"
 codesign --verify --deep --strict "$staged_app_path"

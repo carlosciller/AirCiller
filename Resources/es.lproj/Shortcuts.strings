@@ -1,0 +1,40 @@
+/* Acciones de Atajos de Apple */
+"Open Movie" = "Abrir película";
+"Send Movie to Apple TV" = "Enviar película al Apple TV";
+"Add Movie to Playlist" = "Añadir película a la playlist";
+"Pause AirCiller" = "Pausar AirCiller";
+"Resume AirCiller" = "Reanudar AirCiller";
+"Stop AirCiller" = "Detener AirCiller";
+"Movie" = "Película";
+"Apple TV Name" = "Nombre del Apple TV";
+"Play from Beginning" = "Reproducir desde el inicio";
+"Open a saved local movie in AirCiller without starting playback. Stop the current session first." = "Abre una película guardada en una carpeta local sin reproducirla. Detén antes la sesión actual.";
+"Start preparing a saved local movie for Apple TV. AirCiller handles playback and asks before converting audio. Stop the current session first." = "Empieza a preparar una película guardada en una carpeta local para el Apple TV. AirCiller gestiona la reproducción y pide permiso antes de convertir el audio. Detén antes la sesión actual.";
+"Add a saved local movie to AirCiller's playlist without changing the current playback. Existing entries are kept in place." = "Añade una película guardada en una carpeta local a la playlist de AirCiller sin cambiar la reproducción actual. Si ya está en la lista, mantiene su lugar.";
+"Request a pause for AirCiller's active Apple TV session." = "Solicita la pausa de la sesión activa de AirCiller en el Apple TV.";
+"Request playback to resume in AirCiller's active Apple TV session. Does not start a stopped movie." = "Solicita reanudar la sesión activa de AirCiller en el Apple TV. No inicia una película detenida.";
+"Stop AirCiller's current playback or preparation and keep its saved playback position." = "Detiene la reproducción o preparación actual de AirCiller y conserva el punto de reproducción guardado.";
+"Enter the exact name shown in AirCiller. Required when more than one Apple TV is available." = "Introduce el nombre exacto que aparece en AirCiller. Es obligatorio si hay más de un Apple TV disponible.";
+"Open ${movie}" = "Abrir ${movie}";
+"Send ${movie} to Apple TV" = "Enviar ${movie} al Apple TV";
+"Add ${movie} to playlist" = "Añadir ${movie} a la playlist";
+"Opening the movie in AirCiller. Playback has not started." = "Abriendo la película en AirCiller. La reproducción no ha comenzado.";
+"Preparation has started in AirCiller. Playback will start when the movie is ready and any required approval is complete." = "La preparación ha empezado en AirCiller. La reproducción comenzará cuando la película esté lista y hayas dado los permisos necesarios.";
+"The movie is in AirCiller's playlist." = "La película está en la playlist de AirCiller.";
+"Pause requested in AirCiller." = "Pausa solicitada en AirCiller.";
+"Resume requested in AirCiller." = "Reanudación solicitada en AirCiller.";
+"Stop requested in AirCiller." = "Detención solicitada en AirCiller.";
+
+/* Errores de las acciones */
+"Open AirCiller and try again." = "Abre AirCiller y vuelve a intentarlo.";
+"AirCiller is already preparing or playing a movie. Stop it before opening another movie." = "AirCiller ya está preparando o reproduciendo una película. Detén la sesión antes de abrir otra.";
+"Save the movie to a local folder first, then select that file in Shortcuts." = "Guarda primero la película en una carpeta local y selecciona ese archivo en Atajos.";
+"The movie is missing or unreadable. Check the file and its permissions." = "La película no está disponible o no se puede leer. Comprueba el archivo y sus permisos.";
+"Choose an MKV, MP4, M4V, MOV, TS, MTS or M2TS movie." = "Elige una película MKV, MP4, M4V, MOV, TS, MTS o M2TS.";
+"No Apple TV was found. Check that it is awake and on the same network." = "No se ha encontrado ningún Apple TV. Comprueba que esté encendido y en la misma red.";
+"More than one Apple TV matches. Enter a unique Apple TV name in this action." = "Hay más de un Apple TV que coincide. Introduce en esta acción un nombre que identifique a un único Apple TV.";
+"That Apple TV was not found. Check its name in AirCiller." = "No se ha encontrado ese Apple TV. Comprueba su nombre en AirCiller.";
+"Apple TV discovery has not finished. Open AirCiller and try again." = "La búsqueda de Apple TV no ha terminado. Abre AirCiller y vuelve a intentarlo.";
+"Playback changed while this action was waiting. Nothing was replaced. Run the action again." = "La reproducción ha cambiado mientras esta acción esperaba. No se ha sustituido nada. Vuelve a ejecutar la acción.";
+"AirCiller has no active playback session. Use Send Movie to Apple TV first." = "AirCiller no tiene una sesión de reproducción activa. Usa primero Enviar película al Apple TV.";
+"The playback command could not be sent. Check the connection in AirCiller." = "No se ha podido enviar la orden de reproducción. Comprueba la conexión en AirCiller.";

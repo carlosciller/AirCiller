@@ -1,0 +1,40 @@
+/* Apple Shortcuts actions */
+"Open Movie" = "Open Movie";
+"Send Movie to Apple TV" = "Send Movie to Apple TV";
+"Add Movie to Playlist" = "Add Movie to Playlist";
+"Pause AirCiller" = "Pause AirCiller";
+"Resume AirCiller" = "Resume AirCiller";
+"Stop AirCiller" = "Stop AirCiller";
+"Movie" = "Movie";
+"Apple TV Name" = "Apple TV Name";
+"Play from Beginning" = "Play from Beginning";
+"Open a saved local movie in AirCiller without starting playback. Stop the current session first." = "Open a saved local movie in AirCiller without starting playback. Stop the current session first.";
+"Start preparing a saved local movie for Apple TV. AirCiller handles playback and asks before converting audio. Stop the current session first." = "Start preparing a saved local movie for Apple TV. AirCiller handles playback and asks before converting audio. Stop the current session first.";
+"Add a saved local movie to AirCiller's playlist without changing the current playback. Existing entries are kept in place." = "Add a saved local movie to AirCiller's playlist without changing the current playback. Existing entries are kept in place.";
+"Request a pause for AirCiller's active Apple TV session." = "Request a pause for AirCiller's active Apple TV session.";
+"Request playback to resume in AirCiller's active Apple TV session. Does not start a stopped movie." = "Request playback to resume in AirCiller's active Apple TV session. Does not start a stopped movie.";
+"Stop AirCiller's current playback or preparation and keep its saved playback position." = "Stop AirCiller's current playback or preparation and keep its saved playback position.";
+"Enter the exact name shown in AirCiller. Required when more than one Apple TV is available." = "Enter the exact name shown in AirCiller. Required when more than one Apple TV is available.";
+"Open ${movie}" = "Open ${movie}";
+"Send ${movie} to Apple TV" = "Send ${movie} to Apple TV";
+"Add ${movie} to playlist" = "Add ${movie} to playlist";
+"Opening the movie in AirCiller. Playback has not started." = "Opening the movie in AirCiller. Playback has not started.";
+"Preparation has started in AirCiller. Playback will start when the movie is ready and any required approval is complete." = "Preparation has started in AirCiller. Playback will start when the movie is ready and any required approval is complete.";
+"The movie is in AirCiller's playlist." = "The movie is in AirCiller's playlist.";
+"Pause requested in AirCiller." = "Pause requested in AirCiller.";
+"Resume requested in AirCiller." = "Resume requested in AirCiller.";
+"Stop requested in AirCiller." = "Stop requested in AirCiller.";
+
+/* Action errors */
+"Open AirCiller and try again." = "Open AirCiller and try again.";
+"AirCiller is already preparing or playing a movie. Stop it before opening another movie." = "AirCiller is already preparing or playing a movie. Stop it before opening another movie.";
+"Save the movie to a local folder first, then select that file in Shortcuts." = "Save the movie to a local folder first, then select that file in Shortcuts.";
+"The movie is missing or unreadable. Check the file and its permissions." = "The movie is missing or unreadable. Check the file and its permissions.";
+"Choose an MKV, MP4, M4V, MOV, TS, MTS or M2TS movie." = "Choose an MKV, MP4, M4V, MOV, TS, MTS or M2TS movie.";
+"No Apple TV was found. Check that it is awake and on the same network." = "No Apple TV was found. Check that it is awake and on the same network.";
+"More than one Apple TV matches. Enter a unique Apple TV name in this action." = "More than one Apple TV matches. Enter a unique Apple TV name in this action.";
+"That Apple TV was not found. Check its name in AirCiller." = "That Apple TV was not found. Check its name in AirCiller.";
+"Apple TV discovery has not finished. Open AirCiller and try again." = "Apple TV discovery has not finished. Open AirCiller and try again.";
+"Playback changed while this action was waiting. Nothing was replaced. Run the action again." = "Playback changed while this action was waiting. Nothing was replaced. Run the action again.";
+"AirCiller has no active playback session. Use Send Movie to Apple TV first." = "AirCiller has no active playback session. Use Send Movie to Apple TV first.";
+"The playback command could not be sent. Check the connection in AirCiller." = "The playback command could not be sent. Check the connection in AirCiller.";

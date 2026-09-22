@@ -11,7 +11,15 @@ private typealias AirCillerState<Value> = SwiftUI.State<Value>
 #endif
 struct AirCillerApp: App {
     @NSApplicationDelegateAdaptor(AirCillerAppDelegate.self) private var appDelegate
-    @AirCillerState private var coordinator = StreamCoordinator()
+    @AirCillerState private var coordinator: StreamCoordinator
+
+    init() {
+        let coordinator = StreamCoordinator()
+        _coordinator = AirCillerState(initialValue: coordinator)
+        #if !AIRCILLER_PLAYBACK_CHECKS && !AIRCILLER_NO_SHORTCUTS
+            ShortcutsController.shared.register(coordinator)
+        #endif
+    }
 
     var body: some Scene {
         Window("AirCiller", id: "main") {

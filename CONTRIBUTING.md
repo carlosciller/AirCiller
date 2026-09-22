@@ -22,6 +22,14 @@ For code, dependency, or build changes:
 
 Add tests for meaningful changed behavior. Once required checks pass, repeat or broaden validation only when new changes, failures, or unresolved concerns justify it.
 
+Apple Shortcuts packaging needs full Xcode, including
+`appintentsmetadataprocessor`. With only Command Line Tools,
+`./Scripts/check.sh --without-shortcuts` runs source regressions and produces an
+isolated UI-only candidate. Its result is explicitly limited: the normal gate
+with real metadata, Shortcuts discovery and affected receiver cases still must
+pass before release. Do not hand-write metadata or mix it with another compiler's
+app binary. See [Shortcuts checks](Docs/SHORTCUTS.md).
+
 Changes produced with AI tools are acceptable, but they must be reviewed, understandable, and held to the same validation standard as any other change.
 
 ## Python dependency changes

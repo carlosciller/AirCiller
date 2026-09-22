@@ -8,6 +8,8 @@ import UniformTypeIdentifiers
 @Observable
 @MainActor
 final class StreamCoordinator {
+    @ObservationIgnored private(set) var playbackCommandGeneration = UUID()
+    @ObservationIgnored var isShortcutsDiscoveryPending = false
     private(set) var selectedURL: URL?
     private(set) var probeInfo: MediaProbe?
     var status = "Listo"
@@ -544,6 +546,17 @@ final class StreamCoordinator {
         loadVideo(first, autoStart: false)
     }
 
+    func addToQueueFromShortcuts(_ url: URL) {
+        // Adding while streaming must not replace the playback status or load a file.
+        let previousStatus = status
+        let previousDetail = detail
+        enqueue([url])
+        if commandAvailability.canStop {
+            status = previousStatus
+            detail = previousDetail
+        }
+    }
+
     func chooseExternalSubtitle() -> SubtitleTrack? {
         guard selectedURL != nil else { return nil }
         let panel = NSOpenPanel()
@@ -909,6 +922,7 @@ final class StreamCoordinator {
     }
 
     func stop(resetStatus: Bool = true) {
+        playbackCommandGeneration = UUID()
         saveCurrentPosition(force: true)
         activeAnalysisID = nil
         isAnalyzing = false
@@ -1827,6 +1841,10 @@ final class StreamCoordinator {
                 ),
                 at: 0
             )
+        }
+        recentItems = Array(recentItems.prefix(HistoryStore.maximumRecentItems))
+        if let focusedRecentItemID, !recentItems.contains(where: { $0.id == focusedRecentItemID }) {
+            self.focusedRecentItemID = nil
         }
         HistoryStore.saveRecent(recentItems)
     }
