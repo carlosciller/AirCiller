@@ -17,10 +17,90 @@ from pathlib import Path
 MODULE_NAME = "AirCiller"
 TARGET = "arm64-apple-macosx14.0"
 PROTOCOLS = ["AppIntent", "AppEntity", "AppEnum", "EntityQuery", "AppShortcutsProvider"]
-INTENTS = {
-    "OpenMovieIntent", "SendMovieToAppleTVIntent", "AddMovieToPlaylistIntent",
-    "PauseAirCillerIntent", "ResumeAirCillerIntent", "StopAirCillerIntent",
+ACTION_CONTRACTS = {
+    "OpenMovieIntent": {
+        "title": "Open Movie", "parameters": {"movie": ("Movie", False)},
+        "summary": "Open ${movie}", "other_parameters": [],
+    },
+    "SendMovieToAppleTVIntent": {
+        "title": "Send Movie to Apple TV",
+        "parameters": {
+            "movie": ("Movie", False), "destinationName": ("Apple TV Name", True),
+            "fromBeginning": ("Play from Beginning", False),
+        },
+        "summary": "Send ${movie} to Apple TV",
+        "other_parameters": ["destinationName", "fromBeginning"],
+    },
+    "AddMovieToPlaylistIntent": {
+        "title": "Add Movie to Playlist", "parameters": {"movie": ("Movie", False)},
+        "summary": "Add ${movie} to playlist", "other_parameters": [],
+    },
+    "PauseAirCillerIntent": {"title": "Pause AirCiller", "parameters": {}},
+    "ResumeAirCillerIntent": {"title": "Resume AirCiller", "parameters": {}},
+    "StopAirCillerIntent": {"title": "Stop AirCiller", "parameters": {}},
 }
+INTENTS = set(ACTION_CONTRACTS)
+
+
+def catalog_object(value: object, label: str) -> dict:
+    if not isinstance(value, dict):
+        raise ValueError(f"Invalid App Intents catalog object: {label}.")
+    return value
+
+
+def validate_localized_title(value: object, expected: str, label: str) -> None:
+    title = catalog_object(value, label)
+    if title.get("key") != expected or title.get("table") != "Shortcuts":
+        raise ValueError(f"Incorrect App Intents title or localization table: {label}.")
+
+
+def validate_catalog(path: Path) -> None:
+    """Check the action contract in Apple's real post-extraction JSON catalog.
+
+    The shape was observed from Xcode 26.6 output. Numeric framework enums and
+    effectiveBundleIdentifiers are intentionally not interpreted here; an empty
+    bundle list is valid when the actions belong to their containing app.
+    """
+    catalog = catalog_object(json.loads(path.read_text(encoding="utf-8")), "root")
+    actions = catalog_object(catalog.get("actions"), "actions")
+    if set(actions) != INTENTS:
+        raise ValueError("Apple's catalog does not contain exactly the six AirCiller actions.")
+    for identifier, expected in ACTION_CONTRACTS.items():
+        action = catalog_object(actions[identifier], identifier)
+        if (action.get("identifier") != identifier
+                or action.get("fullyQualifiedTypeName") != f"{MODULE_NAME}.{identifier}"):
+            raise ValueError(f"Incorrect App Intents action identity: {identifier}.")
+        visibility = catalog_object(action.get("visibilityMetadata"), f"{identifier}.visibilityMetadata")
+        if (action.get("isDiscoverable") is not True or visibility.get("isDiscoverable") is not True
+                or visibility.get("assistantOnly") is not False):
+            raise ValueError(f"App Intents action is not discoverable in Shortcuts: {identifier}.")
+        if action.get("openAppWhenRun") is not True:
+            raise ValueError(f"App Intents action does not open AirCiller in the foreground: {identifier}.")
+        validate_localized_title(action.get("title"), expected["title"], identifier)
+        parameters = action.get("parameters")
+        if not isinstance(parameters, list) or any(not isinstance(item, dict) for item in parameters):
+            raise ValueError(f"Invalid App Intents parameter list: {identifier}.")
+        parameter_names = [item.get("name") for item in parameters]
+        if (any(not isinstance(name, str) for name in parameter_names)
+                or len(parameters) != len(expected["parameters"])
+                or set(parameter_names) != set(expected["parameters"])):
+            raise ValueError(f"Incorrect App Intents parameters: {identifier}.")
+        for parameter in parameters:
+            name = parameter["name"]
+            title, optional = expected["parameters"][name]
+            if parameter.get("isOptional") is not optional:
+                raise ValueError(f"Incorrect App Intents parameter optionality: {identifier}.{name}.")
+            validate_localized_title(parameter.get("title"), title, f"{identifier}.{name}")
+        if "summary" in expected:
+            configuration = catalog_object(action.get("actionConfiguration"), f"{identifier}.actionConfiguration")
+            summary = catalog_object(configuration.get("actionSummary"), f"{identifier}.actionSummary")
+            wrapper = catalog_object(summary.get("wrapper"), f"{identifier}.summary.wrapper")
+            text = catalog_object(wrapper.get("summaryString"), f"{identifier}.summaryString")
+            if (wrapper.get("table") != "Shortcuts"
+                    or text.get("formatString") != expected["summary"]
+                    or text.get("parameterIdentifiers") != ["movie"]
+                    or wrapper.get("otherParameterIdentifiers") != expected["other_parameters"]):
+                raise ValueError(f"Incorrect App Intents parameter summary: {identifier}.")
 
 
 def extraction_paths(intermediates: Path) -> tuple[Path, Path, Path]:
@@ -98,6 +178,7 @@ def extract(
         if not output.is_file() or output.stat().st_size == 0:
             raise ValueError(f"Apple's App Intents processor did not produce {filename}.")
     json.loads((metadata / "version.json").read_text(encoding="utf-8"))
+    validate_catalog(metadata / "extract.actionsdata")
 
 
 def main() -> int:

@@ -93,9 +93,48 @@ an Apple TV session was launched. Native access was retried once after independe
 source work and again reported a locked Mac with failed automatic unlock. CI
 compilation and manual unlock were requested; neither was assumed.
 
+## Xcode candidate verification (22 September)
+
+The maintainer authorized uploading the working branch and building a test
+candidate in GitHub, without publication or daily-app replacement.
+[Run 35754339418](https://github.com/carlosciller/AirCiller/actions/runs/35754339418)
+passed the full default gate and packaged the isolated candidate from commit
+`2984cdaa33bb708ed5beb1350a422e8c5ca93fb1`, using Xcode 26.6 (17F113) and Swift
+6.3.3. The duplicate push run was deliberately canceled; it was not a failing
+test run. The Vision cancellation message in the successful run belongs to its
+expected cancellation regression.
+
+Apple's generated catalogue contains the exact six actions, their AirCiller
+module identities, discoverable/foreground settings, Shortcuts localization table
+references and the expected parameters. Open/Add take a required movie file;
+Send also exposes an optional receiver name and the start-from-beginning option,
+which defaults to false. The catalogue has no automatic App Shortcuts. The
+English and Spanish tables are present. These are package observations, not a
+claim that the Shortcuts editor has displayed or executed the actions.
+
+Packaging now checks the final catalogue as well as Swift's extracted types.
+Twenty focused regressions cover missing actions, wrong module/identifier,
+hidden or background-only actions, changed titles/tables, parameters and summary
+references. The stricter validator also passes against this real Xcode output;
+its synthetic fixtures are never used to package an app.
+
+The downloaded ZIP passed its SHA-256 check:
+`1a62b20f848a99979062d7147249ff35827312c13b7e7102c895987cae059644`.
+Its original ad hoc bundle signature passed strict verification. An independent
+local copy adds the existing, unchanged credential service and uses the already
+configured local signature and client entitlements. Compiled function bytes,
+metadata, resources and third-party frameworks were preserved; checksum and
+symbolic-link comparisons supplement the directory comparison. The local copy's
+complete signature passes and it measures 154,408,405 logical bytes within the
+165 MB budget. The engines and playback sources were not changed by this step.
+
+Candidate evidence is retained under `.build/shortcuts-ci-35754339418/`, with the
+download, original bundle, prepared local bundle and CI/verification logs kept
+separately. No app was launched, real AirPlay credential read, pairing performed
+or receiver session started. The installed 0.14.0 executable remains unchanged.
+
 Still required before acceptance:
 
-- Full default contribution gate with Xcode's real metadata processor.
 - Find all six actions in Shortcuts in English and Spanish, with correct names,
   parameter summaries, app identity and icon.
 - Open/Add/Send with the app closed and already open; verify the same visible
