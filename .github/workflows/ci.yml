@@ -12,6 +12,10 @@ on:
         options:
           - macos-26
           - xcode-27
+      candidate_artifact:
+        description: Build a separate test app after the full checks (no release)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,6 +36,7 @@ jobs:
           sw_vers
           xcodebuild -version
           xcrun swiftc --version
+          xcrun --find appintentsmetadataprocessor
 
       - name: Python 3.13
         uses: actions/setup-python@v7
@@ -53,3 +58,25 @@ jobs:
         run: ./Scripts/check.sh
         env:
           AIRCILLER_TEST_FFMPEG: ${{ github.workspace }}/.build/dependencies/AirCillerEngine-ffmpeg-9.0.1-python-3.13.15/ffmpeg/bin/ffmpeg
+
+      - name: Package isolated test candidate
+        if: github.event_name == 'workflow_dispatch' && inputs.candidate_artifact
+        run: |
+          AIRCILLER_SIGNING_IDENTITY=- ./build.sh --candidate
+          mkdir -p .build/ci-candidate
+          ditto -c -k --sequesterRsrc --keepParent ".build/AirCiller Test.app" .build/ci-candidate/AirCiller-Test.zip
+          git rev-parse HEAD > .build/ci-candidate/source-commit.txt
+          xcrun swiftc --version > .build/ci-candidate/compiler.txt
+          xcodebuild -version >> .build/ci-candidate/compiler.txt
+          cd .build/ci-candidate
+          shasum -a 256 AirCiller-Test.zip > SHA256SUMS
+
+      - name: Store isolated test candidate
+        if: github.event_name == 'workflow_dispatch' && inputs.candidate_artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: AirCiller-Test-${{ github.sha }}
+          path: .build/ci-candidate/
+          if-no-files-found: error
+          retention-days: 3
+          compression-level: 0
