@@ -16,6 +16,43 @@ metadata = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(metadata)
 
 
+def synthetic_catalog():
+    """Minimal observed catalog shape; never used to package an application."""
+    definitions = [
+        ("OpenMovieIntent", "Open Movie", [("movie", "Movie", False)], "Open ${movie}", []),
+        ("SendMovieToAppleTVIntent", "Send Movie to Apple TV", [
+            ("movie", "Movie", False), ("destinationName", "Apple TV Name", True),
+            ("fromBeginning", "Play from Beginning", False),
+        ], "Send ${movie} to Apple TV", ["destinationName", "fromBeginning"]),
+        ("AddMovieToPlaylistIntent", "Add Movie to Playlist", [("movie", "Movie", False)],
+         "Add ${movie} to playlist", []),
+        ("PauseAirCillerIntent", "Pause AirCiller", [], None, []),
+        ("ResumeAirCillerIntent", "Resume AirCiller", [], None, []),
+        ("StopAirCillerIntent", "Stop AirCiller", [], None, []),
+    ]
+    actions = {}
+    for identifier, title, parameters, summary, other_parameters in definitions:
+        action = {
+            "identifier": identifier,
+            "fullyQualifiedTypeName": f"AirCiller.{identifier}",
+            "isDiscoverable": True, "openAppWhenRun": True,
+            "visibilityMetadata": {"isDiscoverable": True, "assistantOnly": False},
+            "title": {"key": title, "table": "Shortcuts"},
+            "parameters": [
+                {"name": name, "isOptional": optional, "title": {"key": key, "table": "Shortcuts"}}
+                for name, key, optional in parameters
+            ],
+            "effectiveBundleIdentifiers": [],
+        }
+        if summary is not None:
+            action["actionConfiguration"] = {"actionSummary": {"wrapper": {
+                "table": "Shortcuts", "otherParameterIdentifiers": other_parameters,
+                "summaryString": {"formatString": summary, "parameterIdentifiers": ["movie"]},
+            }}}
+        actions[identifier] = action
+    return {"actions": actions, "generator": {"name": "synthetic-test-fixture"}}
+
+
 class AppIntentsMetadataTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="airciller-shortcuts-build-")
@@ -39,6 +76,11 @@ class AppIntentsMetadataTests(unittest.TestCase):
             {"typeName": f"AirCiller.{intent}", "conformances": ["AppIntents.AppIntent"]}
             for intent in metadata.INTENTS
         ]), encoding="utf-8")
+        self.catalog_path = self.root / "synthetic.actionsdata"
+
+    def validate_catalog(self, catalog):
+        self.catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+        metadata.validate_catalog(self.catalog_path)
 
     def write_info(self, **overrides):
         info = {"CFBundleIdentifier": "local.carlosciller.AirCiller"}
@@ -57,7 +99,7 @@ class AppIntentsMetadataTests(unittest.TestCase):
         self.assertTrue(check)
         output = Path(command[command.index("--output") + 1]) / "Metadata.appintents"
         output.mkdir()
-        (output / "extract.actionsdata").write_bytes(b"synthetic contract fixture")
+        (output / "extract.actionsdata").write_text(json.dumps(synthetic_catalog()), encoding="utf-8")
         (output / "version.json").write_text('{"version":1}', encoding="utf-8")
 
     def test_prepare_maps_exact_source_and_invalidates_stale_constants(self):
@@ -141,6 +183,129 @@ class AppIntentsMetadataTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 2)
         self.assertIn("Usage:", result.stderr)
+
+    def test_catalog_accepts_containing_app_identity_without_effective_bundle_ids(self):
+        self.validate_catalog(synthetic_catalog())
+
+    def test_catalog_rejects_missing_and_unexpected_actions(self):
+        missing = synthetic_catalog()
+        del missing["actions"]["StopAirCillerIntent"]
+        extra = synthetic_catalog()
+        extra["actions"]["UnexpectedIntent"] = {}
+        for catalog in (missing, extra):
+            with self.subTest(catalog=catalog):
+                with self.assertRaisesRegex(ValueError, "exactly the six"):
+                    self.validate_catalog(catalog)
+
+    def test_catalog_rejects_wrong_module_or_identifier(self):
+        for field, value in (("fullyQualifiedTypeName", "Other.OpenMovieIntent"), ("identifier", "OtherIntent")):
+            with self.subTest(field=field):
+                catalog = synthetic_catalog()
+                catalog["actions"]["OpenMovieIntent"][field] = value
+                with self.assertRaisesRegex(ValueError, "action identity"):
+                    self.validate_catalog(catalog)
+
+    def test_catalog_rejects_wrong_title_or_table(self):
+        for field, value in (("key", "Unrelated action"), ("table", "Localizable")):
+            with self.subTest(field=field):
+                catalog = synthetic_catalog()
+                catalog["actions"]["PauseAirCillerIntent"]["title"][field] = value
+                with self.assertRaisesRegex(ValueError, "title or localization"):
+                    self.validate_catalog(catalog)
+
+    def test_catalog_rejects_hidden_assistant_only_or_background_actions(self):
+        for variant in ("hidden", "visibility", "assistant_only", "background"):
+            with self.subTest(variant=variant):
+                catalog = synthetic_catalog()
+                action = catalog["actions"]["ResumeAirCillerIntent"]
+                if variant == "hidden":
+                    action["isDiscoverable"] = False
+                elif variant == "visibility":
+                    action["visibilityMetadata"]["isDiscoverable"] = False
+                elif variant == "assistant_only":
+                    action["visibilityMetadata"]["assistantOnly"] = True
+                else:
+                    action["openAppWhenRun"] = False
+                with self.assertRaisesRegex(ValueError, "discoverable|foreground"):
+                    self.validate_catalog(catalog)
+
+    def test_catalog_rejects_missing_renamed_and_duplicate_parameters(self):
+        for variant in ("missing", "renamed", "duplicate"):
+            with self.subTest(variant=variant):
+                catalog = synthetic_catalog()
+                parameters = catalog["actions"]["SendMovieToAppleTVIntent"]["parameters"]
+                if variant == "missing":
+                    parameters.pop()
+                elif variant == "renamed":
+                    parameters[1]["name"] = "receiverAddress"
+                else:
+                    parameters[1] = dict(parameters[0])
+                with self.assertRaisesRegex(ValueError, "parameters"):
+                    self.validate_catalog(catalog)
+
+    def test_catalog_rejects_wrong_parameter_optionality_or_localization(self):
+        for variant in ("required_destination", "optional_movie", "title", "table"):
+            with self.subTest(variant=variant):
+                catalog = synthetic_catalog()
+                parameters = catalog["actions"]["SendMovieToAppleTVIntent"]["parameters"]
+                if variant == "required_destination":
+                    parameters[1]["isOptional"] = False
+                elif variant == "optional_movie":
+                    parameters[0]["isOptional"] = True
+                else:
+                    parameters[0]["title"]["key" if variant == "title" else "table"] = "Wrong"
+                with self.assertRaisesRegex(ValueError, "optionality|localization"):
+                    self.validate_catalog(catalog)
+
+    def test_catalog_rejects_wrong_summary_text_parameters_and_table(self):
+        for variant in ("text", "parameters", "other_parameters", "table"):
+            with self.subTest(variant=variant):
+                catalog = synthetic_catalog()
+                wrapper = catalog["actions"]["SendMovieToAppleTVIntent"]["actionConfiguration"]["actionSummary"]["wrapper"]
+                if variant == "text":
+                    wrapper["summaryString"]["formatString"] = "Send another movie"
+                elif variant == "parameters":
+                    wrapper["summaryString"]["parameterIdentifiers"] = []
+                elif variant == "other_parameters":
+                    wrapper["otherParameterIdentifiers"] = ["destinationName"]
+                else:
+                    wrapper["table"] = "Localizable"
+                with self.assertRaisesRegex(ValueError, "parameter summary"):
+                    self.validate_catalog(catalog)
+
+    def test_catalog_rejects_malformed_shapes_as_validation_errors(self):
+        for variant in ("root", "actions", "action", "title", "parameters", "parameter_name", "summary"):
+            with self.subTest(variant=variant):
+                catalog = synthetic_catalog()
+                action = catalog["actions"]["OpenMovieIntent"]
+                if variant == "root":
+                    catalog = []
+                elif variant == "actions":
+                    catalog["actions"] = []
+                elif variant == "action":
+                    catalog["actions"]["OpenMovieIntent"] = None
+                elif variant == "title":
+                    action["title"] = "Open Movie"
+                elif variant == "parameters":
+                    action["parameters"] = [None]
+                elif variant == "parameter_name":
+                    action["parameters"][0]["name"] = []
+                else:
+                    action["actionConfiguration"]["actionSummary"] = None
+                with self.assertRaises(ValueError):
+                    self.validate_catalog(catalog)
+
+    def test_post_extraction_missing_action_fails_even_with_complete_swift_constants(self):
+        def missing_action(command, *, check):
+            self.write_output(command, check=check)
+            path = self.contents / "Resources" / "Metadata.appintents" / "extract.actionsdata"
+            catalog = json.loads(path.read_text(encoding="utf-8"))
+            del catalog["actions"]["StopAirCillerIntent"]
+            path.write_text(json.dumps(catalog), encoding="utf-8")
+
+        with patch.object(metadata.subprocess, "run", side_effect=missing_action):
+            with self.assertRaisesRegex(ValueError, "exactly the six"):
+                self.extract()
 
 
 if __name__ == "__main__":

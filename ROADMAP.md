@@ -40,10 +40,11 @@ to Apple TV, add it to Playlist, pause, resume and stop. Do not install Finder
 Quick Actions or Services. Keep the current app, playback routes and explicit
 conversion/authorization prompts.
 
-The action bridge and definitions are implemented locally. Packaging requires
-Xcode's App Intents metadata processor, which is unavailable in Command Line
-Tools alone. Real discovery and execution from Shortcuts, cold launch, protected
-file access and both receiver paths remain acceptance gates. See
+The action bridge and definitions are implemented. The full Xcode gate and an
+isolated candidate build passed in GitHub; the generated catalogue contains all
+six actions. Command Line Tools alone still cannot package the metadata. Real
+discovery and execution from Shortcuts, cold launch, protected file access and
+both receiver paths remain acceptance gates. See
 [Shortcuts implementation and checks](Docs/SHORTCUTS.md). Choose the release
 version only after the combined candidate is accepted.
 
