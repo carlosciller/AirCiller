@@ -42,9 +42,12 @@ conversion/authorization prompts.
 
 The action bridge and definitions are implemented. The full Xcode gate and an
 isolated candidate build passed in GitHub; the generated catalogue contains all
-six actions. Command Line Tools alone still cannot package the metadata. Real
-discovery and execution from Shortcuts, cold launch, protected file access and
-both receiver paths remain acceptance gates. See
+six actions. Command Line Tools alone still cannot package the metadata. The
+first native discovery check failed: macOS could not obtain an Apple Team ID
+from the candidate's local signature. A legitimate development-signing comparison
+requires a separate setup decision; paid membership has not been established as
+a requirement by this test. Discovery and execution from Shortcuts, cold launch,
+protected file access and both receiver paths remain acceptance gates. See
 [Shortcuts implementation and checks](Docs/SHORTCUTS.md). Choose the release
 version only after the combined candidate is accepted.
 

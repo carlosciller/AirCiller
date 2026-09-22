@@ -149,3 +149,41 @@ Still required before acceptance:
 
 Only the exact approved digital Apple TV source may be captured. Mac and iPhone
 cameras and microphones remain prohibited.
+
+## Native registration check (22 September)
+
+After the maintainer unlocked the Mac, the prepared local CI candidate opened
+on macOS 27.0 (26A428). Its running executable path matched the prepared copy;
+its SHA-256 remained
+`84e8c107f923d59a2b72a8cb0ad33fb058695f19392c1acc7406de4f7fe2a616`.
+The installed 0.14.0 executable remained unchanged. The final source/build-tool
+[CI run 35756208556](https://github.com/carlosciller/AirCiller/actions/runs/35756208556)
+also passed at `cbad590748ec10011da81fa28b531631bb6acf3f`.
+
+**Discovery failed.** Searching for AirCiller in the actual Shortcuts editor
+returned no actions, including after quitting and reopening Shortcuts. macOS
+Launch Services registered the exact candidate with its `link-enabled` flag,
+but `linkd` reported `Failed to generate bundleIdentity` and
+`Unable to get teamId` for that running candidate. The local signing certificate
+has no Apple Team ID. The scoped diagnostic is retained privately beside the
+candidate as `runtime-linkd.log`.
+
+This establishes a registration blocker for this candidate and signing setup;
+it does not establish that every macOS version requires paid membership. Apple's
+[developer account guidance](https://developer.apple.com/help/account/basics/about-your-developer-account#enable-a-personal-team-in-xcode)
+describes free Personal Team development signing through Xcode. A genuine Apple
+development-signed, non-receiver comparison is the next investigation if the
+maintainer authorizes that setup. Its success and public-distribution suitability
+are not established. Do not fabricate a Team ID, edit generated metadata, reset
+system indexing or change Keychain protections to make discovery pass.
+
+A different signing certificate would also be rejected by the existing
+[credential service](CREDENTIAL_SERVICE.md), which deliberately pins the current
+local certificate. Any subsequent credential-service migration needs separate
+planning and validation; it is not an automatic part of the discovery test.
+
+No Shortcut action was executed. No Apple TV playback, capture, pairing or
+credential reset was performed. The six actions and their receiver cases remain
+unaccepted despite successful compilation and metadata validation. One empty,
+clearly named QA shortcut was created in the editor; no Finder action, automation
+or system shortcut was enabled.
