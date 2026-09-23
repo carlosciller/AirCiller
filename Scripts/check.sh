@@ -117,6 +117,9 @@ compile_and_run capture-policy \
 compile_and_run update-configuration \
   "$project_dir/Sources/UpdateConfiguration.swift" \
   "$project_dir/Tests/UpdateConfigurationSmokeTest.swift"
+compile_and_run update-availability \
+  "$project_dir/Sources/UpdateAvailability.swift" \
+  "$project_dir/Tests/UpdateAvailabilitySmokeTest.swift"
 compile_and_run power-assertion \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/PlaybackPowerAssertion.swift" \
@@ -178,6 +181,13 @@ compile_and_run history-store \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/HistoryStore.swift" \
   "$project_dir/Tests/HistoryStoreSmokeTest.swift"
+compile_and_run library-list-undo \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/HistoryStore.swift" \
+  "$project_dir/Sources/LibraryListUndo.swift" \
+  "$project_dir/Tests/LibraryListUndoSmokeTest.swift"
+"$project_dir/Scripts/check_library_coordinator.sh"
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"
@@ -189,6 +199,12 @@ compile_and_run storage \
   "$project_dir/Sources/AirCillerError.swift" \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Tests/AirCillerStorageSmokeTest.swift"
+compile_and_run storage-recovery \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Sources/PreparedCacheSettingsState.swift" \
+  "$project_dir/Tests/StorageRecoverySmokeTest.swift"
 compile_and_run subtitle-ocr-text \
   "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
   "$project_dir/Tests/SubtitleOCRTextNormalizerSmokeTest.swift"
@@ -415,6 +431,9 @@ test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/
 test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/ffprobe"
 test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/bin/python3"
 test "$(plutil -extract ACBundledEngineRequired raw "$project_dir/.build/AirCiller.app/Contents/Info.plist")" = "true"
+# Shortcuts remains on its development branch until public signing is accepted.
+test "$(plutil -extract ACShortcutsAvailable raw "$project_dir/.build/AirCiller.app/Contents/Info.plist")" = "false"
+test ! -e "$project_dir/.build/AirCiller.app/Contents/Resources/Metadata.appintents"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/LICENSES/FFmpeg-LGPL-2.1.txt"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/lib/python3.13/LICENSE.txt"
 test "$(< "$project_dir/.build/AirCiller.app/Contents/Resources/VendorPython/.airciller-python-executable")" \

@@ -689,4 +689,9 @@
 "Opciones de subtítulos" = "Subtitle Options";
 "No hay cambios pendientes." = "No pending changes.";
 "Cerrar" = "Close";
+"Ordenar la playlist" = "Reorder Playlist";
+"Vaciar la playlist" = "Clear Playlist";
+"El ajuste de audio puede no aplicarse en esta película. La sincronización de subtítulos es independiente." = "The audio timing adjustment may not take effect for this movie. Subtitle timing is independent.";
+"No se pudo vaciar la caché de subtítulos. Vuelve a intentarlo." = "The subtitle cache could not be cleared. Try again.";
+"No se pudieron eliminar todos los restos temporales. Vuelve a intentarlo." = "Some temporary files could not be removed. Try again.";
 "El destino ya está en la biblioteca o la entrada original ha cambiado. No se ha combinado ni eliminado ninguna entrada." = "The destination is already in the library or the original entry has changed. No entries were merged or removed.";

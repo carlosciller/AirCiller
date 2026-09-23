@@ -391,9 +391,10 @@ struct StorageSettingsView: View {
     var coordinator: StreamCoordinator
     @AirCillerState private var cacheLimitMB = AirCillerStorage.subtitleCacheLimitMB
     @AirCillerState private var preparedCacheLimitGiB = AirCillerStorage.preparedMediaCacheLimitGiB
-    @AirCillerState private var preparedCacheBytes: Int64?
+    @AirCillerState private var preparedCacheState = PreparedCacheSettingsState()
     @AirCillerState private var changingPreparedCache = false
-    @AirCillerState private var storageError: String?
+    @AirCillerState private var subtitleCacheError: String?
+    @AirCillerState private var temporaryMediaError: String?
     @AirCillerState private var snapshot = AirCillerStorage.snapshot()
 
     private var playbackIsBusy: Bool { coordinator.isPreparing || coordinator.isStreaming }
@@ -402,7 +403,7 @@ struct StorageSettingsView: View {
         Form {
             Section("Películas en caché") {
                 LabeledContent("Caché local") {
-                    if let preparedCacheBytes {
+                    if let preparedCacheBytes = preparedCacheState.sizeBytes {
                         Text(
                             L10n.format(
                                 "%@ de %@",
@@ -448,13 +449,19 @@ struct StorageSettingsView: View {
                     Button("Vaciar caché de películas", role: .destructive) {
                         clearPreparedCache()
                     }
-                    .disabled(preparedCacheBytes == 0 || playbackIsBusy || changingPreparedCache)
+                    .disabled(
+                        !CacheCleanupAvailability.canClear(
+                            reportedBytes: preparedCacheState.sizeBytes,
+                            previousFailure: preparedCacheState.operationFailure != nil,
+                            busy: playbackIsBusy || changingPreparedCache
+                        )
+                    )
                     if changingPreparedCache {
                         ProgressView().controlSize(.small)
                     }
                 }
-                if let storageError {
-                    Text(storageError)
+                if let preparedCacheError {
+                    Text(preparedCacheError)
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
@@ -479,7 +486,14 @@ struct StorageSettingsView: View {
                 }
                 .disabled(playbackIsBusy || changingPreparedCache)
                 .onChange(of: cacheLimitMB) { _, newValue in
-                    AirCillerStorage.setSubtitleCacheLimitMB(newValue)
+                    subtitleCacheError = nil
+                    do {
+                        try AirCillerStorage.setSubtitleCacheLimitMB(newValue)
+                    } catch {
+                        subtitleCacheError = L10n.text(
+                            "El límite se ha guardado, pero no se pudo completar la limpieza de la caché."
+                        )
+                    }
                     refresh()
                 }
 
@@ -490,10 +504,20 @@ struct StorageSettingsView: View {
                 .foregroundStyle(.secondary)
 
                 Button("Vaciar caché de subtítulos", role: .destructive) {
-                    try? AirCillerStorage.clearSubtitleCache()
-                    refresh()
+                    clearSubtitleCache()
                 }
-                .disabled(snapshot.subtitleCacheBytes == 0 || playbackIsBusy || changingPreparedCache)
+                .disabled(
+                    !CacheCleanupAvailability.canClear(
+                        reportedBytes: snapshot.subtitleCacheBytes,
+                        previousFailure: subtitleCacheError != nil,
+                        busy: playbackIsBusy || changingPreparedCache
+                    )
+                )
+                if let subtitleCacheError {
+                    Text(subtitleCacheError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
 
             Section("Preparación de películas") {
@@ -508,12 +532,20 @@ struct StorageSettingsView: View {
                 .foregroundStyle(.secondary)
 
                 Button("Eliminar restos temporales", role: .destructive) {
-                    AirCillerStorage.clearPreparedMedia(
-                        excluding: coordinator.activePreparedDirectory
-                    )
-                    refresh()
+                    clearTemporaryMedia()
                 }
-                .disabled(snapshot.preparedMediaBytes == 0 || playbackIsBusy || changingPreparedCache)
+                .disabled(
+                    !CacheCleanupAvailability.canClear(
+                        reportedBytes: snapshot.preparedMediaBytes,
+                        previousFailure: temporaryMediaError != nil,
+                        busy: playbackIsBusy || changingPreparedCache
+                    )
+                )
+                if let temporaryMediaError {
+                    Text(temporaryMediaError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
         }
         .formStyle(.grouped)
@@ -554,12 +586,23 @@ struct StorageSettingsView: View {
         do {
             let bytes = try await AirCillerStorage.preparedMediaCache.sizeBytes()
             guard !Task.isCancelled else { return }
-            preparedCacheBytes = bytes
+            preparedCacheState.receivedSize(bytes)
         } catch is CancellationError {
             return
         } catch {
-            preparedCacheBytes = nil
-            storageError = L10n.text("No se pudo leer el tamaño de la caché de películas.")
+            preparedCacheState.failedToReadSize()
+        }
+    }
+
+    private var preparedCacheError: String? {
+        switch preparedCacheState.operationFailure {
+        case .clear:
+            return L10n.text("No se pudo vaciar la caché de películas. Vuelve a intentarlo.")
+        case .trim:
+            return L10n.text("El límite se ha guardado, pero no se pudo completar la limpieza de la caché.")
+        case nil:
+            return preparedCacheState.sizeReadFailed
+                ? L10n.text("No se pudo leer el tamaño de la caché de películas.") : nil
         }
     }
 
@@ -567,12 +610,12 @@ struct StorageSettingsView: View {
         guard !playbackIsBusy, !changingPreparedCache else { return }
         preparedCacheLimitGiB = value
         changingPreparedCache = true
-        storageError = nil
+        preparedCacheState.beginOperation()
         Task {
             do {
                 try await AirCillerStorage.setPreparedMediaCacheLimitGiB(value)
             } catch {
-                storageError = L10n.text("El límite se ha guardado, pero no se pudo completar la limpieza de la caché.")
+                preparedCacheState.failedOperation(.trim)
             }
             preparedCacheLimitGiB = AirCillerStorage.preparedMediaCacheLimitGiB
             await refreshPreparedCache()
@@ -583,15 +626,37 @@ struct StorageSettingsView: View {
     private func clearPreparedCache() {
         guard !playbackIsBusy, !changingPreparedCache else { return }
         changingPreparedCache = true
-        storageError = nil
+        preparedCacheState.beginOperation()
         Task {
             do {
                 try await AirCillerStorage.preparedMediaCache.clear()
             } catch {
-                storageError = L10n.text("No se pudo vaciar la caché de películas. Vuelve a intentarlo.")
+                preparedCacheState.failedOperation(.clear)
             }
             await refreshPreparedCache()
             changingPreparedCache = false
         }
+    }
+
+    private func clearSubtitleCache() {
+        guard !playbackIsBusy, !changingPreparedCache else { return }
+        subtitleCacheError = nil
+        do {
+            try AirCillerStorage.clearSubtitleCache()
+        } catch {
+            subtitleCacheError = L10n.text("No se pudo vaciar la caché de subtítulos. Vuelve a intentarlo.")
+        }
+        refresh()
+    }
+
+    private func clearTemporaryMedia() {
+        guard !playbackIsBusy, !changingPreparedCache else { return }
+        temporaryMediaError = nil
+        do {
+            try AirCillerStorage.clearPreparedMedia(excluding: coordinator.activePreparedDirectory)
+        } catch {
+            temporaryMediaError = L10n.text("No se pudieron eliminar todos los restos temporales. Vuelve a intentarlo.")
+        }
+        refresh()
     }
 }

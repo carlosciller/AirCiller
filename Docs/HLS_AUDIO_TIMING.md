@@ -75,3 +75,41 @@ xcrun swiftc -swift-version 6 -strict-concurrency=complete -warn-concurrency \
 ```
 
 Sources: [FFmpeg input synchronization](https://ffmpeg.org/ffmpeg.html#Main-options), [timestamp normalization](https://ffmpeg.org/ffmpeg-formats.html#Format-Options), and [HLS WebVTT mapping and cue coverage](https://www.rfc-editor.org/rfc/rfc8216.html#section-3.5).
+
+## Separate-rendition experiment, 22 September 2026
+
+The maintainer authorized a separate follow-up investigation. The maintenance
+candidate and both production packagers remain unchanged. One local iteration
+used the pinned engine and a synthetic 60-second H.264/E-AC-3 fixture, retaining
+separate renditions on a shared positive clock without edit lists.
+
+| Requested adjustment | First video PTS | First audio PTS | Last audiovisual end relative to video start |
+| --- | --- | --- | --- |
+| 0 s | 10.000 s | 9.995 s | 59.999 s |
+| +5 s | 10.000 s | 14.995 s | 64.995 s |
+| -5 s | 10.000 s | 4.995 s | 59.999 s |
+
+All three packages preserve the 1,440 video and 1,875 audio packet payloads in
+order. Relative timing changes exactly by the requested five seconds compared
+with the control, retaining its original -5 ms audio origin. Reading each MP4
+with edit lists enabled or ignored gives the same packet timestamps and hashes.
+The first video frame and full local video duration remain present. The source
+fixture and pinned engine hashes are unchanged.
+
+This is not a viable receiver candidate yet. The generated video playlist
+announces 59.904 seconds for 59.999 seconds of samples. The audio playlist
+announces 60 seconds, while +5 seconds requires presentation through 64.995
+seconds relative to video start. No durations were overwritten to hide the
+discrepancy and no Apple TV run was attempted.
+
+The next gate is correct initial/final rendition intervals and the subtitle
+clock. The existing `alignRenditionPlaylists` normalization must not truncate a
+legitimate delayed tail in an experimental adjusted package. Only after local
+acceptance should +5 seconds be checked for a complete video opening, initial
+silence, delayed tone and retained tail on the receiver. Stop at the first
+contradiction; the previous skipped opening is still an unresolved receiver risk.
+Negative adjustment also needs an explicit leading-audio presentation policy.
+
+Private reproduction commands, fragment files, packet comparisons and the report
+are retained under `.build/hls-audio-investigation-20260922/`. This experiment
+does not claim an audible timing fix, completed subtitle/seek checks or a release.
