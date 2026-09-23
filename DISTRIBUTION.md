@@ -8,6 +8,15 @@ This has one visible consequence. A Mac that downloads AirCiller for the first t
 
 Developer ID and notarization remain a future distribution improvement. Their absence must never be reported as a successful notarized build.
 
+### 0.14.1 and deferred Shortcuts
+
+The maintainer chose to keep the existing public signing policy for 0.14.1 and
+exclude the unreleased Shortcuts integration. Its development-signed candidate
+worked on the test Mac, but the public ad hoc package failed native registration.
+The implementation and evidence are [preserved separately](Docs/SHORTCUTS.md).
+Do not substitute that development candidate for the maintenance release or
+change the existing credential service during publication.
+
 ## Stable local signing
 
 After explicitly approving creation of a local identity, run the following with the project's Python runtime:

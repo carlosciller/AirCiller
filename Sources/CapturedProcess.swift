@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 struct CapturedProcessResult: Sendable {
@@ -26,28 +27,12 @@ enum CapturedProcess {
         process.standardOutput = output
         process.standardError = errors
 
-        let outputCollector = ProcessDataBuffer(maximumBytes: maximumOutputBytes)
-        let errorCollector = ProcessDataBuffer(maximumBytes: maximumOutputBytes)
-        output.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty {
-                handle.readabilityHandler = nil
-            } else {
-                outputCollector.append(data)
-            }
-        }
-        errors.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            if data.isEmpty {
-                handle.readabilityHandler = nil
-            } else {
-                errorCollector.append(data)
-            }
-        }
-        defer {
-            output.fileHandleForReading.readabilityHandler = nil
-            errors.fileHandleForReading.readabilityHandler = nil
-        }
+        let outputCollector = try CapturedProcessPipe(output.fileHandleForReading, maximumBytes: maximumOutputBytes)
+        defer { outputCollector.close() }
+        let errorCollector = try CapturedProcessPipe(errors.fileHandleForReading, maximumBytes: maximumOutputBytes)
+        defer { errorCollector.close() }
+        outputCollector.start()
+        errorCollector.start()
 
         do {
             let status = try await CancellableProcess(process).run {
@@ -58,32 +43,94 @@ enum CapturedProcess {
                     try? input.fileHandleForWriting.close()
                 }
             }
-            output.fileHandleForReading.readabilityHandler = nil
-            errors.fileHandleForReading.readabilityHandler = nil
-            outputCollector.append(output.fileHandleForReading.readDataToEndOfFile())
-            errorCollector.append(errors.fileHandleForReading.readDataToEndOfFile())
             return CapturedProcessResult(
-                output: outputCollector.snapshot,
-                errorOutput: errorCollector.snapshot,
+                output: try outputCollector.finish(),
+                errorOutput: try errorCollector.finish(),
                 status: status
             )
         } catch {
             try? input?.fileHandleForWriting.close()
             try? output.fileHandleForWriting.close()
             try? errors.fileHandleForWriting.close()
-            output.fileHandleForReading.readabilityHandler = nil
-            errors.fileHandleForReading.readabilityHandler = nil
-            if error is CancellationError {
-                // A terminated helper can leave a short-lived descendant with
-                // the pipe open. Do not let cancellation wait for that process
-                // to exit before returning to the caller.
-                try? output.fileHandleForReading.close()
-                try? errors.fileHandleForReading.close()
-                throw error
-            }
-            outputCollector.append(output.fileHandleForReading.readDataToEndOfFile())
-            errorCollector.append(errors.fileHandleForReading.readDataToEndOfFile())
             throw error
+        }
+    }
+}
+
+/// Serializes each read with its append and final snapshot. Nonblocking reads
+/// also let cancellation close a pipe whose write end a descendant still owns.
+final class CapturedProcessPipe: @unchecked Sendable {
+    private let handle: FileHandle
+    private let descriptor: Int32
+    private let buffer: ProcessDataBuffer
+    private let lock = NSLock()
+    private var closed = false
+    private var readError: Error?
+
+    init(_ handle: FileHandle, maximumBytes: Int) throws {
+        self.handle = handle
+        descriptor = handle.fileDescriptor
+        buffer = ProcessDataBuffer(maximumBytes: maximumBytes)
+        let flags = fcntl(descriptor, F_GETFL)
+        guard flags != -1, fcntl(descriptor, F_SETFL, flags | O_NONBLOCK) != -1 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
+    }
+
+    func start() {
+        handle.readabilityHandler = { [weak self] _ in self?.readAvailable() }
+    }
+
+    func readAvailable() {
+        lock.withLock {
+            guard !closed, readError == nil else { return }
+            do {
+                if try readChunk() == 0 { handle.readabilityHandler = nil }
+            } catch {
+                readError = error
+                handle.readabilityHandler = nil
+            }
+        }
+    }
+
+    func finish() throws -> Data {
+        handle.readabilityHandler = nil
+        return try lock.withLock {
+            guard !closed else { return buffer.snapshot }
+            defer { closeLocked() }
+            if let readError { throw readError }
+            // The owned process has exited. Drain its buffered output without
+            // waiting for later writes from independently running descendants.
+            while try readChunk() > 0 { try Task.checkCancellation() }
+            return buffer.snapshot
+        }
+    }
+
+    func close() {
+        handle.readabilityHandler = nil
+        lock.withLock { closeLocked() }
+    }
+
+    private func closeLocked() {
+        guard !closed else { return }
+        closed = true
+        try? handle.close()
+    }
+
+    /// Returns 0 at EOF and -1 when the open pipe has no available bytes.
+    private func readChunk() throws -> Int {
+        var bytes = [UInt8](repeating: 0, count: 16_384)
+        while true {
+            let count = bytes.withUnsafeMutableBytes { Darwin.read(descriptor, $0.baseAddress, $0.count) }
+            if count > 0 {
+                buffer.append(Data(bytes.prefix(count)))
+                return count
+            }
+            if count == 0 { return 0 }
+            let code = errno
+            if code == EINTR { continue }
+            if code == EAGAIN || code == EWOULDBLOCK { return -1 }
+            throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
         }
     }
 }

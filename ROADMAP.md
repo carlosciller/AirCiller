@@ -6,11 +6,84 @@ The 0.12.1 stability release covers playback controls, authorization, track edit
 
 [The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. Release and signing steps are documented in [Distribution](DISTRIBUTION.md); user-facing changes are in the [release notes](CHANGELOG.md).
 
+## 0.14.1: maintenance
+
+The maintainer authorized separating Shortcuts from this patch on 23 September.
+The maintenance release keeps the 0.14.0 design, bundled engines, formats and
+playback paths. [Release PR #19](https://github.com/carlosciller/AirCiller/pull/19)
+tracks final CI, published assets and the isolated Sparkle update.
+
+Its changes are:
+
+1. Undo/Redo for Playlist removal, clearing and reordering, and for Recents
+   removal and clearing, preserving newer playback progress.
+2. The same 30-entry limit in live and persisted Recents, including restoration
+   after newer entries have filled the history.
+3. Check for Updates follows Sparkle's availability in both the menu and Settings.
+4. Failed cache cleanup remains visible and can be retried; a successful size
+   refresh clears stale read errors without hiding operation failures.
+5. A contextual warning for the existing SDR audio-adjustment limitation.
+6. Synchronized collection of short-lived helper responses, with bounded output
+   and cancellation tests. The release CI exposed an intermittent capture failure;
+   acceptance of the correction is recorded with the final candidate.
+
+The [bug-fix record](Docs/BUGFIXES_0.14.1.md) distinguishes earlier local/native
+checks from the final maintenance candidate. An intermittent CI capture failure
+led to the helper-output correction; both the failed run and verification of
+the correction are retained.
+
+### Interface follow-up
+
+Earlier checks established functional native Undo/Redo and discarded track
+drafts. The 23 September English check also passed library Undo/Redo and readable
+long inspector content at 960 by 650 points. A focused native file-panel field
+did not consume library Undo, but its text did not undo. Minimum-size layout,
+successful independent text-field Undo and focus after applying tracks remain
+unverified.
+Operation-specific Edit menu wording also needs a follow-up: the observed menu
+showed generic Undo/Redo labels. These are separate from Shortcuts validation;
+no additional layout or playback change is promised in this patch.
+
+## Deferred: Apple Shortcuts
+
+The six actions and their development-signed candidate are preserved separately.
+Native Spanish actions and sampled Apple TV output passed their recorded scope,
+but the public ad hoc package failed registration on the tested Mac. The
+maintainer chose to exclude Shortcuts from 0.14.1 instead of changing public
+signing as part of maintenance. See the [preserved implementation and evidence](Docs/SHORTCUTS.md).
+
+Resume with the distribution/signing decision. Keep its remaining English,
+protected-folder and file-handoff checks with that feature. Finder Quick Actions,
+Services entries and permanent background processes remain outside the scope.
+
+## Following maintenance
+
+Work in separate deliveries:
+
+1. Repair SDR HLS audio adjustment. Establish a shared presentation clock without
+   skipping the opening video or depending on MP4 edit lists; verify positive and
+   negative offsets, seeks, final audio and subtitle timing with the pinned engine.
+   A local packet comparison is the first gate, followed by Apple TV output.
+2. Investigate the brief subtitle gap after seeks using known cues, separating
+   individual and rapid commands and Mac/receiver controls. Do not repeat the
+   previous segment experiments without a new explanation to test.
+3. Extend original FLAC channel-layout support only when a concrete sample can be
+   remuxed without relabeling speakers. Keep other format additions sample-led.
+4. Measure complete startup latency before the next performance changes. Local
+   cache preparation savings do not establish earlier picture or sound on Apple TV.
+
+The known SDR HLS manual-audio-offset defect remains a separate repair with its
+own preparation and audiovisual acceptance. It is not fixed by UI polish and
+is not promised for this patch. See the [existing investigation](Docs/HLS_AUDIO_TIMING.md).
+
+Track the maintenance release in [the bug-fix record](Docs/BUGFIXES_0.14.1.md).
+Do not mark the following repairs complete from its validation.
+
 ## 0.14.0: Mac essential interface
 
 The selected **A. Mac essential** composition is integrated against 0.13.0, preserving its playback engines and preparation paths. It includes the named session, timeline and circular transport, native library, grouped tracks inspector, compact sizing, shared command availability and common internal-app icon.
 
-Native English/Spanish and light/dark checks and the seven-case Apple TV batch have passed their recorded scope. Remaining distribution steps and evidence limits are recorded in [native interface integration](Docs/NATIVE_UI_INTEGRATION.md). The earlier [prototype](Docs/NATIVE_DESIGN_PROTOTYPE.md) is design evidence only. Publication and daily installation are separate from implementation.
+Published and installed on 20 September 2026. Native English/Spanish and light/dark checks and the seven-case Apple TV batch passed their recorded scope. Main and tag CI, anonymous signed-asset verification and the actual Sparkle update from 0.13.0 also passed. Evidence limits are recorded in [native interface integration](Docs/NATIVE_UI_INTEGRATION.md). The earlier [prototype](Docs/NATIVE_DESIGN_PROTOTYPE.md) is design evidence only.
 
 ## 0.12.6: library and reliability
 
@@ -64,9 +137,11 @@ OCR and conversion to selectable text are separate from original audio/video pas
 
 ## Later
 
-- An App Intent or Shortcut to send a file to Apple TV.
 - Reliable title and artwork on the iPhone Lock Screen. Working remote control takes priority.
 - DVB and XSUB subtitle OCR with suitable samples.
+
+Apple Shortcuts is deferred as described above. Finder Quick Actions and Services
+remain outside that feature's scope.
 
 AV1 passthrough remains research only. A device decoder does not establish support in its AirPlay video receiver.
 
@@ -102,6 +177,12 @@ Acceptance: reproduce before/after results against a pinned baseline and disclos
 Playback engines stay pinned and bundled with the app. Dependency updates require a regenerated lock, import and packaging checks, and applicable hardware tests. Proposals that only change `requirements.in` are incomplete.
 
 Builds now report component sizes and enforce a 165 MB logical-file budget. Review unused Python development and GUI components before considering a smaller runtime, with measured savings and complete runtime checks. No trimming has been applied to the tested engine.
+
+The incomplete protobuf and zeroconf proposals (#5 and #6) were closed without
+merging on 22 September 2026. Both changed only `requirements.in`; their CI failed
+the lock reproducibility check. Their failure is not evidence that the shipped
+runtime is broken. A future engine update still needs the complete validation
+above; no dependency or security-alert setting was changed by this cleanup.
 
 Developer ID and notarization are blocked until an Apple Developer Program membership is available. Sparkle signatures do not replace notarization.
 

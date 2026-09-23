@@ -47,6 +47,8 @@ final class StreamCoordinator {
     private(set) var recentItems: [RecentMediaItem] = HistoryStore.loadRecent()
     private(set) var queueItems: [QueueMediaItem] = HistoryStore.loadQueue()
     private(set) var focusedQueueItemID: String?
+    var focusedRecentItemID: String?
+    @ObservationIgnored private weak var libraryUndoManager: UndoManager?
     private(set) var unavailableLibraryPaths: Set<String> = []
     var showConversionAlert = false
     private(set) var conversionReason = ""
@@ -951,13 +953,64 @@ final class StreamCoordinator {
     }
 
     func removeQueueItem(_ item: QueueMediaItem) {
-        let removedIndex = queueItems.firstIndex(where: { $0.id == item.id })
+        guard let removedIndex = queueItems.firstIndex(where: { $0.id == item.id }) else { return }
+        let previousItems = queueItems
+        let previousFocus = focusedQueueItemID
         queueItems.removeAll(where: { $0.id == item.id })
         if focusedQueueItemID == item.id {
-            let replacementIndex = min(removedIndex ?? 0, max(queueItems.count - 1, 0))
+            let replacementIndex = min(removedIndex, max(queueItems.count - 1, 0))
             focusedQueueItemID = queueItems.indices.contains(replacementIndex) ? queueItems[replacementIndex].id : nil
         }
         HistoryStore.saveQueue(queueItems)
+        registerQueueUndo(before: previousItems, focus: previousFocus, actionName: "Quitar de la playlist")
+    }
+
+    func setLibraryUndoManager(_ manager: UndoManager?) {
+        guard libraryUndoManager !== manager else { return }
+        libraryUndoManager?.removeAllActions(withTarget: self)
+        libraryUndoManager = manager
+    }
+
+    private func registerQueueUndo(before items: [QueueMediaItem], focus: String?, actionName: String) {
+        guard let edit = LibraryListUndo(before: items, after: queueItems) else { return }
+        registerQueueUndo(edit, focus: focus, actionName: actionName)
+    }
+
+    private func registerQueueUndo(_ edit: LibraryListUndo<QueueMediaItem>, focus: String?, actionName: String) {
+        libraryUndoManager?.registerUndo(withTarget: self) { coordinator in
+            MainActor.assumeIsolated {
+                coordinator.applyQueueUndo(edit, focus: focus, actionName: actionName)
+            }
+        }
+        libraryUndoManager?.setActionName(L10n.text(actionName))
+    }
+
+    private func applyQueueUndo(_ edit: LibraryListUndo<QueueMediaItem>, focus: String?, actionName: String) {
+        registerQueueUndo(edit.inverse(in: queueItems), focus: focusedQueueItemID, actionName: actionName)
+        queueItems = edit.applying(to: queueItems)
+        focusedQueueItemID = focus.flatMap { id in queueItems.contains { $0.id == id } ? id : nil }
+        HistoryStore.saveQueue(queueItems)
+    }
+
+    private func registerRecentUndo(before items: [RecentMediaItem], focus: String?, actionName: String) {
+        guard let edit = LibraryListUndo(before: items, after: recentItems) else { return }
+        registerRecentUndo(edit, focus: focus, actionName: actionName)
+    }
+
+    private func registerRecentUndo(_ edit: LibraryListUndo<RecentMediaItem>, focus: String?, actionName: String) {
+        libraryUndoManager?.registerUndo(withTarget: self) { coordinator in
+            MainActor.assumeIsolated {
+                coordinator.applyRecentUndo(edit, focus: focus, actionName: actionName)
+            }
+        }
+        libraryUndoManager?.setActionName(L10n.text(actionName))
+    }
+
+    private func applyRecentUndo(_ edit: LibraryListUndo<RecentMediaItem>, focus: String?, actionName: String) {
+        registerRecentUndo(edit.inverse(in: recentItems), focus: focusedRecentItemID, actionName: actionName)
+        recentItems = edit.applying(to: recentItems, maximumCount: HistoryStore.maximumRecentItems)
+        focusedRecentItemID = focus.flatMap { id in recentItems.contains { $0.id == id } ? id : nil }
+        HistoryStore.saveRecent(recentItems)
     }
 
     func focusQueueItem(_ item: QueueMediaItem) {
@@ -994,14 +1047,18 @@ final class StreamCoordinator {
         else {
             return false
         }
+        let previousItems = queueItems
         queueItems = reordered
         HistoryStore.saveQueue(queueItems)
+        registerQueueUndo(before: previousItems, focus: focusedQueueItemID, actionName: "Ordenar la playlist")
         return true
     }
 
     func moveQueueItems(fromOffsets: IndexSet, toOffset: Int) {
+        let previousItems = queueItems
         queueItems = QueueOrdering.moving(queueItems, fromOffsets: fromOffsets, toOffset: toOffset)
         HistoryStore.saveQueue(queueItems)
+        registerQueueUndo(before: previousItems, focus: focusedQueueItemID, actionName: "Ordenar la playlist")
     }
 
     func moveQueueItems(ids: [String], before destinationID: String?) {
@@ -1017,19 +1074,35 @@ final class StreamCoordinator {
     }
 
     func clearQueue() {
+        let previousItems = queueItems
+        let previousFocus = focusedQueueItemID
         queueItems.removeAll()
         focusedQueueItemID = nil
         HistoryStore.saveQueue(queueItems)
+        registerQueueUndo(before: previousItems, focus: previousFocus, actionName: "Vaciar la playlist")
     }
 
     func removeRecent(_ item: RecentMediaItem) {
+        guard let removedIndex = recentItems.firstIndex(where: { $0.id == item.id }) else { return }
+        let previousItems = recentItems
+        let previousFocus = focusedRecentItemID
         recentItems.removeAll(where: { $0.id == item.id })
+        if focusedRecentItemID == item.id {
+            let replacementIndex = min(removedIndex, max(recentItems.count - 1, 0))
+            focusedRecentItemID =
+                recentItems.indices.contains(replacementIndex) ? recentItems[replacementIndex].id : nil
+        }
         HistoryStore.saveRecent(recentItems)
+        registerRecentUndo(before: previousItems, focus: previousFocus, actionName: "Quitar de Recientes")
     }
 
     func clearRecent() {
+        let previousItems = recentItems
+        let previousFocus = focusedRecentItemID
         recentItems.removeAll()
+        focusedRecentItemID = nil
         HistoryStore.saveRecent(recentItems)
+        registerRecentUndo(before: previousItems, focus: previousFocus, actionName: "Borrar historial")
     }
 
     private func libraryFileExists(_ url: URL, offerToLocate: Bool = true) -> Bool {
@@ -1088,9 +1161,12 @@ final class StreamCoordinator {
             alert.runModal()
             return
         }
+        // Relinking changes entry identity; an older Undo must not resurrect the obsolete path.
+        if oldURL.path != newURL.path { libraryUndoManager?.removeAllActions(withTarget: self) }
         recentItems = relocated.recent
         queueItems = relocated.queue
         if focusedQueueItemID == oldURL.path { focusedQueueItemID = newURL.path }
+        if focusedRecentItemID == oldURL.path { focusedRecentItemID = newURL.path }
         unavailableLibraryPaths.remove(oldURL.path)
         unavailableLibraryPaths.remove(newURL.path)
         HistoryStore.saveRecent(recentItems)
@@ -1752,6 +1828,10 @@ final class StreamCoordinator {
                 at: 0
             )
         }
+        recentItems = Array(recentItems.prefix(HistoryStore.maximumRecentItems))
+        if let focusedRecentItemID, !recentItems.contains(where: { $0.id == focusedRecentItemID }) {
+            self.focusedRecentItemID = nil
+        }
         HistoryStore.saveRecent(recentItems)
     }
 
@@ -2017,7 +2097,7 @@ final class StreamCoordinator {
     }
 
     nonisolated private static func cleanupStaleBuffers() {
-        AirCillerStorage.clearPreparedMedia()
+        try? AirCillerStorage.clearPreparedMedia()
         _ = try? AirCillerStorage.pruneSubtitleCache()
     }
 }
