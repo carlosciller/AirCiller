@@ -8,6 +8,26 @@ This has one visible consequence. A Mac that downloads AirCiller for the first t
 
 Developer ID and notarization remain a future distribution improvement. Their absence must never be reported as a successful notarized build.
 
+### Unreleased Shortcuts signing boundary
+
+The current Shortcuts candidate runs with an Apple Development certificate from
+a free Personal Team. That is development validation, not an approved change to
+the public release signature. The ad hoc policy above remains in effect; the
+downloadable package must pass native Shortcuts dispatch with that policy before
+the feature can be released. A generated action catalogue and a successful build
+do not establish dispatch. See the [Shortcuts record](Docs/SHORTCUTS.md).
+
+Do not publish the Personal Team candidate as a workaround. Apple's
+[WWDR certificate policy, version 3.0, sections 2.10.1 and 2.10.2](https://www.apple.com/certificateauthority/pdf/Apple_WWDR_CPS_v3.0.pdf)
+limits Apple Development certificates to development and testing. Its
+[macOS distribution guidance](https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac/)
+uses Developer ID for independent distribution of Apple-signed apps. This does
+not prevent the existing ad hoc releases or publication of the source code.
+
+If public-package dispatch fails, obtain a maintainer decision before separating
+Shortcuts from a maintenance release or changing the distribution channel. Keep
+the working development candidate and existing credential service intact.
+
 ## Stable local signing
 
 After explicitly approving creation of a local identity, run the following with the project's Python runtime:

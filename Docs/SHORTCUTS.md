@@ -407,3 +407,44 @@ distribution, English native discovery or protected-folder persistence. Native
 Send with an automatically preferred subtitle remains distinct from the direct
 controls verified above. No release, version increase or daily-app replacement
 has been performed.
+
+## Public-signature check (23 September)
+
+The complete application at source commit `d998cf5` was built with the documented
+public policy: `AIRCILLER_SIGNING_IDENTITY=-`, full Xcode and the unchanged pinned
+engines. The normal `Scripts/check.sh` gate passed, including the real action
+catalogue, strict Swift 6 compilation, regressions and signature verification.
+The bundle measures 155,874,435 logical bytes. Its executable SHA-256 is
+`25f0809af5289c346514f085dd2058c568d8ea1b1cdd435e874726154dd46fa5`.
+It has an ad hoc signature, no TeamIdentifier and no local credential service.
+`ACShortcutsAvailable` is nevertheless true in this build.
+
+The full production-identity bundle was registered and started with
+`--skip-device-scan`; it was not the development candidate. Both the running
+executable path and LaunchServices resolution matched the new bundle. On startup,
+`linkd` rejected its identity with `Unable to get teamId`. After reopening
+Shortcuts, the editor still showed only the six actions with the separate Test
+app's icon and the registration probe. No action for the public app could be
+selected, so no public `perform()` dispatch is claimed. No movie was opened,
+no receiver was contacted and no credential prompt was accepted.
+
+This fails native acceptance of the current public package on the tested macOS
+27 system, despite its passing compilation and generated metadata. Do not repeat
+the Apple TV playback batch to investigate this registration failure. Apple
+Development remains a development/testing route, as explained in the
+[distribution signing boundary](../DISTRIBUTION.md#unreleased-shortcuts-signing-boundary);
+it must not silently replace the public signature. Separating Shortcuts from the
+maintenance release requires an explicit scope decision.
+
+The test app was closed and its temporary production-identity registration was
+removed. LaunchServices again resolves the daily app. The daily executable,
+local signing configuration and pinned credential-service hashes are unchanged.
+The production preferences export did change after the normal app startup;
+byte-for-byte preference preservation is not claimed for this check. No language,
+subtitle or audio preference was deliberately changed. The clearly named empty
+QA shortcut is retained. No release asset, version or installed app was changed.
+
+Private evidence is retained in `.build/release-public-signing-check-20260923.log`
+and `.build/release-public-shortcuts-dispatch-20260923.log`, alongside the native
+editor observations. The earlier development-signed playback evidence remains
+valid only for its recorded candidate and scope.

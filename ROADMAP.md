@@ -51,6 +51,11 @@ execution evidence, with sampled digital output and app-close cleanup. Remaining
 acceptance includes Send with automatically preferred subtitles, protected-file
 access across relaunch, English native discovery and the public distribution/signing path. Development
 signing on the maintainer's Mac does not certify the downloadable package.
+The complete ad hoc public-policy build was checked on 23 September: local tests
+passed, but macOS rejected its Shortcuts registration because it had no Team ID.
+The working Personal Team signature is for development/testing and will not be
+published as a replacement. A maintainer decision on distribution or a separate
+maintenance release is required before publishing the combined work.
 Command Line Tools alone still cannot package the metadata. See
 [Shortcuts implementation and checks](Docs/SHORTCUTS.md). Choose the release
 version only after the combined candidate is accepted.
