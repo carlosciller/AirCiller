@@ -6,13 +6,14 @@ The 0.12.1 stability release covers playback controls, authorization, track edit
 
 [The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. Release and signing steps are documented in [Distribution](DISTRIBUTION.md); user-facing changes are in the [release notes](CHANGELOG.md).
 
-## In preparation: 0.14.1 maintenance
+## 0.14.1: maintenance
 
 The maintainer authorized separating Shortcuts from this patch on 23 September.
 The maintenance release keeps the 0.14.0 design, bundled engines, formats and
-playback paths. Publication and installation have not yet been recorded.
+playback paths. [Release PR #19](https://github.com/carlosciller/AirCiller/pull/19)
+tracks final CI, published assets and the isolated Sparkle update.
 
-Its five changes are:
+Its changes are:
 
 1. Undo/Redo for Playlist removal, clearing and reordering, and for Recents
    removal and clearing, preserving newer playback progress.
@@ -22,16 +23,23 @@ Its five changes are:
 4. Failed cache cleanup remains visible and can be retried; a successful size
    refresh clears stale read errors without hiding operation failures.
 5. A contextual warning for the existing SDR audio-adjustment limitation.
+6. Synchronized collection of short-lived helper responses, with bounded output
+   and cancellation tests. The release CI exposed an intermittent capture failure;
+   acceptance of the correction is recorded with the final candidate.
 
 The [bug-fix record](Docs/BUGFIXES_0.14.1.md) distinguishes earlier local/native
-checks from acceptance of this isolated release build. The final gate, exact
-commit CI, release package and installed update still need their own results.
+checks from the final maintenance candidate. An intermittent CI capture failure
+led to the helper-output correction; both the failed run and verification of
+the correction are retained.
 
 ### Interface follow-up
 
 Earlier checks established functional native Undo/Redo and discarded track
-drafts. Minimum-size layout with long inspector content, English labels,
-independent text-field Undo and focus after applying tracks remain unverified.
+drafts. The 23 September English check also passed library Undo/Redo and readable
+long inspector content at 960 by 650 points. A focused native file-panel field
+did not consume library Undo, but its text did not undo. Minimum-size layout,
+successful independent text-field Undo and focus after applying tracks remain
+unverified.
 Operation-specific Edit menu wording also needs a follow-up: the observed menu
 showed generic Undo/Redo labels. These are separate from Shortcuts validation;
 no additional layout or playback change is promised in this patch.

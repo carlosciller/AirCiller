@@ -1,19 +1,20 @@
 # AirCiller 0.14.1 maintenance
 
-Release preparation, 23 September 2026. Base: published 0.14.0,
+Maintenance release record, 23 September 2026. Base: published 0.14.0,
 commit `2780d4af8d7ac892686c0fcda595b08706c4ffe7`. The maintainer authorized a
-maintenance release without Shortcuts. Publication and installed-app replacement
-have not yet been recorded.
+maintenance release without Shortcuts. Distribution results are linked from
+the final acceptance section; the daily-use app is kept intact during validation.
 
 The patch covers library Undo/Redo, the live/persisted Recents limit, updater
-menu availability, cache-error recovery and the contextual SDR audio-offset
-warning. It does not change playback engines, supported formats or either
+menu availability, cache-error recovery, helper-output collection and the
+contextual SDR audio-offset warning. It does not change engines, formats or either
 packager. The [Shortcuts implementation](SHORTCUTS.md) and its different signing
 setup remain on their separate development branch.
 
-The dated checks below belong to earlier candidates. They are retained as
-evidence for their stated scope, not as a completed build, CI run or installation
-of this isolated maintenance release.
+The earlier candidate checks below are retained for their stated scope. The
+23 September maintenance build, native interface and package checks are recorded
+separately at the end. CI, publication and installation are not implied by any
+local result.
 
 ## Update menu availability
 
@@ -88,8 +89,8 @@ Restoration respects Recents' 30-entry capacity. Entries opened or updated since
 a clear take priority, and older removed entries fill only the remaining space.
 The first maintenance candidate left an existing discrepancy: `touchRecent`
 could exceed the persisted limit. A later regression on the development branch
-reproduced opening a 31st file. That isolated correction and its tests are being
-carried into this patch: live insertion and decoded history use the same limit,
+reproduced opening a 31st file. That isolated correction and its tests are now
+included in this patch: live insertion and decoded history use the same limit,
 and evicting the focused oldest entry clears its focus. Reopening an existing
 entry retains its order and progress. Acceptance of the port belongs to the
 final maintenance gate below.
@@ -166,14 +167,111 @@ showed generic Undo/Redo labels; operation-specific wording remains unaccepted.
 No appearance, language or security setting was changed. The daily executable
 remained byte-identical during this check.
 
-## Final maintenance release status
+## Maintenance validation (23 September)
 
 The release branch starts from the pre-Shortcuts maintenance changes and carries
 only the isolated Recents correction from the later work. It keeps the existing
 public ad hoc signing policy and does not include App Intent actions or the
 experimental development credential service.
 
-The final maintenance build, regression results, exact-commit CI, package and
-installation checks are pending at the time of this entry. Record their actual
-results here as they finish. The Shortcuts receiver captures do not certify this
-different package, and no new Apple TV observation is claimed by the separation.
+### First local gate and public package
+
+The complete public-policy `Scripts/check.sh` run passed, including strict
+Swift 6, warnings-as-errors, local regressions, content checks and the ordinary
+app build. Its log is retained privately as
+`.build/release-0.14.1-maintenance-check.log`.
+
+The resulting 0.14.1 (62) executable SHA-256 is
+`fb39034659350f7d9b98cd228c837e710f2907850c3efebf6c64f799ca33924d`.
+The bundle-size gate reports 155,737,939 bytes, including symlink storage once,
+below the 165,000,000-byte limit.
+
+The prepared full ZIP and delta from build 61 passed Sparkle's official signature
+verification, as did the signed appcast. Applying the delta produces the same
+complete bundle inventory as extracting the full ZIP. The verifier checks
+version/build, release URLs, note contents, the public update key, required
+signed-feed settings and strict ad hoc signatures. Original production artwork
+and the complete pinned Sparkle, FFmpeg and AirPlay runtime trees match their
+cached sources, including third-party signature files.
+
+Both resulting bundles declare `ACShortcutsAvailable=false` and contain no
+`Metadata.appintents`, local credential service or development markers. The
+private receipt is retained in `.build/release-0.14.1/attempt-1/`. These are
+local results for the first package, superseded by the helper fix below;
+no anonymous download or installed update is claimed for this package.
+
+### Native English interface
+
+The separate Test candidate was launched in English using an `AppleLanguages`
+process argument, without writing a language preference. Device discovery was
+skipped and no Apple TV session was started.
+
+- Removing one Playlist fixture selected a surviving entry. The real Edit menu's
+  Undo restored the removed entry. Command-Shift-Z reapplied the removal.
+- With the native Go to Folder sheet's text field active, Command-Z did not
+  consume the library Undo action. The text itself did not undo, so successful
+  text-editing Undo is not established. After dismissing the sheet and file panel,
+  Command-Z restored all three Playlist entries.
+- A long synthetic movie title remained readable in the English inspector at
+  960 by 650 points. A draft audio offset of +0.05 seconds displayed the SDR
+  limitation warning. Cancel discarded it; reopening showed no pending changes
+  and disabled Apply.
+
+This adds English native interaction and checks that a focused file-panel field
+does not consume library Undo. It does not establish minimum-size layout,
+operation-specific Undo menu wording, successful text-field Undo or focus after
+applying tracks during a session. No new Apple TV output is claimed.
+
+### Helper output collected at process exit
+
+The [push run](https://github.com/carlosciller/AirCiller/actions/runs/35870835880)
+failed the capture assertion at commit `4555721`; the
+[PR run](https://github.com/carlosciller/AirCiller/actions/runs/35870979960)
+passed for the same source. The original assertion did not report whether
+status, stdout or stderr differed, so it does not identify the discrepant field.
+Both attempts are retained. A local 512-process stress test also passed against
+the unchanged implementation; it did not reproduce that CI failure.
+
+Review found an unsynchronized interval between a readability callback consuming
+bytes and appending them to its buffer. Finalization could take its snapshot
+during that interval. A per-pipe collector now serializes reading, appending,
+final draining and closing. Queued callbacks cannot read a closed or reused
+descriptor. Nonblocking reads preserve cancellation when a descendant retains
+a pipe, and read failures are propagated instead of appearing as successful
+partial output. On normal exit it collects all available output from the owned
+process, without waiting for future writes by independent descendants.
+
+The regression now reports actual and expected results. It covers 512 rapid
+exits with eight concurrent workers, exact stdout/stderr, streams larger than a
+pipe buffer with a 257-byte retained tail, a zero-byte limit, EOF, queued callbacks,
+an inherited open writer, nonzero exit, launch/read errors and cancellation under
+two seconds while a descendant keeps the pipe open for four seconds.
+
+The focused strict Swift 6 run passes. A separate integration probe using this
+source passed five repetitions of the pinned FFmpeg/Python version commands and
+actual pyatv imports. The real AirPlay helper returned a complete scan event and
+found a receiver. It did not read credentials, authorize, pair or play media.
+This establishes helper execution and discovery, not a new audiovisual test.
+
+The affected call sites are short-lived discovery/authorization helpers and
+component checks. The persistent playback helper, command transport, both
+packagers, HTTP serving, media preparation and pinned engines are unchanged.
+Existing playback evidence therefore retains its original scope; this patch
+does not claim that Shortcuts captures certify the public bundle.
+
+### Final acceptance
+
+The corrected candidate passed the complete `Scripts/check.sh` gate with strict
+Swift 6, warnings-as-errors and the public ad hoc signing configuration. The
+log is retained as `.build/release-0.14.1-final-check.log`. The final executable
+SHA-256 is `8188d07e38690865254dd824f39621614e53cb3355fe59ca8df63df7f2752064`;
+the bundle-size gate reports 155,739,875 bytes under the 165 MB limit.
+
+The English native observations above remain applicable: only helper output
+collection and its tests changed afterwards, not the interface or library
+behavior. No second identical UI or playback run is claimed.
+
+Exact-commit CI, signed assets, anonymous downloads and the isolated Sparkle
+update are tracked separately in
+[release PR #19](https://github.com/carlosciller/AirCiller/pull/19).
+The daily-use app is not replaced as part of these checks.

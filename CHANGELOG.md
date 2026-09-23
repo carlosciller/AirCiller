@@ -2,7 +2,7 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
-## 0.14.1 (in preparation)
+## 0.14.1 (23 September 2026)
 
 This update makes library edits easier to undo and fixes misleading update and storage controls.
 
@@ -10,6 +10,7 @@ This update makes library edits easier to undo and fixes misleading update and s
 - Recents keeps up to 30 movies, both while AirCiller is open and after a restart.
 - **Check for Updates** no longer stays disabled in the app menu after the updater becomes ready. It remains unavailable during playback or preparation.
 - **Settings > Storage** explains failed cache cleanup and lets you retry. Refreshing the displayed size no longer hides a cleanup failure.
+- Fixed a timing issue that could make a complete engine or Apple TV helper response appear incomplete.
 - **Audio & Subtitles > Synchronization** warns when a manual audio adjustment may not apply to SDR HLS playback. The underlying timing problem still needs a separate fix.
 
 The app design, bundled engines and supported formats are unchanged. Apple Shortcuts is not included in this release.
