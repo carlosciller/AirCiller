@@ -21,7 +21,7 @@ enum HistoryStore {
             defaults.removeObject(forKey: recentKey)
             return []
         }
-        return items
+        return Array(items.prefix(maximumRecentItems))
     }
 
     static func saveRecent(_ items: [RecentMediaItem], defaults: UserDefaults = .standard) {

@@ -1,8 +1,19 @@
-# Bug fixes after 0.14.0
+# AirCiller 0.14.1 maintenance
 
-Work in progress, 21 September 2026. Base: published 0.14.0,
-commit `2780d4af8d7ac892686c0fcda595b08706c4ffe7`. No new release or installed-app
-replacement is implied by this record.
+Release preparation, 23 September 2026. Base: published 0.14.0,
+commit `2780d4af8d7ac892686c0fcda595b08706c4ffe7`. The maintainer authorized a
+maintenance release without Shortcuts. Publication and installed-app replacement
+have not yet been recorded.
+
+The patch covers library Undo/Redo, the live/persisted Recents limit, updater
+menu availability, cache-error recovery and the contextual SDR audio-offset
+warning. It does not change playback engines, supported formats or either
+packager. The [Shortcuts implementation](SHORTCUTS.md) and its different signing
+setup remain on their separate development branch.
+
+The dated checks below belong to earlier candidates. They are retained as
+evidence for their stated scope, not as a completed build, CI run or installation
+of this isolated maintenance release.
 
 ## Update menu availability
 
@@ -75,11 +86,15 @@ paths cannot be resurrected; unrelated text actions remain intact.
 
 Restoration respects Recents' 30-entry capacity. Entries opened or updated since
 a clear take priority, and older removed entries fill only the remaining space.
-An existing live history can exceed the persisted limit because `touchRecent`
-does not trim its in-memory array. Undo does not silently prune those current
-entries; that pre-existing memory/persistence discrepancy remains a follow-up.
-The local
-test covers native UndoManager execution, selection, redo, updated progress,
+The first maintenance candidate left an existing discrepancy: `touchRecent`
+could exceed the persisted limit. A later regression on the development branch
+reproduced opening a 31st file. That isolated correction and its tests are being
+carried into this patch: live insertion and decoded history use the same limit,
+and evicting the focused oldest entry clears its focus. Reopening an existing
+entry retains its order and progress. Acceptance of the port belongs to the
+final maintenance gate below.
+
+The local test covers native UndoManager execution, selection, redo, updated progress,
 new entries, unavailable paths, malformed duplicate IDs and target-only action
 invalidation. Real window-manager, menu and text-field interaction is a separate
 acceptance check, not established by that model test.
@@ -106,7 +121,7 @@ before tests and is retained separately; the complete runs used the existing
 cache with normal filesystem access. No dependencies were regenerated or updated.
 The daily executable's SHA-256 remains identical to the installed 0.14.0 record.
 
-## Remaining checks
+## Earlier verification boundary (22 September)
 
 - Minimum window size and long inspector content, with English and Spanish.
 - Focus and draft preservation after Cancel and Apply.
@@ -119,3 +134,46 @@ The daily app and release version remain unchanged.
 
 The manual SDR HLS audio timing repair remains separate. Do not mark it fixed
 or widen either packager as part of this menu correction.
+
+## Native maintenance checks (22 September, unlocked Mac)
+
+These observations are preserved from the
+[development-branch record](https://github.com/carlosciller/AirCiller/blob/f5a2780f863fbe20456df8ab34c0e3c7879a5d74/Docs/BUGFIXES_0.14.1.md#native-maintenance-checks-22-september-unlocked-mac).
+The prepared CI candidate ran on macOS 27.0 (26A428), with a separate, initially
+empty library and two synthetic movie fixtures. No movie was sent to Apple TV.
+
+- Removing the first Playlist entry selected the survivor. Undo in the real
+  Edit menu restored both entries, their order and the selection. Command-Shift-Z
+  removed the entry again; Command-Z restored it.
+- Moving the selected first entry down through its context menu retained its
+  selection. Undo restored the previous order and selection.
+- Clear Playlist removed both entries after confirmation; Undo restored both
+  and their order. No source files were deleted.
+- Opening a long-named fixture analyzed it without playback. Clearing Recents
+  and undoing the clear restored the entry and duration without changing the
+  loaded movie.
+- Selecting an external subtitle enabled Apply, but Cancel retained the original
+  disabled subtitle selection. Reopening showed no pending changes and disabled
+  Apply.
+- A nonzero draft SDR audio offset displayed the contextual notice. Cancel
+  discarded the change. This tests the warning, not repaired audio timing.
+
+The complete synthetic filename was visible at 960 by 650 points. The attempted
+resize did not change the observed dimensions, so minimum-size layout was not
+verified. English, independent text-field Undo, focus after applying tracks and
+live-session preservation were not established by this check. The Edit menu
+showed generic Undo/Redo labels; operation-specific wording remains unaccepted.
+No appearance, language or security setting was changed. The daily executable
+remained byte-identical during this check.
+
+## Final maintenance release status
+
+The release branch starts from the pre-Shortcuts maintenance changes and carries
+only the isolated Recents correction from the later work. It keeps the existing
+public ad hoc signing policy and does not include App Intent actions or the
+experimental development credential service.
+
+The final maintenance build, regression results, exact-commit CI, package and
+installation checks are pending at the time of this entry. Record their actual
+results here as they finish. The Shortcuts receiver captures do not certify this
+different package, and no new Apple TV observation is claimed by the separation.

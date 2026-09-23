@@ -107,9 +107,17 @@ struct HistoryStoreSmokeTest {
         }
         HistoryStore.saveRecent(recent, defaults: defaults)
         guard let recentData = defaults.data(forKey: HistoryStore.recentKey),
-            try JSONDecoder().decode([RecentMediaItem].self, from: recentData).count == 30
+            try JSONDecoder().decode([RecentMediaItem].self, from: recentData) == Array(recent.prefix(30)),
+            HistoryStore.loadRecent(defaults: defaults) == Array(recent.prefix(30))
         else {
             throw NSError(domain: "HistoryStoreSmokeTest.Limit", code: 4)
+        }
+
+        // Older or externally restored preferences must not reintroduce an
+        // oversized live list before the next save.
+        defaults.set(try JSONEncoder().encode(recent), forKey: HistoryStore.recentKey)
+        guard HistoryStore.loadRecent(defaults: defaults) == Array(recent.prefix(30)) else {
+            throw NSError(domain: "HistoryStoreSmokeTest.LoadLimit", code: 13)
         }
 
         print("Offline library entries, saved progress, explicit relocation, duplicates and corrupt storage: OK")

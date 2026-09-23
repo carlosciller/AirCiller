@@ -2,14 +2,19 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
-## Unreleased
+## 0.14.1 (in preparation)
 
-- Fixed Check for Updates staying disabled in the menu after the updater becomes ready. Menu and Settings availability follow the same state; checks remain unavailable while a movie is preparing or playing.
-- Added Undo and Redo for removing or reordering Playlist entries and removing entries from Recents. Restoring history keeps any newer playback progress.
-- Failed cache cleanup now shows an explanation and lets you retry. A successful size refresh clears an earlier reading error without hiding a cleanup failure.
-- The audio timing control now warns when the known SDR playback limitation may leave an adjustment unapplied. The underlying audio-timing repair is still pending.
+This update makes library edits easier to undo and fixes misleading update and storage controls.
 
-Candidate validation is tracked in the [bug-fix record](Docs/BUGFIXES_0.14.1.md).
+- Use **Edit > Undo** or **Redo** after removing entries from Playlist or Recents, clearing either list, or reordering Playlist. Restoring entries keeps their newer saved playback progress.
+- Recents keeps up to 30 movies, both while AirCiller is open and after a restart.
+- **Check for Updates** no longer stays disabled in the app menu after the updater becomes ready. It remains unavailable during playback or preparation.
+- **Settings > Storage** explains failed cache cleanup and lets you retry. Refreshing the displayed size no longer hides a cleanup failure.
+- **Audio & Subtitles > Synchronization** warns when a manual audio adjustment may not apply to SDR HLS playback. The underlying timing problem still needs a separate fix.
+
+The app design, bundled engines and supported formats are unchanged. Apple Shortcuts is not included in this release.
+
+[Scope and validation](https://github.com/carlosciller/AirCiller/blob/v0.14.1/Docs/BUGFIXES_0.14.1.md)
 
 ## 0.14.0 (20 September 2026)
 

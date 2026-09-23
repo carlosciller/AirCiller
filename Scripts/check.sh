@@ -431,6 +431,9 @@ test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/
 test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/bin/ffprobe"
 test -x "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/bin/python3"
 test "$(plutil -extract ACBundledEngineRequired raw "$project_dir/.build/AirCiller.app/Contents/Info.plist")" = "true"
+# Shortcuts remains on its development branch until public signing is accepted.
+test "$(plutil -extract ACShortcutsAvailable raw "$project_dir/.build/AirCiller.app/Contents/Info.plist")" = "false"
+test ! -e "$project_dir/.build/AirCiller.app/Contents/Resources/Metadata.appintents"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/ffmpeg/LICENSES/FFmpeg-LGPL-2.1.txt"
 test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Engine/airplay/python/lib/python3.13/LICENSE.txt"
 test "$(< "$project_dir/.build/AirCiller.app/Contents/Resources/VendorPython/.airciller-python-executable")" \

@@ -1828,6 +1828,10 @@ final class StreamCoordinator {
                 at: 0
             )
         }
+        recentItems = Array(recentItems.prefix(HistoryStore.maximumRecentItems))
+        if let focusedRecentItemID, !recentItems.contains(where: { $0.id == focusedRecentItemID }) {
+            self.focusedRecentItemID = nil
+        }
         HistoryStore.saveRecent(recentItems)
     }
 

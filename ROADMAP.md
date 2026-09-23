@@ -6,35 +6,51 @@ The 0.12.1 stability release covers playback controls, authorization, track edit
 
 [The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. Release and signing steps are documented in [Distribution](DISTRIBUTION.md); user-facing changes are in the [release notes](CHANGELOG.md).
 
-## Next: 0.14.1 bug fixes and polish
+## In preparation: 0.14.1 maintenance
 
-Keep the 0.14.0 design, bundled engines and supported formats. Work from reproduced
-failures, with a regression check for each correction; do not turn this patch
-into another redesign or dependency upgrade.
+The maintainer authorized separating Shortcuts from this patch on 23 September.
+The maintenance release keeps the 0.14.0 design, bundled engines, formats and
+playback paths. Publication and installation have not yet been recorded.
 
-1. Correct Check for Updates becoming stuck disabled in the menu after Sparkle
-   changes its availability. The observation bridge is implemented; local
-   regression and native menu/Settings checks pass. It is not yet released.
-2. Check the new inspector and library at the declared minimum window size,
-   including long filenames, focus after Cancel/Apply and English/Spanish labels.
-   Address reproduced layout and focus failures.
-3. Review recovery after failed operations and repeated commands, preserving
-   selection, original tracks and saved progress. Any playback-affecting change
-   needs the applicable receiver checks, separately by path.
-4. Report failed cache cleanup, allow retry and clear obsolete size-read errors.
-   Keep active-session directories protected and test failures with disposable files.
-5. Add native Undo/Redo for Playlist removal, clearing and reordering, and for
-   Recents removal and clearing. Preserve current playback and newer saved progress.
-   Validate the real Edit menu and text-field undo before accepting the feature.
-6. Show the known SDR audio-adjustment limitation beside the affected control.
-   This notice must not change routing, audio output or subtitle timing.
+Its five changes are:
 
-Follow-up from the library review: align live Recents with its persisted 30-entry
-limit. New Undo actions reserve space for newer progress but do not prune an
-already oversized live list. Reproduce the opening-of-a-31st-file case separately
-before changing that existing behavior.
+1. Undo/Redo for Playlist removal, clearing and reordering, and for Recents
+   removal and clearing, preserving newer playback progress.
+2. The same 30-entry limit in live and persisted Recents, including restoration
+   after newer entries have filled the history.
+3. Check for Updates follows Sparkle's availability in both the menu and Settings.
+4. Failed cache cleanup remains visible and can be retried; a successful size
+   refresh clears stale read errors without hiding operation failures.
+5. A contextual warning for the existing SDR audio-adjustment limitation.
 
-After this maintenance candidate, work in separate deliveries:
+The [bug-fix record](Docs/BUGFIXES_0.14.1.md) distinguishes earlier local/native
+checks from acceptance of this isolated release build. The final gate, exact
+commit CI, release package and installed update still need their own results.
+
+### Interface follow-up
+
+Earlier checks established functional native Undo/Redo and discarded track
+drafts. Minimum-size layout with long inspector content, English labels,
+independent text-field Undo and focus after applying tracks remain unverified.
+Operation-specific Edit menu wording also needs a follow-up: the observed menu
+showed generic Undo/Redo labels. These are separate from Shortcuts validation;
+no additional layout or playback change is promised in this patch.
+
+## Deferred: Apple Shortcuts
+
+The six actions and their development-signed candidate are preserved separately.
+Native Spanish actions and sampled Apple TV output passed their recorded scope,
+but the public ad hoc package failed registration on the tested Mac. The
+maintainer chose to exclude Shortcuts from 0.14.1 instead of changing public
+signing as part of maintenance. See the [preserved implementation and evidence](Docs/SHORTCUTS.md).
+
+Resume with the distribution/signing decision. Keep its remaining English,
+protected-folder and file-handoff checks with that feature. Finder Quick Actions,
+Services entries and permanent background processes remain outside the scope.
+
+## Following maintenance
+
+Work in separate deliveries:
 
 1. Repair SDR HLS audio adjustment. Establish a shared presentation clock without
    skipping the opening video or depending on MP4 edit lists; verify positive and
@@ -52,8 +68,8 @@ The known SDR HLS manual-audio-offset defect remains a separate repair with its
 own preparation and audiovisual acceptance. It is not fixed by UI polish and
 is not promised for this patch. See the [existing investigation](Docs/HLS_AUDIO_TIMING.md).
 
-Track current evidence in [the bug-fix record](Docs/BUGFIXES_0.14.1.md). No patch
-version, publication or daily-app replacement until the candidate is accepted.
+Track the maintenance release in [the bug-fix record](Docs/BUGFIXES_0.14.1.md).
+Do not mark the following repairs complete from its validation.
 
 ## 0.14.0: Mac essential interface
 
@@ -116,8 +132,8 @@ OCR and conversion to selectable text are separate from original audio/video pas
 - Reliable title and artwork on the iPhone Lock Screen. Working remote control takes priority.
 - DVB and XSUB subtitle OCR with suitable samples.
 
-The maintainer excluded an App Intent/Shortcut from the current work. Do not add
-Finder Quick Actions, Services entries or other system integrations for it.
+Apple Shortcuts is deferred as described above. Finder Quick Actions and Services
+remain outside that feature's scope.
 
 AV1 passthrough remains research only. A device decoder does not establish support in its AirPlay video receiver.
 
