@@ -40,14 +40,18 @@ to Apple TV, add it to Playlist, pause, resume and stop. Do not install Finder
 Quick Actions or Services. Keep the current app, playback routes and explicit
 conversion/authorization prompts.
 
-The action bridge and definitions are implemented. The full Xcode gate and an
-isolated candidate build passed in GitHub; the generated catalogue contains all
-six actions. Command Line Tools alone still cannot package the metadata. The
-first native discovery check failed: macOS could not obtain an Apple Team ID
-from the candidate's local signature. A legitimate development-signing comparison
-requires a separate setup decision; paid membership has not been established as
-a requirement by this test. Discovery and execution from Shortcuts, cold launch,
-protected file access and both receiver paths remain acceptance gates. See
+All six actions now appear and execute in native Shortcuts with the isolated
+Apple Development-signed candidate. A duplicate test-app registration was also
+isolated; the development-signing setup is complete. The full local Xcode gate
+passes. Success dialogs have been removed after a native chain exposed an
+unnecessary presentation wait; action errors remain visible.
+
+Open/Add chains, cold Send and Pause/Resume/Stop on HLS and direct HDR have native
+execution evidence, with sampled digital output and app-close cleanup. Remaining
+acceptance includes Send with automatically preferred subtitles, protected-file
+access across relaunch, English native discovery and the public distribution/signing path. Development
+signing on the maintainer's Mac does not certify the downloadable package.
+Command Line Tools alone still cannot package the metadata. See
 [Shortcuts implementation and checks](Docs/SHORTCUTS.md). Choose the release
 version only after the combined candidate is accepted.
 

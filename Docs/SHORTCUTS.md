@@ -1,8 +1,15 @@
 # Apple Shortcuts integration
 
-Unreleased work, 22 September 2026. This record distinguishes implemented source
+Unreleased work, updated 23 September 2026. This record distinguishes implemented source
 from actions discovered and executed by macOS. No release or daily-app update
 is implied.
+
+Current acceptance: the complete development-signed candidate passes the normal
+local gate. All six actions have appeared and executed in native Spanish
+Shortcuts. Open/Add chains, cold Send, and Pause/Resume/Stop on HLS and direct
+HDR have been checked. Public-package signing and the remaining file/localization
+cases are not yet accepted; this is not a released feature.
+See [the latest native check](#foreground-results-and-hls-controls-23-september).
 
 ## Actions
 
@@ -18,8 +25,12 @@ is implied.
 The actions run in the foreground in the main app. The app registers its one
 window-owned coordinator at startup. There is no separate extension, playback
 session, Finder Quick Action, Services entry or permanent background process.
-Action names, parameters, results and errors have English and Spanish strings.
+Action names, parameters, descriptions and errors have English and Spanish strings.
 Local device authentication follows Apple's App Intent policy.
+
+Successful actions return an empty result. AirCiller is already visible, so a
+separate success dialog adds no necessary information and can delay a chain in
+Shortcuts. Errors and the app's pairing/conversion decisions remain visible.
 
 Open and Send reject work while another movie is being prepared or played, or
 while a pairing/conversion decision is pending. Add can run during playback.
@@ -246,3 +257,153 @@ service remain unchanged. Integrating a different signer into the real app
 requires a separately reviewed credential-service migration; simply re-signing
 the candidate would fail the current caller check. No receiver playback,
 pairing or capture was performed during this comparison.
+
+## Complete candidate native check (23 September)
+
+This records the earlier candidate. The follow-up below supersedes its unresolved
+chain and HLS-control checks, without replacing the retained evidence.
+
+An isolated source snapshot of `47e45d7` passed `./Scripts/check.sh` with Xcode
+27, strict Swift 6 and warnings-as-errors. Its separate full Test build contains
+Apple-generated metadata for the six actions and measures 156,107,449 logical
+bytes, below the 165 MB limit. Its executable SHA-256 is
+`f9d3c6f53429024d9a06d42b1c1876c85ff958407d40cdca3d762c66831b2f86`.
+
+The candidate uses a genuine Apple Development signature and its own read-only
+credential service, built from the unchanged source with the same signer as the
+candidate. The existing synthetic integration test passed: rebuilt clients
+could reuse a synthetic item, invalid callers and a tampered service were
+rejected, and the synthetic item was removed. The old signing configuration and
+credential service were not replaced. The maintainer separately authorized the
+new service to read existing AirPlay credentials; this run did not independently
+verify a real read or observe a Keychain approval prompt.
+
+Launch Services selected an older Playback Checks bundle for the shared test
+identifier, despite the new candidate being correctly registered and accepted
+by `linkd`. That older bundle has no App Intents. After explicit authorization,
+five competing test registrations were temporarily withdrawn without removing
+their files. `NSWorkspace` then selected only the current candidate, `linkd`
+indexed its exact catalogue, and reopening Shortcuts exposed all six Spanish
+actions with the distinct test icon. No source, generated catalogue, SDK setting
+or Team ID was changed, and no system-wide indexing reset was performed.
+
+Native execution used an existing synthetic, saved 60-second H.264/E-AC-3 MKV:
+
+- Open cold-launched the exact candidate, analyzed the movie and left it ready
+  without starting playback. A subsequent warm Open also reached `perform()`
+  and returned, confirmed by the scoped App Intents log.
+- Add executed independently twice. The visible playlist gained one entry,
+  retained the two preceding test entries in order and did not add a duplicate.
+- An Open → Add chain completed Open but did not dispatch Add before it was
+  canceled. Independent Add succeeded afterward. The cause remains unresolved;
+  this is not a passed multi-action check. A comparison with result presentation
+  disabled was being prepared when Shortcuts accessibility calls began timing
+  out. It was not executed.
+
+The candidate was closed normally and all five test registrations were restored;
+the API again lists all six copies, with the candidate currently selected. The
+shared identifier remains a development-environment collision risk. No permanent
+registration cleanup was applied. Raw evidence and the incomplete comparison
+remain private under `.build/shortcuts-development-4mGppm/` and in the existing
+temporary QA shortcut. No Finder Quick Action or automation was enabled.
+
+Still unverified: English native discovery, protected-folder access across
+relaunch, large-file handoff, multi-action behavior, real credential-service
+access, and Send/Pause/Resume/Stop through Shortcuts over both playback paths.
+Discovery saw a receiver during this run, but no receiver playback, pairing or
+digital capture was started. The installed app and its preferences remain
+unchanged. Development signing does not establish public distribution or
+notarization readiness.
+
+## Foreground results and HLS controls (23 September)
+
+On the unchanged earlier candidate, Add → Open completed with both Show When
+Run options enabled, but took about 17 seconds between the first result and the
+next invocation. With result display disabled, the interval was under 0.1 second.
+This comparison narrows the observed wait to result presentation; it does not
+prove the cause of every earlier Shortcuts accessibility timeout.
+
+The six foreground actions now return empty results instead of success dialogs.
+The controller, authorization policy, errors, conversion decisions and both
+packagers are unchanged. A regression calls all six real intent wrappers with a
+simulated target, checks the absence of dialog/snippet/media results and verifies
+that a missing-session error still propagates. It fails on the old implementation
+and passes on the correction. The complete strict `./Scripts/check.sh` gate and
+the separate development candidate build pass.
+
+The corrected candidate executable is
+`f5ad7cdb372add1d8b4be98d9e92f89f38d9c4e93f4131fbba94ac0722d1c8f3`;
+it measures 156,089,105 logical bytes, below the 165 MB limit. Strict signature
+verification passes and the isolated credential-service executable is unchanged.
+Native Shortcuts no longer shows the unnecessary success-display option. The
+saved Add → Open chain completed twice; the later warm run took about 44 ms
+between actions. This is a bounded interaction observation, not a startup
+benchmark or a promise for every Mac. Pausing without a session produced the
+expected localized error.
+
+The maintainer confirmed the receiver was awake and free. Native Send selected
+the explicitly named receiver and began the saved H.264/E-AC-3 synthetic clip
+from the beginning. Native Pause and Resume each received a separate
+receiver-originated state notification. The approved digital capture recorded
+the moving test pattern and non-silent audio before and after the pause, with
+silence during the paused sample window. Stop then returned the app to Ready,
+retained its position and received the receiver's stop confirmation. No pairing
+or Keychain approval dialog was observed. These results use the real Shortcuts
+dispatcher, not the internal playback runner.
+
+One additional receiver pause coincided with the capture helper's 90-second
+shutdown, after the successful Resume and before the explicit Stop. That event
+is retained separately; its cause has not been proven. The Stop confirmation
+was outside the capture window and is receiver/UI evidence only.
+
+Private evidence includes `native-chain-dialog-comparison.log`, the before/after
+wrapper regression, both build logs, and `native-hls-shortcuts.log` under the
+isolated development snapshot. Capture `native-ui-final-capture-fzcskg10` has a
+complete, source-verified manifest and its frame analysis. No Mac/iPhone camera
+or microphone was used. The installed executable and production preference
+export still match their preservation baselines. No release or installation was
+performed. English native discovery, protected-folder access across relaunch,
+large-file handoff and distribution acceptance remain separate checks.
+
+### Direct HDR controls and cold Send
+
+The same corrected candidate then opened the existing 60-second HEVC Dolby
+Vision/E-AC-3 5.1 sample. Its integrated English subtitle was selected for that
+movie through the inspector, without changing default-language preferences.
+Playback was started from AirCiller's ordinary Play button; the active process
+served a prepared `movie.mp4`. This establishes the direct route, not native
+Send with a preferred subtitle.
+
+Pause, Resume and Stop were each executed from the native Shortcuts editor.
+Both pause and resume had separate receiver-originated notifications, and the
+app's labels/buttons reflected those states. The capture contains movie frames,
+non-silent audio and integrated subtitle cues after resume. Sampled subtitle
+text was checked against the original subtitle track. The explicit Stop received
+confirmation, returned AirCiller to Ready and was followed by the receiver's
+screensaver in the capture. The source movie was not changed.
+
+Finally, the candidate was closed and its absence verified before invoking Send
+on that saved HDR file from Shortcuts. The exact corrected candidate cold-launched,
+completed discovery and started at zero. Default subtitles remained off, so this
+case uses the normal HLS HDR path, not the preceding direct-subtitle route.
+Captured movie frames and non-silent audio establish output. Quitting the app
+during playback exited its process and returned the capture to the receiver's
+screensaver. There were no later audio measurements in that final window; the
+record does not substitute that absence for measured silence. No test app,
+AirPlay helper, preparation process or credential-service process remained.
+
+These two additional captures are `native-ui-final-capture-cypjggkt` and
+`native-ui-final-capture-1_ldc1nl`, with complete, exact-source-verified manifests,
+frame analyses and scoped native logs. No camera/microphone or default-input
+fallback was used. No pairing or Keychain password dialog appeared in any of
+the three runs. The default subtitle-language key remains absent in the test
+domain; the production preferences, installed executable and old signing/service
+hashes still match their baselines. The test candidate is closed. Its registration
+and the two clearly named QA shortcuts are retained for follow-up.
+
+These are sampled digital-output and native-dispatch checks on this Mac/receiver.
+They do not certify physical HDR/Atmos rendering, speakers, every movie, public
+distribution, English native discovery or protected-folder persistence. Native
+Send with an automatically preferred subtitle remains distinct from the direct
+controls verified above. No release, version increase or daily-app replacement
+has been performed.

@@ -23,14 +23,11 @@
         }
 
         @MainActor
-        func perform() async throws -> some IntentResult & ProvidesDialog {
+        func perform() async throws -> some IntentResult {
             try Task.checkCancellation()
             try ShortcutsController.shared.openMovie(
                 url: movie.fileURL, removedOnCompletion: movie.removedOnCompletion)
-            return .result(
-                dialog: IntentDialog(
-                    LocalizedStringResource(
-                        "Opening the movie in AirCiller. Playback has not started.", table: "Shortcuts")))
+            return .result()
         }
     }
 
@@ -68,16 +65,12 @@
         }
 
         @MainActor
-        func perform() async throws -> some IntentResult & ProvidesDialog {
+        func perform() async throws -> some IntentResult {
             try Task.checkCancellation()
             try await ShortcutsController.shared.sendMovie(
                 url: movie.fileURL, removedOnCompletion: movie.removedOnCompletion,
                 destinationName: destinationName, fromBeginning: fromBeginning)
-            return .result(
-                dialog: IntentDialog(
-                    LocalizedStringResource(
-                        "Preparation has started in AirCiller. Playback will start when the movie is ready and any required approval is complete.",
-                        table: "Shortcuts")))
+            return .result()
         }
     }
 
@@ -102,13 +95,11 @@
         }
 
         @MainActor
-        func perform() async throws -> some IntentResult & ProvidesDialog {
+        func perform() async throws -> some IntentResult {
             try Task.checkCancellation()
             try ShortcutsController.shared.addMovie(
                 url: movie.fileURL, removedOnCompletion: movie.removedOnCompletion)
-            return .result(
-                dialog: IntentDialog(
-                    LocalizedStringResource("The movie is in AirCiller's playlist.", table: "Shortcuts")))
+            return .result()
         }
     }
 
@@ -124,11 +115,10 @@
         static var supportedModes: IntentModes { .foreground }
 
         @MainActor
-        func perform() async throws -> some IntentResult & ProvidesDialog {
+        func perform() async throws -> some IntentResult {
             try Task.checkCancellation()
             try ShortcutsController.shared.pause()
-            return .result(
-                dialog: IntentDialog(LocalizedStringResource("Pause requested in AirCiller.", table: "Shortcuts")))
+            return .result()
         }
     }
 
@@ -146,11 +136,10 @@
         static var supportedModes: IntentModes { .foreground }
 
         @MainActor
-        func perform() async throws -> some IntentResult & ProvidesDialog {
+        func perform() async throws -> some IntentResult {
             try Task.checkCancellation()
             try ShortcutsController.shared.resume()
-            return .result(
-                dialog: IntentDialog(LocalizedStringResource("Resume requested in AirCiller.", table: "Shortcuts")))
+            return .result()
         }
     }
 
@@ -168,11 +157,10 @@
         static var supportedModes: IntentModes { .foreground }
 
         @MainActor
-        func perform() async throws -> some IntentResult & ProvidesDialog {
+        func perform() async throws -> some IntentResult {
             try Task.checkCancellation()
             try ShortcutsController.shared.stop()
-            return .result(
-                dialog: IntentDialog(LocalizedStringResource("Stop requested in AirCiller.", table: "Shortcuts")))
+            return .result()
         }
     }
 #endif

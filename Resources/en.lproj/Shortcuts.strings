@@ -18,12 +18,6 @@
 "Open ${movie}" = "Open ${movie}";
 "Send ${movie} to Apple TV" = "Send ${movie} to Apple TV";
 "Add ${movie} to playlist" = "Add ${movie} to playlist";
-"Opening the movie in AirCiller. Playback has not started." = "Opening the movie in AirCiller. Playback has not started.";
-"Preparation has started in AirCiller. Playback will start when the movie is ready and any required approval is complete." = "Preparation has started in AirCiller. Playback will start when the movie is ready and any required approval is complete.";
-"The movie is in AirCiller's playlist." = "The movie is in AirCiller's playlist.";
-"Pause requested in AirCiller." = "Pause requested in AirCiller.";
-"Resume requested in AirCiller." = "Resume requested in AirCiller.";
-"Stop requested in AirCiller." = "Stop requested in AirCiller.";
 
 /* Action errors */
 "Open AirCiller and try again." = "Open AirCiller and try again.";

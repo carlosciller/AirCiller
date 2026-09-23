@@ -18,12 +18,6 @@
 "Open ${movie}" = "Abrir ${movie}";
 "Send ${movie} to Apple TV" = "Enviar ${movie} al Apple TV";
 "Add ${movie} to playlist" = "Añadir ${movie} a la playlist";
-"Opening the movie in AirCiller. Playback has not started." = "Abriendo la película en AirCiller. La reproducción no ha comenzado.";
-"Preparation has started in AirCiller. Playback will start when the movie is ready and any required approval is complete." = "La preparación ha empezado en AirCiller. La reproducción comenzará cuando la película esté lista y hayas dado los permisos necesarios.";
-"The movie is in AirCiller's playlist." = "La película está en la playlist de AirCiller.";
-"Pause requested in AirCiller." = "Pausa solicitada en AirCiller.";
-"Resume requested in AirCiller." = "Reanudación solicitada en AirCiller.";
-"Stop requested in AirCiller." = "Detención solicitada en AirCiller.";
 
 /* Errores de las acciones */
 "Open AirCiller and try again." = "Abre AirCiller y vuelve a intentarlo.";

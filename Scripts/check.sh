@@ -82,6 +82,7 @@ compile_and_run authorization \
   "$project_dir/Sources/AirPlayAuthorizationRetryPolicy.swift" \
   "$project_dir/Tests/AirPlayAuthorizationRetryPolicySmokeTest.swift"
 compile_and_run shortcuts-controller \
+  "$project_dir/Sources/ShortcutsIntents.swift" \
   "$project_dir/Sources/MediaFileTypes.swift" \
   "$project_dir/Sources/ShortcutsController.swift" \
   "$project_dir/Tests/ShortcutsControllerSmokeTest.swift"

@@ -1,3 +1,4 @@
+import AppIntents
 import Foundation
 
 @main
@@ -139,9 +140,48 @@ struct ShortcutsControllerSmokeTest {
         try await controller.sendMovie(
             url: movie, removedOnCompletion: false, destinationName: nil, fromBeginning: false)
         try require(target.discoveryCount == 1 && target.loads == oldLoads + 1, "cold discovery before handoff")
+        try await checkIntentResults(movie: movie, destination: first)
         try FileManager.default.removeItem(at: movie)
         try expect(.unreadableFile) { try controller.addMovie(url: movie, removedOnCompletion: false) }
         print("Shortcuts controller: OK (local simulated target; no receiver)")
+    }
+
+    @MainActor
+    static func checkIntentResults(movie: URL, destination: ShortcutsDestination) async throws {
+        let target = FakeTarget()
+        target.shortcutsDestinations = [destination]
+        ShortcutsController.shared.register(target)
+        let open = OpenMovieIntent()
+        open.movie = IntentFile(fileURL: movie)
+        let add = AddMovieToPlaylistIntent()
+        add.movie = IntentFile(fileURL: movie)
+        let send = SendMovieToAppleTVIntent()
+        send.movie = IntentFile(fileURL: movie)
+        send.destinationName = destination.name
+        send.fromBeginning = true
+
+        // Exercise the real wrappers. Foreground success must not introduce
+        // a dialog/snippet presentation wait between chained actions.
+        try silent(try await open.perform())
+        try silent(try await add.perform())
+        try silent(try await send.perform())
+        try require(target.loads == 2 && target.autoStart && target.fromBeginning, "intent handoff")
+        try require(target.queued == [movie.path], "intent playlist handoff")
+        target.shortcutsHasSession = true
+        try silent(try await PauseAirCillerIntent().perform())
+        try silent(try await ResumeAirCillerIntent().perform())
+        try silent(try await StopAirCillerIntent().perform())
+        try require(target.commands == ["pause", "resume"] && target.stops == 1, "intent controls")
+        do {
+            _ = try await ResumeAirCillerIntent().perform()
+            throw Failure(message: "intent swallowed missing-session error")
+        } catch ShortcutsFailure.noSession {}
+    }
+
+    static func silent<Result: IntentResult>(_ result: Result) throws {
+        try require(Result.Dialog.self == Never.self, "foreground success must not request a dialog")
+        try require(Result.Snippet.self == Never.self, "foreground success must not request a snippet")
+        try require(Result.Value.self == Never.self, "foreground success must not copy media into an output")
     }
 
     static func require(_ condition: Bool, _ message: String) throws {
