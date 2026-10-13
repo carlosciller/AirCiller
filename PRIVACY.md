@@ -4,9 +4,9 @@ AirCiller has no AirCiller account, telemetry, analytics, advertising, or cloud 
 
 ## Data processed on the Mac
 
-- The playlist, recent items, playback position, and file paths are stored in the app's local preferences.
+- Playlist, season membership and expansion, watched status, recent items, playback position, and file paths are stored in the app's local preferences. Folder scans run only when requested; there is no background library index.
 - AirPlay credentials are stored in the macOS Keychain.
-- PGS subtitle OCR runs through Apple Vision. Its WebVTT result may remain in a local cache to avoid repeating recognition.
+- PGS and VobSub subtitle OCR runs through Apple Vision. Its WebVTT result may remain in a local cache to avoid repeating recognition.
 - OpenSubtitles API and account credentials are stored in the macOS Keychain. Downloaded subtitles remain in the local subtitle cache until you clear it.
 - Session-specific VOD playlists and tracks are created in temporary storage and removed when the session ends or during later cleanup.
 - Finalized HLS video and audio can remain in the local prepared-media cache for reuse. Settings > Storage shows its size and provides a limit, Off and Clear controls. The default retention limit is 16 GiB. Older entries can be removed when another movie needs disk space. Direct HDR MP4 preparations are not retained by this cache. Cache removal never removes original movies.

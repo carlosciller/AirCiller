@@ -187,6 +187,10 @@ compile_and_run library-list-undo \
   "$project_dir/Sources/HistoryStore.swift" \
   "$project_dir/Sources/LibraryListUndo.swift" \
   "$project_dir/Tests/LibraryListUndoSmokeTest.swift"
+compile_and_run season-folder \
+  "$project_dir/Sources/MediaFileTypes.swift" \
+  "$project_dir/Sources/SeasonFolder.swift" \
+  "$project_dir/Tests/SeasonFolderSmokeTest.swift"
 "$project_dir/Scripts/check_library_coordinator.sh"
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \

@@ -32,7 +32,9 @@ class ScenarioTests(unittest.TestCase):
                       elapsedSeconds=70 if name == "hlsCacheReuse" else 40,
                       outputWindows=windows, events=events,
                       loadSequence=[1, 2] if name == "playlistTransition" else [1],
-                      completedSteps=["exactly_one_playlist_transition"] if name == "playlistTransition" else [])
+                      completedSteps=["exactly_one_playlist_transition", "season_folder_imported",
+                                      "season_import_preserved_active_session", "season_episode_watched_and_progress_saved"]
+                      if name == "playlistTransition" else [])
         if name == "hlsCacheReuse":
             result["startups"] = []
             for n, (window, hit) in enumerate(zip(windows, [False, True, True, False, True, True, True])):
@@ -122,6 +124,14 @@ class ScenarioTests(unittest.TestCase):
                        lambda r: r["events"].append(dict(kind="ended", origin="receiver", seconds=29))]:
             evidence = self.evidence("playlistTransition")
             change(evidence[2]["results"][0])
+            with self.assertRaises(capture.CaptureError):
+                scenarios.assess_scenario(*evidence, "playlistTransition", self.tokens)
+
+    def test_playlist_requires_current_season_evidence(self):
+        for step in ("season_folder_imported", "season_import_preserved_active_session",
+                     "season_episode_watched_and_progress_saved"):
+            evidence = self.evidence("playlistTransition")
+            evidence[2]["results"][0]["completedSteps"].remove(step)
             with self.assertRaises(capture.CaptureError):
                 scenarios.assess_scenario(*evidence, "playlistTransition", self.tokens)
 

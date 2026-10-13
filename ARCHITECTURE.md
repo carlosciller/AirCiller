@@ -6,6 +6,11 @@ Local certificate-signed builds also embed an on-demand, read-only [credential s
 
 ## Main flow
 
+Movie admission stores compatible inputs in Playlist before analysis. Folder
+imports use a cancellable, on-demand scanner and persist season membership,
+order, expansion, watched status and progress. Adding inputs preserves an active
+analysis, preparation or playback session. See [library behavior](Docs/LIBRARY_SEASONS.md).
+
 1. `MediaProbeService` inspects the container, video, audio, subtitles, and chapters through `ffprobe`.
 2. `StreamCoordinator` chooses one of two paths without modifying the original file.
 3. `LocalHTTPServer` temporarily exposes the result on the local network using HTTP ranges and a random session path.
@@ -21,15 +26,18 @@ Local certificate-signed builds also embed an on-demand, read-only [credential s
 
 The paths share discovery, control, and the HTTP server, but keep their packagers and physical validation separate. A single delivery must not change both paths.
 
-HLS preparation is owned by `HLSPreparationService`. It joins concurrent base packaging and text extraction before segmenting subtitles against the finalized video timeline. Bitmap OCR still runs after packaging. `PreparedMediaCache` retains only immutable base video/audio; each session gets independent playlist copies. `StreamCoordinator` owns cancellation, the temporary server, receiver startup and a local per-attempt timing trace. See the [unreleased optimization record](Docs/STARTUP_OPTIMIZATION.md) for cache boundaries and validation status.
+HLS preparation is owned by `HLSPreparationService`. It joins concurrent base packaging and text extraction before segmenting subtitles against the finalized video timeline. Bitmap OCR still runs after packaging. `PreparedMediaCache` retains only immutable base video/audio; each session gets independent playlist copies. `StreamCoordinator` owns cancellation, the temporary server, receiver startup and a local per-attempt timing trace. See the [startup optimization record](Docs/STARTUP_OPTIMIZATION.md) for cache boundaries and validation status.
 
 ## Boundaries
 
 - Swift/AppKit/SwiftUI: interface, state, preparation, and local server.
 - FFmpeg/ffprobe: analysis and remuxing. A pinned build is included in each AirCiller release.
 - CPython and Python packages pinned from a lock file: AirPlay 2 bridge. The build fetches verified runtime archives and includes the tested result inside the app.
-- Apple Vision: local, on-demand OCR for PGS subtitles. No remote service is involved.
+- Apple Vision: local, on-demand OCR for PGS and VobSub subtitles. No remote service is involved.
 
 ## State and data
 
-The playlist and history are stored in `UserDefaults`; AirPlay credentials are stored in the Keychain. Prepared media and OCR caches remain on the Mac. See [PRIVACY.md](PRIVACY.md).
+Playlist, season metadata, watched state, saved positions and history are stored
+in `UserDefaults`; AirPlay credentials are stored in the Keychain. Legacy movie
+entries remain readable without the optional season fields. Prepared media and
+OCR caches remain on the Mac. See [PRIVACY.md](PRIVACY.md).
