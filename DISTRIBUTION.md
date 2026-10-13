@@ -64,7 +64,7 @@ The dependency lives under `.build/dependencies` and is not committed. CI perfor
 - The appcast itself is signed because `SURequireSignedFeed` is enabled.
 - Archives are verified before extraction because `SUVerifyUpdateBeforeExtraction` is enabled.
 - Automatic checks are controlled by Sparkle's own user preference.
-- Update checks are postponed during media analysis, preparation, and playback.
+- Update checks are postponed during library imports, media analysis, preparation, and playback.
 - Automatic downloading and installation are disabled. The user confirms each installation.
 - The EdDSA private key stays in the maintainer's login Keychain and must never enter Git.
 - The public key belongs in `Info.plist` and is safe to publish.

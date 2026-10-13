@@ -51,6 +51,12 @@ Those device runs used the isolated 0.12.1 check build before the release metada
 
 ## 4. Signed application updates
 
+The 0.15.0 library delivery has a separate [acceptance matrix](Docs/LIBRARY_SEASONS.md)
+covering admission before analysis, active-session preservation, season folders,
+legacy data, progress, watched state, native reordering, Undo and cancellation.
+Its recorded native and sampled Apple TV evidence is distinguished from the
+separate release, CI and installed-update gates.
+
 The first complete Sparkle update was validated on 26 August 2026. The installed app moved from AirCiller 0.10.2 (build 42) to 0.10.3 (build 43) through the public signed appcast, installed the update, and relaunched successfully. The resulting app bundle and every embedded Sparkle helper passed strict code-signature verification.
 
 Version 0.10.3 did not change playback or media preparation, so this result validates the update path only. Apple TV playback remains subject to the separate physical matrix above.
