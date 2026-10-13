@@ -113,6 +113,7 @@ struct ContentView: View {
             synchronizeUpdateAvailability()
         }
         .onDisappear {
+            coordinator.cancelLibraryImport()
             appDelegate.removeOpenHandler()
             coordinator.stop(resetStatus: false)
         }
@@ -120,6 +121,7 @@ struct ContentView: View {
             coordinator.setLibraryUndoManager(manager)
         }
         .onChange(of: coordinator.isPreparing) { _, _ in synchronizeUpdateAvailability() }
+        .onChange(of: coordinator.isImportingLibrary) { _, _ in synchronizeUpdateAvailability() }
         .onChange(of: coordinator.isStreaming) { _, _ in synchronizeUpdateAvailability() }
         .onChange(of: coordinator.isWaitingToStart) { _, _ in synchronizeUpdateAvailability() }
         .onChange(of: coordinator.isAnalyzing) { _, analyzing in
@@ -142,7 +144,7 @@ struct ContentView: View {
     private func synchronizeUpdateAvailability() {
         appDelegate.updateController.setPlaybackBusy(
             coordinator.isAnalyzing || coordinator.isWaitingToStart
-                || coordinator.isPreparing || coordinator.isStreaming
+                || coordinator.isPreparing || coordinator.isStreaming || coordinator.isImportingLibrary
         )
     }
 

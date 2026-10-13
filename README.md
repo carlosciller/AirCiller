@@ -1,7 +1,7 @@
 <div align="center">
   <img src="Resources/AirCiller-1024.png" width="128" alt="AirCiller">
   <h1>AirCiller</h1>
-  <p>Play the movies on your Mac on your Apple TV.</p>
+  <p>Watch your movie collection on Apple TV, from your Mac.</p>
   <p><a href="https://github.com/carlosciller/AirCiller/releases/latest"><strong>Download AirCiller</strong></a> · <a href="CHANGELOG.md">What's new</a> · <a href="https://github.com/carlosciller/AirCiller/issues">Report a bug</a></p>
 </div>
 
@@ -21,16 +21,22 @@ You need an **Apple silicon Mac with macOS 14 or later**, an AirPlay 2 compatibl
 
 The playback engines are included. There is nothing else to install. Future updates arrive through the app with your confirmation.
 
-## Your tracks, your playlist
+## Movies, seasons and tracks
 
 - **Original picture.** Compatible H.264 and HEVC video, including HDR and Dolby Vision, is sent without video encoding.
 - **Original audio first.** Choose a track by name and language. If audio needs conversion, AirCiller explains the change and asks before starting.
 - **Selectable subtitles.** Embedded and external text tracks, timing adjustments, and local text recognition for Blu-ray PGS and DVD VobSub subtitles, including `.sup` and `.idx`/`.sub` files.
 - **Language preferences.** Set preferred audio and subtitle languages, including standard, forced or SDH subtitles.
-- **A small library.** Reorder your Playlist, browse recent movies and pick up where you left off. Chapters and keyboard controls are included.
+- **Season folders.** Drop a folder into Playlist to add a season. Expand it to choose an episode, mark episodes watched or unwatched, and continue with the next one. Order and progress are saved between launches.
+- **Playlist and Recents.** Add movies individually or together, reorder them by dragging or keyboard, and undo library edits. Adding files leaves an existing playback session alone. A failed analysis keeps the movie in your list so you can try again.
 - **Optional subtitle search.** Search OpenSubtitles.com, review the matches and choose a download. Your own API key is required; service limits apply.
 
 Not every file will play. Elaborate ASS styling is simplified, OCR can make mistakes, and unsupported audio may need conversion. [Read the compatibility guide](COMPATIBILITY.md).
+
+Folder import is on demand. Subfolders and extras are included in the same season;
+hidden files and symbolic links are skipped. Repeating a folder adds new movies
+without duplicating existing entries. Removing a movie or season from Playlist
+does not delete its files. [Library details](Docs/LIBRARY_SEASONS.md).
 
 ## On your Mac
 

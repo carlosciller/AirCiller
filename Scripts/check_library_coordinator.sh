@@ -32,7 +32,7 @@ plutil -insert LSBackgroundOnly -bool true "$fixture_plist"
 # Compile the real coordinator and services without the SwiftUI app entry point
 # or views. UI_CHECKS skips stale-buffer cleanup; no media or receiver is opened.
 check_sources=("$project_dir"/Sources/*.swift)
-for excluded_name in AirCillerApp MainWindowView NativePlaylistTable OpenSubtitlesViews SettingsViews; do
+for excluded_name in AirCillerApp MainWindowView OpenSubtitlesViews SettingsViews; do
   excluded_source="$project_dir/Sources/$excluded_name.swift"
   check_sources=("${(@)check_sources:#$excluded_source}")
 done

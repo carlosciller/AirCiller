@@ -6,6 +6,7 @@ final class PlaybackCheckScenarioRunner {
     private let coordinator: StreamCoordinator
     private var events: [PlaybackCheckEvent] = []
     private var loads: [Int] = []
+    private var playlistPaths: [String] = []
     private var overflowed = false
     private let began = ProcessInfo.processInfo.systemUptime
     private var now: Double { ProcessInfo.processInfo.systemUptime }
@@ -22,6 +23,8 @@ final class PlaybackCheckScenarioRunner {
         var result = PlaybackCheckResult(clip: 1, route: clip.route, subtitlesRequested: clip.externalSubtitle != nil)
         result.startedAtUptime = began
         result.profile = profile
+        playlistPaths = [clip.path] + [clip.nextClip?.path].compactMap { $0 }
+        var seasonFixture: URL?
         coordinator.airPlay.onPlaybackCheckEvent = { [weak self] kind, source, position, duration, playing, id in
             guard let self,
                 let event = PlaybackCheckEvent(
@@ -40,7 +43,7 @@ final class PlaybackCheckScenarioRunner {
                 self.overflowed = true
                 return
             }
-            self.loads.append(url.path == clip.path ? 1 : (url.path == clip.nextClip?.path ? 2 : 0))
+            self.loads.append(url.path == self.playlistPaths.first ? 1 : (url.path == self.playlistPaths.last ? 2 : 0))
         }
         defer {
             coordinator.onPlaybackCheckLoad = nil
@@ -51,7 +54,24 @@ final class PlaybackCheckScenarioRunner {
             step = "analysis"
             coordinator.clearQueue()
             if let next = clip.nextClip {
-                coordinator.handleURLs([URL(fileURLWithPath: clip.path), URL(fileURLWithPath: next.path)])
+                let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+                    "AirCillerSeasonCheck-\(UUID()).mkv")
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+                seasonFixture = folder
+                let firstURL = folder.appendingPathComponent(
+                    "Episode 1." + URL(fileURLWithPath: clip.path).pathExtension)
+                let nextURL = folder.appendingPathComponent(
+                    "Episode 2." + URL(fileURLWithPath: next.path).pathExtension)
+                try FileManager.default.copyItem(at: URL(fileURLWithPath: clip.path), to: firstURL)
+                try FileManager.default.copyItem(at: URL(fileURLWithPath: next.path), to: nextURL)
+                playlistPaths = [firstURL.path, nextURL.path]
+                coordinator.handleURLs([folder], analyzeFirst: false)
+                try await wait(seconds: 40) { !self.coordinator.isImportingLibrary }
+                guard coordinator.queueItems.map(\.path) == playlistPaths,
+                    coordinator.queueItems.allSatisfy({ $0.seasonID == folder.path })
+                else { throw PlaybackCheckFailure.applicationError }
+                result.completedSteps.append("season_folder_imported")
+                coordinator.loadVideo(firstURL, autoStart: false)
             } else {
                 coordinator.loadVideo(URL(fileURLWithPath: clip.path), autoStart: false, startingAt: 0)
             }
@@ -85,6 +105,21 @@ final class PlaybackCheckScenarioRunner {
                 try await started(after: marker, route: clip.route, expectedPosition: 0, result: &result)
                 if let directory = coordinator.activePreparedDirectory { directories.insert(directory) }
                 result.completedSteps.append(step)
+                if profile == .playlistTransition, let seasonFixture, let next = clip.nextClip {
+                    let extra = seasonFixture.appendingPathComponent(
+                        "Episode import." + URL(fileURLWithPath: next.path).pathExtension)
+                    try FileManager.default.copyItem(at: URL(fileURLWithPath: next.path), to: extra)
+                    let current = coordinator.selectedURL
+                    coordinator.handleURLs([seasonFixture], analyzeFirst: false)
+                    try await wait(seconds: 15) { !self.coordinator.isImportingLibrary }
+                    guard coordinator.selectedURL == current, coordinator.isStreaming, coordinator.isPlaying,
+                        coordinator.airPlay.isSessionActive, loads == [1],
+                        let imported = coordinator.queueItems.first(where: { $0.path == extra.path }),
+                        imported.seasonID == seasonFixture.path
+                    else { throw PlaybackCheckFailure.receiverMismatch }
+                    coordinator.removeQueueItem(imported)
+                    result.completedSteps.append("season_import_preserved_active_session")
+                }
                 let initialLabel = profile == .hlsCacheReuse ? "cold" : "initial"
                 if clip.route == .hls {
                     try recordStartup(
@@ -111,13 +146,16 @@ final class PlaybackCheckScenarioRunner {
         }
         if let directory = coordinator.activePreparedDirectory { directories.insert(directory) }
         coordinator.stop()
+        coordinator.cancelLibraryImport()
         let deadline = now + 8
         while !coordinator.playbackCheckRuntimeIsIdle, now < deadline {
             try? await Task.sleep(for: .milliseconds(100))
         }
+        if let seasonFixture { try? FileManager.default.removeItem(at: seasonFixture) }
         result.cleanupConfirmed =
             coordinator.playbackCheckRuntimeIsIdle
             && directories.allSatisfy { !FileManager.default.fileExists(atPath: $0.path) }
+            && (seasonFixture.map { !FileManager.default.fileExists(atPath: $0.path) } ?? true)
         if result.cleanupConfirmed {
             result.completedSteps.append("stop_and_cleanup")
         } else {
@@ -355,7 +393,7 @@ final class PlaybackCheckScenarioRunner {
             PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[marker...], target: target, count: 1)
         }
         try await wait(seconds: 35, after: marker, allowStopped: true, allowEnd: true) {
-            self.coordinator.selectedURL?.path == next.path
+            self.coordinator.selectedURL?.path == self.playlistPaths.last
                 && self.events[marker...].contains { $0.kind == "ended" && $0.origin == .receiver }
         }
         result.completedSteps.append(step)
@@ -366,8 +404,12 @@ final class PlaybackCheckScenarioRunner {
         guard coordinator.selectedSubtitleID == nil else { throw PlaybackCheckFailure.receiverMismatch }
         try await observe("nextItem", after: nextMarker, result: &result)
         guard PlaybackCheckEvidence.singlePlaylistTransition(loads: loads, events: events[...]),
-            coordinator.queueItems.map(\.path) == [clip.path, next.path]
+            coordinator.queueItems.map(\.path) == playlistPaths,
+            coordinator.queueItems.first?.watched == true,
+            coordinator.queueItems.first?.lastPosition == coordinator.queueItems.first?.duration,
+            coordinator.queueItems.last?.watched != true
         else { throw PlaybackCheckFailure.receiverMismatch }
+        result.completedSteps.append("season_episode_watched_and_progress_saved")
         result.completedSteps.append("exactly_one_playlist_transition")
     }
 
