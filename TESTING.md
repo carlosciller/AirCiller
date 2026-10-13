@@ -51,6 +51,21 @@ Those device runs used the isolated 0.12.1 check build before the release metada
 
 ## 4. Signed application updates
 
+### HTTP completion telemetry regression, 13 October 2026
+
+The first [0.15.0 tag run](https://github.com/carlosciller/AirCiller/actions/runs/38420958391)
+failed the HTTP telemetry assertion (code 18), while the same commit passed its
+main-branch run. The original assertion did not print which field failed. Review
+found that it stopped the server after client receipt without waiting for the
+server's final transfer callback.
+
+A controlled fixture defers the final telemetry publication until after client
+receipt. The old assertion fails with the same code; waiting for the completion
+snapshot passes. The regression retains exact payload, byte-count, client-match
+and completed-transfer checks, with a bounded timeout and useful failure details.
+Only test code changes; the HTTP server, playback paths and release package do not.
+The original failed run is retained when checking a diagnostic rerun.
+
 The 0.15.0 library delivery has a separate [acceptance matrix](Docs/LIBRARY_SEASONS.md)
 covering admission before analysis, active-session preservation, season folders,
 legacy data, progress, watched state, native reordering, Undo and cancellation.
