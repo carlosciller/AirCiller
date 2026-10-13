@@ -2,6 +2,28 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.15.0 (13 October 2026)
+
+- Drop a season folder into Playlist or select it with **Add Movie…**. Expand its
+  episodes, naturally sorted by filename, and mark them watched or unwatched.
+  Subfolders and extras join the same season; hidden files and symbolic links are skipped.
+- Reorder episodes within a season or move the whole season. The insertion line,
+  keyboard commands and **Edit > Undo / Redo** help keep the order you want.
+- Season expansion, watched status, order and progress are saved between launches.
+  Finishing an episode marks it watched before moving to the next Playlist item.
+  Removing a season leaves its original files alone and can be undone.
+- Individually opened movies now enter Playlist before analysis, and failed
+  analysis or playback leaves their entries available. Adding files preserves
+  an existing analysis, preparation or playback session.
+- Folder imports show progress and can be cancelled. Reimporting adds new files
+  without duplicates. Empty or unreadable folders are reported; a folder that
+  disappears before its scan is no longer silently skipped.
+
+The bundled engines and media formats are unchanged. The existing SDR HLS manual
+audio-timing limitation remains; subtitle timing is separate.
+
+[Library behavior and validation](https://github.com/carlosciller/AirCiller/blob/v0.15.0/Docs/LIBRARY_SEASONS.md)
+
 ## 0.14.1 (23 September 2026)
 
 This update makes library edits easier to undo and fixes misleading update and storage controls.

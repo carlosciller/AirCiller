@@ -57,8 +57,11 @@ def assess_scenario(samples, analysis, control, name, tokens):
                 or result["route"] != CASE_INFO[name][1] or result["subtitlesRequested"] is not True
                 or result["loadSequence"] != ([1, 2] if name == "playlistTransition" else [1])):
             raise CaptureError("incompleteScenarioControls")
-        if name == "playlistTransition" and "exactly_one_playlist_transition" not in result["completedSteps"]:
-            raise CaptureError("playlistTransitionNotEstablished")
+        if name == "playlistTransition":
+            required = {"exactly_one_playlist_transition", "season_folder_imported",
+                        "season_import_preserved_active_session", "season_episode_watched_and_progress_saved"}
+            if not required.issubset(result["completedSteps"]):
+                raise CaptureError("playlistTransitionNotEstablished")
         began, elapsed = result["startedAtUptime"], result["elapsedSeconds"]
         long_pause = CASE_INFO[name][0] == "longPause"
         if not finite(began) or not finite(elapsed) or began < 0 or not 0 < elapsed <= (480 if long_pause else 180):

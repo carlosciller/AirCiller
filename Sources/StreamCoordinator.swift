@@ -46,6 +46,14 @@ final class StreamCoordinator {
 
     private(set) var recentItems: [RecentMediaItem] = HistoryStore.loadRecent()
     private(set) var queueItems: [QueueMediaItem] = HistoryStore.loadQueue()
+    private(set) var seasonFolders: [SeasonFolder] = HistoryStore.loadSeasons()
+    private(set) var isImportingLibrary = false
+    private(set) var importedFileCount = 0
+    private(set) var libraryImportMessage = ""
+    private(set) var libraryImportIssues: [String] = []
+    @ObservationIgnored private var libraryImportTask: Task<Void, Never>?
+    @ObservationIgnored private var libraryImportID: UUID?
+    @ObservationIgnored private var pendingLibraryURLs: [URL] = []
     private(set) var focusedQueueItemID: String?
     var focusedRecentItemID: String?
     @ObservationIgnored private weak var libraryUndoManager: UndoManager?
@@ -125,6 +133,7 @@ final class StreamCoordinator {
     @ObservationIgnored private var lastRebufferEvent = Date.distantPast
 
     init() {
+        seasonFolders = HistoryStore.recoveringSeasons(queue: queueItems, stored: seasonFolders)
         #if !AIRCILLER_PLAYBACK_CHECKS && !AIRCILLER_UI_CHECKS
             Self.cleanupStaleBuffers()
         #endif
@@ -511,7 +520,7 @@ final class StreamCoordinator {
         panel.title = L10n.text("Elegir películas")
         panel.prompt = L10n.text("Abrir")
         panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = true
         panel.canChooseFiles = true
         panel.allowedContentTypes = MediaFileTypes.contentTypes
 
@@ -524,24 +533,198 @@ final class StreamCoordinator {
         panel.title = L10n.text("Añadir a la playlist")
         panel.prompt = L10n.text("Añadir")
         panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = true
         panel.canChooseFiles = true
         panel.allowedContentTypes = MediaFileTypes.contentTypes
         guard panel.runModal() == .OK else { return }
-        enqueue(panel.urls)
+        handleURLs(panel.urls, analyzeFirst: false)
     }
 
-    func handleURLs(_ urls: [URL]) {
+    func handleURLs(_ urls: [URL], analyzeFirst: Bool = true) {
+        libraryImportIssues = urls.filter {
+            !MediaFileTypes.accepts($0)
+                && !($0.isFileURL && (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true)
+        }.map { L10n.format("%@: formato no compatible", $0.lastPathComponent) }
+        libraryImportMessage =
+            libraryImportIssues.isEmpty
+            ? ""
+            : L10n.format("%lld elementos no se pudieron añadir", Int64(libraryImportIssues.count))
+        if urls.contains(where: {
+            $0.isFileURL && (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+        }) {
+            importLibraryFolders(urls)
+            return
+        }
         let videos = urls.filter(MediaFileTypes.accepts)
         guard let first = videos.first else {
+            guard !isStreaming, !isPreparing, !isAnalyzing else { return }
             presentError(
                 title: "No hay ninguna película compatible",
                 detail: "Arrastra o abre un archivo MKV, MP4, M4V, MOV, TS, MTS o M2TS."
             )
             return
         }
-        if videos.count > 1 { enqueue(videos) }
+        enqueue(videos)
+        guard analyzeFirst, !isStreaming, !isPreparing, !isAnalyzing else { return }
         loadVideo(first, autoStart: false)
+    }
+
+    func cancelLibraryImport() {
+        pendingLibraryURLs.removeAll()
+        libraryImportID = nil
+        libraryImportTask?.cancel()
+        libraryImportTask = nil
+        isImportingLibrary = false
+        libraryImportMessage = L10n.text("Importación cancelada")
+    }
+
+    private func importLibraryFolders(_ urls: [URL]) {
+        enqueue(
+            urls.filter {
+                MediaFileTypes.accepts($0)
+                    && (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true
+            })
+        pendingLibraryURLs.append(
+            contentsOf: urls.filter {
+                $0.isFileURL && (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            })
+        guard !isImportingLibrary else { return }
+        let importID = UUID()
+        libraryImportID = importID
+        isImportingLibrary = true
+        importedFileCount = 0
+        libraryImportMessage = L10n.text("Añadiendo archivos…")
+        // Standalone files are admitted immediately, independently of folder enumeration.
+        libraryImportTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if self.libraryImportID == importID {
+                    self.libraryImportID = nil
+                    self.libraryImportTask = nil
+                    self.isImportingLibrary = false
+                }
+            }
+            var failures: [String] = []
+            while !self.pendingLibraryURLs.isEmpty {
+                guard !Task.isCancelled, self.libraryImportID == importID else { return }
+                let url = self.pendingLibraryURLs.removeFirst()
+                guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                    failures.append(url.path)
+                    continue
+                }
+                let worker = Task.detached(priority: .userInitiated) {
+                    try SeasonFolderImporter.scan(url) { [weak self] count in
+                        Task { @MainActor [weak self] in
+                            guard let self, self.libraryImportID == importID else { return }
+                            self.libraryImportMessage = L10n.format("%lld elementos revisados", Int64(count))
+                        }
+                    }
+                }
+                do {
+                    let result = try await withTaskCancellationHandler {
+                        try await worker.value
+                    } onCancel: {
+                        worker.cancel()
+                    }
+                    try Task.checkCancellation()
+                    guard self.libraryImportID == importID else { return }
+                    let previousCount = self.queueItems.count
+                    self.admitSeason(url, movies: result.movies)
+                    self.importedFileCount += self.queueItems.count - previousCount
+                    failures.append(contentsOf: result.unreadablePaths)
+                    if result.movies.isEmpty { failures.append(url.path) }
+                } catch is CancellationError {
+                    return
+                } catch {
+                    failures.append(url.path)
+                }
+            }
+            let added = L10n.format(
+                self.importedFileCount == 1 ? "%lld archivo añadido" : "%lld archivos añadidos",
+                Int64(self.importedFileCount))
+            if failures.isEmpty {
+                self.libraryImportMessage =
+                    self.importedFileCount == 0
+                    ? L10n.text("No hay archivos nuevos que añadir") : added
+            } else {
+                let unavailable = L10n.format(
+                    failures.count == 1 ? "%lld ubicación no disponible" : "%lld ubicaciones no disponibles",
+                    Int64(failures.count))
+                self.libraryImportMessage = "\(added); \(unavailable)"
+            }
+            self.libraryImportIssues.append(
+                contentsOf: failures.map {
+                    L10n.format(
+                        "%@: no se pudo leer la carpeta o no contiene vídeos compatibles",
+                        URL(fileURLWithPath: $0).lastPathComponent)
+                })
+        }
+    }
+
+    private func admitSeason(_ folder: URL, movies: [URL]) {
+        guard !movies.isEmpty else { return }
+        let path = folder.standardizedFileURL.path
+        if !seasonFolders.contains(where: { $0.id == path }) {
+            seasonFolders.append(SeasonFolder(path: path, title: folder.lastPathComponent, isExpanded: true))
+        }
+        enqueue(movies)
+        let importedPaths = Set(movies.map(\.path))
+        for index in queueItems.indices where importedPaths.contains(queueItems[index].path) {
+            if queueItems[index].seasonID == nil { queueItems[index].seasonID = path }
+        }
+        normalizeSeasonOrder()
+        HistoryStore.saveQueue(queueItems)
+        HistoryStore.saveSeasons(seasonFolders)
+    }
+
+    private func normalizeSeasonOrder() {
+        var ordered: [QueueMediaItem] = []
+        var seen = Set<String>()
+        for item in queueItems {
+            if let seasonID = item.seasonID {
+                if seen.insert(seasonID).inserted {
+                    ordered.append(contentsOf: queueItems.filter { $0.seasonID == seasonID })
+                }
+            } else {
+                ordered.append(item)
+            }
+        }
+        queueItems = ordered
+    }
+
+    func setSeasonExpanded(_ id: String, expanded: Bool) {
+        guard let index = seasonFolders.firstIndex(where: { $0.id == id }) else { return }
+        seasonFolders[index].isExpanded = expanded
+        HistoryStore.saveSeasons(seasonFolders)
+    }
+
+    func setWatched(_ item: QueueMediaItem, watched: Bool) {
+        guard let index = queueItems.firstIndex(where: { $0.id == item.id }) else { return }
+        guard queueItems[index].watched != watched else { return }
+        registerWatchedUndo(id: item.id, previous: queueItems[index].watched)
+        queueItems[index].watched = watched
+        HistoryStore.saveQueue(queueItems)
+    }
+
+    private func registerWatchedUndo(id: String, previous: Bool?) {
+        libraryUndoManager?.registerUndo(withTarget: self) { coordinator in
+            MainActor.assumeIsolated {
+                guard let index = coordinator.queueItems.firstIndex(where: { $0.id == id }) else { return }
+                coordinator.registerWatchedUndo(id: id, previous: coordinator.queueItems[index].watched)
+                coordinator.queueItems[index].watched = previous
+                HistoryStore.saveQueue(coordinator.queueItems)
+            }
+        }
+        libraryUndoManager?.setActionName(L10n.text("Marcar como visto"))
+    }
+
+    func removeSeason(_ id: String) {
+        let previousItems = queueItems
+        let previousFocus = focusedQueueItemID
+        queueItems.removeAll { $0.seasonID == id }
+        if !queueItems.contains(where: { $0.id == focusedQueueItemID }) { focusedQueueItemID = nil }
+        HistoryStore.saveQueue(queueItems)
+        registerQueueUndo(before: previousItems, focus: previousFocus, actionName: "Quitar de la playlist")
     }
 
     func chooseExternalSubtitle() -> SubtitleTrack? {
@@ -604,7 +787,11 @@ final class StreamCoordinator {
         streamTelemetry = .empty
         rebufferEvents = 0
         lastRebufferEvent = .distantPast
-        currentTime = requestedStart ?? recentItems.first(where: { $0.path == url.path })?.lastPosition ?? 0
+        let queued = queueItems.first(where: { $0.path == url.path })
+        currentTime =
+            requestedStart
+            ?? (queued?.watched == true || queued?.progress == 1 ? 0 : queued?.lastPosition)
+            ?? recentItems.first(where: { $0.path == url.path })?.lastPosition ?? 0
         hasError = false
         status = "Analizando la película…"
         detail = "Comprobando duración, Dolby Vision, HDR, audio, subtítulos y capítulos."
@@ -1028,6 +1215,9 @@ final class StreamCoordinator {
         else {
             return false
         }
+        if let season = queueItems[index].seasonID {
+            return queueItems.first(where: { $0.seasonID == season })?.id != focusedQueueItemID
+        }
         return index > queueItems.startIndex
     }
 
@@ -1036,6 +1226,9 @@ final class StreamCoordinator {
             let index = queueItems.firstIndex(where: { $0.id == focusedQueueItemID })
         else {
             return false
+        }
+        if let season = queueItems[index].seasonID {
+            return queueItems.last(where: { $0.seasonID == season })?.id != focusedQueueItemID
         }
         return index < queueItems.index(before: queueItems.endIndex)
     }
@@ -1047,6 +1240,32 @@ final class StreamCoordinator {
         else {
             return false
         }
+        if let item = queueItems.first(where: { $0.id == focusedQueueItemID }), let group = item.seasonID {
+            let siblings = queueItems.filter { $0.seasonID == group }
+            guard let moved = QueueOrdering.movingItem(siblings, id: item.id, by: offset) else { return false }
+            let previousItems = queueItems
+            var iterator = moved.makeIterator()
+            for index in queueItems.indices where queueItems[index].seasonID == group {
+                if let next = iterator.next() { queueItems[index] = next }
+            }
+            HistoryStore.saveQueue(queueItems)
+            registerQueueUndo(before: previousItems, focus: focusedQueueItemID, actionName: "Ordenar la playlist")
+            return true
+        }
+        if queueItems.contains(where: { $0.seasonID != nil }) {
+            var seen = Set<String>()
+            let roots = queueItems.filter { item in
+                guard let group = item.seasonID else { return true }
+                return seen.insert(group).inserted
+            }
+            guard let index = roots.firstIndex(where: { $0.id == focusedQueueItemID }) else { return false }
+            let destination = min(max(index + offset, 0), roots.count - 1)
+            guard destination != index else { return false }
+            let beforeIndex = offset > 0 ? destination + 1 : destination
+            let before = beforeIndex < roots.count ? roots[beforeIndex].id : nil
+            moveQueueItems(ids: [focusedQueueItemID], before: before)
+            return true
+        }
         let previousItems = queueItems
         queueItems = reordered
         HistoryStore.saveQueue(queueItems)
@@ -1057,6 +1276,7 @@ final class StreamCoordinator {
     func moveQueueItems(fromOffsets: IndexSet, toOffset: Int) {
         let previousItems = queueItems
         queueItems = QueueOrdering.moving(queueItems, fromOffsets: fromOffsets, toOffset: toOffset)
+        normalizeSeasonOrder()
         HistoryStore.saveQueue(queueItems)
         registerQueueUndo(before: previousItems, focus: focusedQueueItemID, actionName: "Ordenar la playlist")
     }
@@ -1770,6 +1990,10 @@ final class StreamCoordinator {
     private func playbackFinished() {
         currentTime = duration
         saveCurrentPosition(force: true)
+        if let selectedURL, let index = queueItems.firstIndex(where: { $0.path == selectedURL.path }) {
+            queueItems[index].watched = true
+            HistoryStore.saveQueue(queueItems)
+        }
         cleanupRuntime()
         isStreaming = false
         isPlaying = false
@@ -1797,11 +2021,14 @@ final class StreamCoordinator {
     }
 
     private func enqueue(_ urls: [URL]) {
-        for url in urls where MediaFileTypes.accepts(url) && !queueItems.contains(where: { $0.path == url.path }) {
-            queueItems.append(QueueMediaItem(path: url.path, title: url.deletingPathExtension().lastPathComponent))
+        var knownPaths = Set(queueItems.map(\.path))
+        var updated = queueItems
+        for url in urls where MediaFileTypes.accepts(url) && knownPaths.insert(url.path).inserted {
+            updated.append(QueueMediaItem(path: url.path, title: url.deletingPathExtension().lastPathComponent))
         }
+        queueItems = updated
         HistoryStore.saveQueue(queueItems)
-        if !urls.isEmpty {
+        if !urls.isEmpty, !isStreaming, !isPreparing, !isAnalyzing {
             status = "Playlist actualizada"
             detail =
                 queueItems.count == 1
@@ -1840,6 +2067,11 @@ final class StreamCoordinator {
         if !force, Date().timeIntervalSince(lastHistorySave) < 5 { return }
         lastHistorySave = Date()
         let storedPosition = currentTime >= duration - 30 ? 0 : currentTime
+        if let index = queueItems.firstIndex(where: { $0.path == selectedURL.path }) {
+            queueItems[index].lastPosition = currentTime
+            queueItems[index].duration = duration
+            HistoryStore.saveQueue(queueItems)
+        }
         if let index = recentItems.firstIndex(where: { $0.path == selectedURL.path }) {
             recentItems[index].lastPosition = storedPosition
             recentItems[index].duration = duration

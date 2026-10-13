@@ -47,6 +47,24 @@ struct LocalizationSmokeTest {
             "The Spanish Info.plist translation is missing."
         )
 
+        for (key, count, expectedEnglish, expectedSpanish) in [
+            ("%lld episodio", 1, "1 episode", "1 episodio"),
+            ("%lld episodios", 2, "2 episodes", "2 episodios"),
+            ("%lld visto", 1, "1 watched", "1 visto"),
+            ("%lld archivo añadido", 1, "1 file added", "1 archivo añadido"),
+            ("%lld archivos añadidos", 0, "0 files added", "0 archivos añadidos"),
+            ("%lld ubicación no disponible", 1, "1 location unavailable", "1 ubicación no disponible"),
+        ] {
+            try expect(
+                String(format: english.localizedString(forKey: key, value: key, table: "Localizable"), Int64(count))
+                    == expectedEnglish,
+                "English library counter changed: \(key)")
+            try expect(
+                String(format: spanish.localizedString(forKey: key, value: key, table: "Localizable"), Int64(count))
+                    == expectedSpanish,
+                "Spanish library counter changed: \(key)")
+        }
+
         let infoPlist = projectDirectory.appendingPathComponent("Info.plist")
         let data = try Data(contentsOf: infoPlist)
         let plist = try PropertyListSerialization.propertyList(from: data, format: nil)

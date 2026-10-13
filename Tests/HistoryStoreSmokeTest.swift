@@ -84,6 +84,32 @@ struct HistoryStoreSmokeTest {
                 == movedURL.path
         else { throw NSError(domain: "HistoryStoreSmokeTest.RelocationBoundaries", code: 9) }
 
+        var episode = queue[1]
+        episode.seasonID = root.path
+        episode.lastPosition = 42
+        episode.duration = 120
+        episode.watched = true
+        let season = SeasonFolder(path: root.path, title: "Season 1", isExpanded: false)
+        HistoryStore.saveSeasons([season, season], defaults: defaults)
+        guard HistoryStore.loadSeasons(defaults: defaults) == [season] else {
+            throw NSError(domain: "HistoryStoreSmokeTest.SeasonDuplicates", code: 13)
+        }
+        defaults.set(Data("not-json".utf8), forKey: HistoryStore.seasonsKey)
+        let recovered = HistoryStore.recoveringSeasons(
+            queue: [episode], stored: HistoryStore.loadSeasons(defaults: defaults))
+        guard recovered.count == 1, recovered[0].id == root.path,
+            recovered[0].isExpanded,
+            HistoryStore.loadQueue(defaults: defaults) == moved.queue
+        else { throw NSError(domain: "HistoryStoreSmokeTest.SeasonRecovery", code: 14) }
+        guard
+            let relocatedEpisode = HistoryStore.relocating(
+                from: episode.url, to: movedURL, recent: [], queue: [episode])?.queue.first,
+            relocatedEpisode.seasonID == episode.seasonID,
+            relocatedEpisode.lastPosition == episode.lastPosition,
+            relocatedEpisode.duration == episode.duration,
+            relocatedEpisode.watched == episode.watched
+        else { throw NSError(domain: "HistoryStoreSmokeTest.EpisodeRelocation", code: 15) }
+
         defaults.set(Data("not-json".utf8), forKey: HistoryStore.queueKey)
         guard HistoryStore.loadQueue(defaults: defaults).isEmpty,
             defaults.object(forKey: HistoryStore.queueKey) == nil
