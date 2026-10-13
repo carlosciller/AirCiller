@@ -446,7 +446,24 @@ struct LibrarySidebar: View {
                     symbol: "list.bullet.rectangle.portrait",
                     text: "Añade películas y ordénalas para reproducirlas seguidas")
             } else {
-                NativePlaylistTable(streamCoordinator: coordinator)
+                NativeSeasonOutline(streamCoordinator: coordinator)
+            }
+            if coordinator.isImportingLibrary {
+                HStack {
+                    ProgressView().controlSize(.small)
+                    Text(coordinator.libraryImportMessage).font(.caption)
+                    Button("Cancelar") { coordinator.cancelLibraryImport() }
+                }.padding(.horizontal, 12)
+            } else if !coordinator.libraryImportMessage.isEmpty {
+                Text(coordinator.libraryImportMessage).font(.caption).foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+            }
+            if !coordinator.libraryImportIssues.isEmpty {
+                DisclosureGroup("Detalles de importación") {
+                    ForEach(Array(coordinator.libraryImportIssues.enumerated()), id: \.offset) { _, issue in
+                        Text(issue).font(.caption).textSelection(.enabled)
+                    }
+                }.padding(.horizontal, 12)
             }
             HStack {
                 Button {
@@ -469,73 +486,6 @@ struct LibrarySidebar: View {
             .padding(15)
         }
         .frame(maxHeight: .infinity)
-    }
-}
-
-struct PlaylistMediaRow: View {
-    let index: Int
-    let item: QueueMediaItem
-    let isCurrentMedia: Bool
-    let isSelected: Bool
-    var isUnavailable = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            HStack(alignment: .center, spacing: 9) {
-                Group {
-                    if isUnavailable {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundStyle(
-                                isSelected ? Color(nsColor: .alternateSelectedControlTextColor) : Color.secondary
-                            )
-                            .help(L10n.text("Archivo no disponible"))
-                            .accessibilityLabel(L10n.text("Archivo no disponible"))
-                    } else if isCurrentMedia {
-                        Image(systemName: "film")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(
-                                isSelected
-                                    ? Color(nsColor: .alternateSelectedControlTextColor)
-                                    : Color.primary
-                            )
-                            .accessibilityLabel("Película de la sesión actual")
-                    } else {
-                        Text("\(index + 1)")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(
-                                isSelected
-                                    ? Color(nsColor: .alternateSelectedControlTextColor).opacity(0.76)
-                                    : Color.secondary
-                            )
-                    }
-                }
-                .frame(width: 20, alignment: .trailing)
-
-                Text(item.title.softWrappedFilename)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(
-                        isSelected ? Color(nsColor: .alternateSelectedControlTextColor) : Color.primary
-                    )
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 13, weight: .bold))
-                .foregroundStyle(
-                    isSelected
-                        ? Color(nsColor: .alternateSelectedControlTextColor).opacity(0.76)
-                        : Color.secondary
-                )
-                .frame(width: 30, height: 38)
-                .contentShape(Rectangle())
-                .accessibilityLabel("Arrastrar para ordenar")
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .help(item.title)
     }
 }
 

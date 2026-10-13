@@ -3,6 +3,7 @@ import Foundation
 enum HistoryStore {
     static let recentKey = "AirCiller.recent.v1"
     static let queueKey = "AirCiller.queue.v1"
+    static let seasonsKey = "AirCiller.seasons.v1"
     static let maximumRecentItems = 30
 
     static func isAvailable(_ url: URL) -> Bool {
@@ -46,6 +47,30 @@ enum HistoryStore {
         defaults.set(data, forKey: queueKey)
     }
 
+    static func loadSeasons(defaults: UserDefaults = .standard) -> [SeasonFolder] {
+        guard let data = defaults.data(forKey: seasonsKey),
+            let groups = try? JSONDecoder().decode([SeasonFolder].self, from: data)
+        else { return [] }
+        var seen = Set<String>()
+        return groups.filter { seen.insert($0.id).inserted }
+    }
+
+    static func saveSeasons(_ groups: [SeasonFolder], defaults: UserDefaults = .standard) {
+        guard let data = try? JSONEncoder().encode(groups) else { return }
+        defaults.set(data, forKey: seasonsKey)
+    }
+
+    static func recoveringSeasons(queue: [QueueMediaItem], stored: [SeasonFolder]) -> [SeasonFolder] {
+        var groups = stored
+        var seen = Set(stored.map(\.id))
+        for item in queue {
+            guard let path = item.seasonID, path.hasPrefix("/"), seen.insert(path).inserted else { continue }
+            groups.append(
+                SeasonFolder(path: path, title: URL(fileURLWithPath: path).lastPathComponent, isExpanded: true))
+        }
+        return groups
+    }
+
     /// Relinking is explicit. Never merge two library entries or guess which progress to keep.
     static func relocating(
         from oldURL: URL, to newURL: URL,
@@ -66,7 +91,11 @@ enum HistoryStore {
                     lastPosition: item.lastPosition, duration: item.duration)
             },
             queue.map { item in
-                item.path == oldURL.path ? QueueMediaItem(path: newURL.path, title: title) : item
+                guard item.path == oldURL.path else { return item }
+                var relocated = item
+                relocated.path = newURL.path
+                relocated.title = title
+                return relocated
             }
         )
     }

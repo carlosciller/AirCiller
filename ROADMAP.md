@@ -1,193 +1,95 @@
 # Roadmap
 
-AirCiller should remain quick to open, straightforward to control and dependable through a whole movie. This is the order of work, not a release schedule.
+AirCiller should stay quick to open and dependable through a whole movie. This is
+the order of work, not a release schedule. Completed changes are in the
+[release notes](CHANGELOG.md); detailed evidence belongs in [Testing](TESTING.md).
 
-The 0.12.1 stability release covers playback controls, authorization, track editing and malformed data. OpenSubtitles, keyboard Playlist reordering, local PGS/VobSub OCR, language preferences and bundled engines are already available.
+## 0.15.0: library and seasons
 
-[The review record](Docs/STABILITY_REVIEW.md) records the local checks, CI and completed physical Apple TV tests. Release and signing steps are documented in [Distribution](DISTRIBUTION.md); user-facing changes are in the [release notes](CHANGELOG.md).
+0.15.0 adds season folders, natural episode order, watched status, saved progress
+and native reordering. Movies enter Playlist before analysis; adding files keeps
+an active session running. Imports are cancellable and report rejected inputs.
 
-## 0.14.1: maintenance
+The [library record](Docs/LIBRARY_SEASONS.md) identifies tested behavior and limits.
+Both video packagers and bundled engines are unchanged. Release and update steps
+follow [Distribution](DISTRIBUTION.md).
 
-The maintainer authorized separating Shortcuts from this patch on 23 September.
-The maintenance release keeps the 0.14.0 design, bundled engines, formats and
-playback paths. [Release PR #19](https://github.com/carlosciller/AirCiller/pull/19)
-tracks final CI, published assets and the isolated Sparkle update.
+## Next repairs
 
-Its changes are:
+1. **SDR HLS audio timing.** Manual audio offsets can be discarded during
+   preparation. Establish a shared presentation clock without skipping the
+   opening video. Test positive and negative offsets, seeks, final audio and
+   subtitle timing with the pinned engine, then verify Apple TV output.
+   [Investigation](Docs/HLS_AUDIO_TIMING.md).
+2. **Subtitles after seeking.** Investigate the brief HLS visibility gap using
+   known cues, separating individual seeks, rapid commands and receiver controls.
+   Repeat earlier segment experiments only with a new cause to test.
+   [Playback checks](Docs/PLAYBACK_CHECKS.md).
+3. **Focus and editing.** Check independent text-field Undo, focus after applying
+   tracks, operation-specific Undo wording and long inspector content at minimum
+   window size. [Interface record](Docs/NATIVE_UI_INTEGRATION.md).
 
-1. Undo/Redo for Playlist removal, clearing and reordering, and for Recents
-   removal and clearing, preserving newer playback progress.
-2. The same 30-entry limit in live and persisted Recents, including restoration
-   after newer entries have filled the history.
-3. Check for Updates follows Sparkle's availability in both the menu and Settings.
-4. Failed cache cleanup remains visible and can be retried; a successful size
-   refresh clears stale read errors without hiding operation failures.
-5. A contextual warning for the existing SDR audio-adjustment limitation.
-6. Synchronized collection of short-lived helper responses, with bounded output
-   and cancellation tests. The release CI exposed an intermittent capture failure;
-   acceptance of the correction is recorded with the final candidate.
+## Faster playback startup
 
-The [bug-fix record](Docs/BUGFIXES_0.14.1.md) distinguishes earlier local/native
-checks from the final maintenance candidate. An intermittent CI capture failure
-led to the helper-output correction; both the failed run and verification of
-the correction are retained.
+The maintainer readiness checkpoint for the dedicated startup work is complete.
+The first delivery shipped in 0.13.0: bounded prepared-HLS caching, parallel text
+extraction and process-lifecycle improvements. Its measurements and separate
+audio-timing limitation are in [Startup optimization](Docs/STARTUP_OPTIMIZATION.md).
+Do not restart that checkpoint or silently switch the maintainer's chosen model.
 
-### Interface follow-up
+A further phase needs complete Play-to-picture-and-sound timings on Apple TV.
+Tell the maintainer before starting so they can select the requested model and
+effort. Keep implementation/preparation and final tests/publication separate.
 
-Earlier checks established functional native Undo/Redo and discarded track
-drafts. The 23 September English check also passed library Undo/Redo and readable
-long inspector content at 960 by 650 points. A focused native file-panel field
-did not consume library Undo, but its text did not undo. Minimum-size layout,
-successful independent text-field Undo and focus after applying tracks remain
-unverified.
-Operation-specific Edit menu wording also needs a follow-up: the observed menu
-showed generic Undo/Redo labels. These are separate from Shortcuts validation;
-no additional layout or playback change is promised in this patch.
+- Measure analysis, subtitles, preparation, authorization, connection and first
+  output separately. Include cold/warm caches and bitrate peaks.
+- Compare bounded parallel work, reuse and engine behavior against a pinned
+  baseline. Record regressions; newer dependencies are not proof of faster playback.
+- Larger packaging changes need a separate design review. Preserve complete VOD,
+  full duration, seeking, original media, HDR/Dolby Vision and selectable subtitles.
+  Change one packager per delivery.
 
-## Deferred: Apple Shortcuts
+## Compatibility research
 
-The six actions and their development-signed candidate are preserved separately.
-Native Spanish actions and sampled Apple TV output passed their recorded scope,
-but the public ad hoc package failed registration on the tested Mac. The
-maintainer chose to exclude Shortcuts from 0.14.1 instead of changing public
-signing as part of maintenance. See the [preserved implementation and evidence](Docs/SHORTCUTS.md).
+- **FLAC layouts:** retain channel-mask overrides that fMP4 currently changes.
+  Require representative samples and receiver output before widening passthrough.
+  Do not relabel speakers. [Current support](Docs/FLAC_AUDIO.md).
+- **Subtitles:** assess additional text formats individually, including TTML/IMSC1;
+  investigate DVB and XSUB OCR with suitable samples. Keep OCR local and selectable.
+- **AV1 passthrough:** research only. A device decoder does not establish support
+  in its AirPlay receiver. There is no promised video transcoder.
 
-Resume with the distribution/signing decision. Keep its remaining English,
-protected-folder and file-handoff checks with that feature. Finder Quick Actions,
-Services entries and permanent background processes remain outside the scope.
+TS/MTS/M2TS, supported FLAC soundtracks, PGS and VobSub are already available.
+Their limits are in [Compatibility](COMPATIBILITY.md), with separate
+[transport-stream](Docs/TRANSPORT_STREAMS.md), [PGS](Docs/EXTERNAL_PGS.md) and
+[VobSub](Docs/EXTERNAL_VOBSUB.md) records.
 
-## Following maintenance
+## Deferred and blocked
 
-Work in separate deliveries:
+- **Apple Shortcuts:** implementation is preserved, but public ad hoc registration
+  failed on the tested Mac. Resume with the signing/distribution decision and the
+  remaining handoff checks. Finder Quick Actions and Services are outside that
+  scope. [Shortcuts record](Docs/SHORTCUTS.md).
+- **iPhone Lock Screen metadata:** remote control works; title and artwork on the
+  Apple TV-owned card are not reliable.
+- **Developer ID and notarization:** blocked until Apple Developer Program
+  membership is available. Sparkle signatures do not replace notarization.
 
-1. Repair SDR HLS audio adjustment. Establish a shared presentation clock without
-   skipping the opening video or depending on MP4 edit lists; verify positive and
-   negative offsets, seeks, final audio and subtitle timing with the pinned engine.
-   A local packet comparison is the first gate, followed by Apple TV output.
-2. Investigate the brief subtitle gap after seeks using known cues, separating
-   individual and rapid commands and Mac/receiver controls. Do not repeat the
-   previous segment experiments without a new explanation to test.
-3. Extend original FLAC channel-layout support only when a concrete sample can be
-   remuxed without relabeling speakers. Keep other format additions sample-led.
-4. Measure complete startup latency before the next performance changes. Local
-   cache preparation savings do not establish earlier picture or sound on Apple TV.
+## Maintenance and distribution
 
-The known SDR HLS manual-audio-offset defect remains a separate repair with its
-own preparation and audiovisual acceptance. It is not fixed by UI polish and
-is not promised for this patch. See the [existing investigation](Docs/HLS_AUDIO_TIMING.md).
+Engines remain pinned and bundled. Dependency changes need a regenerated lock,
+runtime imports, packaging checks and applicable playback validation. Current
+protobuf and urllib3 proposals change only requirements.in; their CI failures are
+lock mismatches, not evidence that the shipped runtime is broken. They are not
+included in this release.
 
-Track the maintenance release in [the bug-fix record](Docs/BUGFIXES_0.14.1.md).
-Do not mark the following repairs complete from its validation.
-
-## 0.14.0: Mac essential interface
-
-The selected **A. Mac essential** composition is integrated against 0.13.0, preserving its playback engines and preparation paths. It includes the named session, timeline and circular transport, native library, grouped tracks inspector, compact sizing, shared command availability and common internal-app icon.
-
-Published and installed on 20 September 2026. Native English/Spanish and light/dark checks and the seven-case Apple TV batch passed their recorded scope. Main and tag CI, anonymous signed-asset verification and the actual Sparkle update from 0.13.0 also passed. Evidence limits are recorded in [native interface integration](Docs/NATIVE_UI_INTEGRATION.md). The earlier [prototype](Docs/NATIVE_DESIGN_PROTOTYPE.md) is design evidence only.
-
-## 0.12.6: library and reliability
-
-Implemented for 0.12.6. [Library recovery](Docs/LIBRARY_RECOVERY.md) and [capture readiness](Docs/PLAYBACK_CHECKS.md#initial-capture-readiness) record scope and validation separately, including local coordinator checks and the successful integrated Apple TV batch.
-
-- Preserve Recents and saved progress when a movie's external drive is disconnected. Explain that the file is unavailable and offer to locate it again instead of removing it automatically.
-- Detect unavailable Apple TV capture before starting a playback batch, with a bounded diagnostic and a clear reason to stop. Do not weaken approved-source checks or substitute control acknowledgements for audiovisual evidence.
-- Carry the release's user-facing changes, compatibility limits and validation links through the changelog, GitHub notes and next signed update. Follow the [release documentation checklist](Distribution/ReleaseNotes/TEMPLATE.md#editorial-check-before-publication).
-
-## Available: automated playback checks
-
-The local, on-demand test runner exercises the actual AirCiller app and physical Apple TV. It stays outside the everyday interface, with no extra Apple TV app or permanent service.
-
-The [implementation](Docs/PLAYBACK_CHECKS.md) covers startup, receiver progress, pause/resume, rapid seeks and cleanup in a separate development build. On 6 September 2026, one command passed the three basic cases using the approved Apple TV screen source. A subsequent seven-case batch also passed direct HDR subtitle replacement, HLS subtitle and original-audio changes, stopping an active FFmpeg preparation, and exactly one automatic Playlist transition after a receiver natural-end event. Controls and per-phase sampled output have separate recorded evidence. No password or manual viewing confirmation was required.
-
-The six-minute pause profiles passed for both routes with captured output after resuming at second 15. The [record](Docs/PLAYBACK_CHECKS.md#long-pause-validation-6-september-2026) separates the corrected direct HDR reassessment and subsequent live HLS run. Local tests also cancel a running bundled analysis process through its task owner and a real Vision recognition batch. Twelve [in-app bitmap cases](Docs/PLAYBACK_CHECKS.md#in-app-bitmap-cancellation-6-september-2026) now pass extraction cancellation, OCR cancellation and file replacement for PGS and VobSub through both preparation routes, without using a receiver.
-
-The focused [PGS output check](Docs/PLAYBACK_CHECKS.md#pgs-canvas-output-validation-6-september-2026) also passed: a 1080p subtitle canvas carried with 720p video reached Apple TV without clipping the compared cues. Controls, sampled motion and digital audio passed; the agent compared captured text with source bitmaps. This closes the remaining canvas check without repeating the six-minute pauses. These bounded checks do not establish uninterrupted whole-movie reliability or every atomic cache-write boundary. Installation and publication remain separate actions.
-
-Local signed candidates now reuse a [stable, read-only credential component](Docs/CREDENTIAL_SERVICE.md). Synthetic access and caller-rejection tests pass. After one explicit approval, real-credential reads passed across different app signatures and a subsequent Swift rebuild. The three playback-control cases also passed without another dialog. Batches refuse interactive Keychain access. Retain the Keychain and its access controls; changing the service or signing identity can still require approval.
-
-1. Prepare a small, repeatable set of short clips covering direct HDR/Dolby Vision and HLS/fMP4 with and without subtitles. Include audible content and visible cues from the start. Keep private media outside Git and preserve originals.
-2. Exercise the Swift application, bundled AirPlay helper and local server together. Check receiver-reported progress, pause/resume, rapid seeks, track changes, cancellation, natural completion and a single transition to the next Playlist item. Testing only the helper would miss app lifecycle failures.
-3. Use timeouts and one result report, with local checks, receiver evidence and human observations recorded separately. A successful command or an advancing Mac timer is not proof of television playback. Restore test settings and Playlist order, and leave no helper or playback server running. Do not interrupt an existing viewing session or reset pairing automatically.
-4. Establish authorized, local capture of the Apple TV output so routine batches do not require the maintainer to watch. Verify motion, audio presence and subtitle cues against known fixtures. Treat unavailable capture as an explicit evidence gap, not a manual confirmation request after every run. Captured output does not by itself certify the television's HDR rendering or physical speaker layout; record those limits separately.
-5. Run checks according to the change: documentation needs no television, interface changes need interface checks, shared controls need both affected playback paths, and engine or format changes need their audiovisual cases. Keep long-pause and large-file stress checks for changes that can affect them; short clips do not replace those tests.
-
-Ongoing acceptance: after any necessary capture setup, one command runs the selected cases and reports control and captured-output evidence without asking the maintainer to watch each batch. Missing evidence stays unverified. Apply the current [validation rules](TESTING.md) to each delivery.
-
-## Format expansion: delivered scope and remaining work
-
-Prioritize keeping both video and audio in their original encoded formats. Remuxing into a compatible streaming container is allowed; it must not silently become audio or video transcoding.
-
-1. TS, MTS and M2TS containers carrying already-compatible H.264 or HEVC and original audio accepted by the receiver.
-2. Original FLAC soundtracks: implemented in 0.12.4 for preserved channel layouts, with separate stereo and 5.1 Apple TV checks. See [FLAC validation](Docs/FLAC_AUDIO.md).
-
-Each addition needs a representative sample, copy-only audio/video verification, the relevant automated and audiovisual checks, clear rejection messages and a separate release decision. Add support only after the AirPlay receiver accepts it; FFmpeg being able to read a format is not enough.
-
-Part 1 is implemented in 0.12.3. The [validation record](Docs/TRANSPORT_STREAMS.md) covers eight copy-only preparation checks, four Apple TV output cases and two subsequent embedded-PGS cases after fixing timing, canvas lookup and missing-language metadata. HDR without subtitles is assessed separately.
-
-Follow up on FLAC channel-mask overrides that fMP4 does not currently preserve. Keep those cases behind explicit conversion approval until their original layout can be retained and verified. Do not reinterpret surround channels to make a test pass.
-
-The first capture attempt supplied no initial frame until a separate known-good playback diagnostic restored capture output. The later format batch passed unchanged. Investigate this inactive-receiver startup condition separately; do not weaken source verification or treat a ready session as proof of visible output.
-
-## Subtitles: delivered scope and remaining work
-
-- External PGS `.sup` and VobSub `.idx`/`.sub` are complete for 0.12.5. [PGS](Docs/EXTERNAL_PGS.md) and [VobSub](Docs/EXTERNAL_VOBSUB.md) have separate local and captured Apple TV evidence. The VobSub record distinguishes automatic results from the visual review that confirmed a subtitle missed by the classifier. A brief HLS visibility gap immediately after seeking remains.
-- Additional text subtitle formats. Check timing and styling individually; evaluate TTML/IMSC1 separately.
-
-OCR and conversion to selectable text are separate from original audio/video passthrough. Never burn subtitles into the picture, upload them for recognition or modify the source files.
-
-## Later
-
-- Reliable title and artwork on the iPhone Lock Screen. Working remote control takes priority.
-- DVB and XSUB subtitle OCR with suitable samples.
-
-Apple Shortcuts is deferred as described above. Finder Quick Actions and Services
-remain outside that feature's scope.
-
-AV1 passthrough remains research only. A device decoder does not establish support in its AirPlay video receiver.
-
-## In progress: faster playback startup
-
-Authorized on 11 September 2026, after the maintainer readiness checkpoint. Delivery is split into two phases: local implementation and preparation first, then Apple TV tests and publication. The [candidate record](Docs/STARTUP_OPTIMIZATION.md) tracks the baseline, changes, measurements and remaining checks. No version or installed app changes in phase 1.
-
-Phase 1 is locally complete. The candidate changes only HLS preparation: bounded reuse of finalized video/audio, parallel text extraction, event-driven process completion and cancellation of a redundant source-demand scan. The strict gate passed, and 40 short-fixture preparations preserve baseline output byte for byte. Phase 2 also passed the strict gate and 32 comparisons using a 2.218 GB input: warm reuse saves about 0.75 seconds of local preparation, while first admission adds about 0.03 to 0.05 seconds compared with the baseline. The report records CPU, sampled memory, disk use and measurement limits.
-
-The first HLS optimization is accepted for 0.13.0. The final gate and seven-phase cache batch passed: cold preparation, warm replay, subtitle replacement, alternate original audio, subtitle delay, original audio restored, and subtitles off. Every phase kept the manual audio offset at zero and passed receiver controls, immutable-media checks, sampled output and cleanup. Native Storage was checked in English and Spanish, with the original language and settings restored. Distribution and update verification follow the separate release procedure. Direct MP4 and bitmap OCR scheduling are unchanged. Apple TV startup gains are not established; end-to-end timing and slower external-storage measurements remain follow-up work, without promised gains.
-
-A confirmed pre-existing defect can discard manual audio timing adjustments in SDR HLS, independently of the cache. The maintainer approved deferring that repair from this delivery after the experimental correction failed Apple TV acceptance. The [audio-timing investigation](Docs/HLS_AUDIO_TIMING.md) retains the failure evidence and unresolved design questions. Any later repair must preserve original encoded media without silent conversion or truncation; it is not a completed optimization feature.
-
-The goal is to reduce the time from pressing Play to the first visible picture and audible content on Apple TV, while preserving original quality, selectable subtitles and reliable playback through the movie. Set numeric targets after measuring a baseline; do not promise a speed ranking without comparable evidence.
-
-### Establish the baseline
-
-- Measure the complete path with correlated, monotonic timings: file access, analysis, subtitle extraction and recognition, packaging, AirPlay connection, receiver loading and captured picture/audio. Record overlapping work so stage totals are not mistaken for elapsed time. Keep capture setup overhead separate.
-- Compare repeated cold and warm runs, with explicit cache and connection states, on the same media, Mac, receiver and network. Cover direct HDR/Dolby Vision and HLS separately, small and large files, text subtitles, PGS/VobSub, no subtitles, and local versus slower external storage.
-- Report individual runs, median and tail latency, preparation CPU/memory, temporary disk use and early buffering. First audio needs a known audible cue; a naturally silent movie opening is not a startup failure. A successful Play reply or moving Mac timer is not the endpoint.
-
-### Investigate and deliver in measured steps
-
-- Remove repeated probing, unnecessary process launches, redundant reads and waits on the critical path.
-- Evaluate bounded parallel work, preparation-cache reuse and invalidation, subtitle extraction/OCR scheduling and cancellation, disk I/O, HTTP delivery, receiver buffering and connection reuse. Avoid speculative background work and persistent services.
-- Profile the bundled FFmpeg and AirPlay components. Consider engine changes or upgrades only where measurements show a benefit, with reproducible builds and compatible behavior. A newer dependency is not an optimization by itself.
-- Consider larger preparation or streaming changes in a separate design review if they require changing the complete-VOD or packaging invariants. Preserve full duration, seeking, HDR/Dolby Vision, original audio and selectable subtitles; no silent conversion or quality reduction to shorten startup.
-
-Acceptance: reproduce before/after results against a pinned baseline and disclose both improvements and regressions. Validate each affected route and startup buffering, then the relevant seek, pause, cancellation and completion cases. Change one packager per delivery. Publish a readable performance report with the release notes; do not substitute synthetic microbenchmarks for end-to-end Apple TV measurements.
-
-## Distribution
-
-Playback engines stay pinned and bundled with the app. Dependency updates require a regenerated lock, import and packaging checks, and applicable hardware tests. Proposals that only change `requirements.in` are incomplete.
-
-Builds now report component sizes and enforce a 165 MB logical-file budget. Review unused Python development and GUI components before considering a smaller runtime, with measured savings and complete runtime checks. No trimming has been applied to the tested engine.
-
-The incomplete protobuf and zeroconf proposals (#5 and #6) were closed without
-merging on 22 September 2026. Both changed only `requirements.in`; their CI failed
-the lock reproducibility check. Their failure is not evidence that the shipped
-runtime is broken. A future engine update still needs the complete validation
-above; no dependency or security-alert setting was changed by this cleanup.
-
-Developer ID and notarization are blocked until an Apple Developer Program membership is available. Sparkle signatures do not replace notarization.
+Keep the 165 MB logical bundle budget. Runtime trimming needs measured savings
+and complete checks. The [on-demand playback runner](Docs/PLAYBACK_CHECKS.md)
+provides sampled digital output, control and cleanup evidence without a permanent
+service. Use only the authorized Apple TV screen/audio source.
 
 ## Boundaries
 
-No analytics, cloud library, permanent server, background indexing or silent conversion. Do not upload movies or bitmap subtitles for recognition. Preserve original files and keep direct MP4 and HLS/fMP4 packaging changes in separate deliveries.
-
-Completed work belongs in the [changelog](CHANGELOG.md); validation belongs in [TESTING.md](TESTING.md).
+No analytics, cloud library, permanent server, background indexing or silent
+conversion. Preserve originals. Keep credentials and private media out of Git.
+Publication, update and rollback follow [Distribution](DISTRIBUTION.md).

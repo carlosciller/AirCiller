@@ -355,11 +355,28 @@ struct RecentMediaItem: Codable, Identifiable, Hashable {
     var progress: Double { duration > 0 ? min(max(lastPosition / duration, 0), 1) : 0 }
 }
 
-struct QueueMediaItem: Codable, Identifiable, Hashable, Sendable {
+struct SeasonFolder: Codable, Identifiable, Hashable, Sendable {
     var id: String { path }
     let path: String
-    let title: String
+    var title: String
+    var isExpanded: Bool
+}
+
+struct QueueMediaItem: Codable, Identifiable, Hashable, Sendable {
+    var id: String { path }
+    var path: String
+    var title: String
+    var seasonID: String? = nil
+    var lastPosition: Double? = nil
+    var duration: Double? = nil
+    var watched: Bool? = nil
     var url: URL { URL(fileURLWithPath: path) }
+    var progress: Double {
+        guard let duration, duration.isFinite, duration > 0,
+            let lastPosition, lastPosition.isFinite
+        else { return 0 }
+        return min(max(lastPosition / duration, 0), 1)
+    }
 }
 
 enum QueueOrdering {
