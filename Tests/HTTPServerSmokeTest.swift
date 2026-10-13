@@ -208,11 +208,14 @@ struct HTTPServerSmokeTest {
             throw NSError(domain: "HTTPServerSmokeTest.TelemetryAddress", code: 17)
         }
         let includedRecorder = TelemetryRecorder()
+        let completionGate = DeferredCompletionPublication()
+        defer { completionGate.release() }
         let measuredServer = LocalHTTPServer(
             rootDirectory: directory,
             telemetryClientAddress: localAddress,
             allowsLoopbackAddress: true,
             telemetryHandler: { telemetry in
+                completionGate.holdFirstCompletion(telemetry)
                 includedRecorder.record(telemetry)
             }
         )
@@ -220,13 +223,28 @@ struct HTTPServerSmokeTest {
         let (measuredData, _) = try await session.data(
             from: measuredBaseURL.appendingPathComponent("segment.m4s")
         )
+        guard completionGate.waitUntilHeld() else {
+            throw NSError(domain: "HTTPServerSmokeTest.CompletionNotDeferred", code: 20)
+        }
+        guard includedRecorder.snapshot.completedTransfers == 0 else {
+            throw NSError(domain: "HTTPServerSmokeTest.CompletionPublishedEarly", code: 21)
+        }
+        completionGate.release()
+        // Receiving the body does not order the server's contentProcessed callback.
+        // Observe completion before stopping, which cancels outstanding transfers.
+        let measuredTelemetry = try await includedRecorder.waitForCompletion()
         measuredServer.stop()
         guard measuredData == segment,
-            includedRecorder.snapshot.hasConfirmedMediaRequest,
-            includedRecorder.snapshot.totalBytesSent == Int64(segment.count),
-            includedRecorder.snapshot.completedTransfers == 1
+            measuredTelemetry.hasConfirmedMediaRequest,
+            measuredTelemetry.totalBytesSent == Int64(segment.count),
+            measuredTelemetry.completedTransfers == 1
         else {
-            throw NSError(domain: "HTTPServerSmokeTest.TelemetryInclude", code: 18)
+            throw NSError(
+                domain: "HTTPServerSmokeTest.TelemetryInclude", code: 18,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "dataMatches=\(measuredData == segment), telemetry=\(measuredTelemetry)"
+                ])
         }
 
         print(
@@ -497,6 +515,28 @@ struct HTTPServerSmokeTest {
     }
 }
 
+/// Forces client receipt to precede publication of the final server snapshot.
+private final class DeferredCompletionPublication: @unchecked Sendable {
+    private let lock = NSLock()
+    private var held = false
+    private let didHold = DispatchSemaphore(value: 0)
+    private let mayPublish = DispatchSemaphore(value: 0)
+
+    func holdFirstCompletion(_ telemetry: HTTPServerTelemetry) {
+        guard telemetry.completedTransfers > 0 else { return }
+        lock.lock()
+        let shouldHold = !held
+        held = true
+        lock.unlock()
+        guard shouldHold else { return }
+        didHold.signal()
+        _ = mayPublish.wait(timeout: .now() + 10)
+    }
+
+    func waitUntilHeld() -> Bool { didHold.wait(timeout: .now() + 2) == .success }
+    func release() { mayPublish.signal() }
+}
+
 private final class TelemetryRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var value = HTTPServerTelemetry.empty
@@ -511,5 +551,20 @@ private final class TelemetryRecorder: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         return value
+    }
+
+    func waitForCompletion() async throws -> HTTPServerTelemetry {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        while true {
+            try Task.checkCancellation()
+            let current = snapshot
+            if current.completedTransfers > 0 { return current }
+            guard ContinuousClock.now < deadline else {
+                throw NSError(
+                    domain: "HTTPServerSmokeTest.CompletionTimeout", code: 22,
+                    userInfo: [NSLocalizedDescriptionKey: String(describing: current)])
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
     }
 }
