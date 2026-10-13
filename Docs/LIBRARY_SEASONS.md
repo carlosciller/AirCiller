@@ -1,7 +1,8 @@
 # Library admission and season folders
 
-Development candidate, 13 October 2026. Scoped acceptance is complete. The installed
-application is unchanged; this work has not been published.
+Validation record for 0.15.0, 13 October 2026. Scoped candidate acceptance is
+complete. The installed application was preserved during these checks.
+Release and update steps follow [Distribution](../DISTRIBUTION.md).
 
 ## Behavior
 
