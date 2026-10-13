@@ -4,16 +4,15 @@ AirCiller should stay quick to open and dependable through a whole movie. This i
 the order of work, not a release schedule. Completed changes are in the
 [release notes](CHANGELOG.md); detailed evidence belongs in [Testing](TESTING.md).
 
-## Ready for release: library and seasons
+## 0.15.0: library and seasons
 
 0.15.0 adds season folders, natural episode order, watched status, saved progress
 and native reordering. Movies enter Playlist before analysis; adding files keeps
 an active session running. Imports are cancellable and report rejected inputs.
 
-Local tests, native interactions and scoped Apple TV checks have passed.
-Publication and installation are being completed separately. The
-[library record](Docs/LIBRARY_SEASONS.md) identifies tested behavior and limits.
-Both video packagers and bundled engines are unchanged.
+The [library record](Docs/LIBRARY_SEASONS.md) identifies tested behavior and limits.
+Both video packagers and bundled engines are unchanged. Release and update steps
+follow [Distribution](DISTRIBUTION.md).
 
 ## Next repairs
 
