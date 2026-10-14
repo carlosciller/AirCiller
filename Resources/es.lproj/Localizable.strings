@@ -715,3 +715,14 @@
 "%@: formato no compatible" = "%@: formato no compatible";
 "%@: no se pudo leer la carpeta o no contiene vídeos compatibles" = "%@: no se pudo leer la carpeta o no contiene vídeos compatibles";
 "Detalles de importación" = "Detalles de importación";
+"Convertir PCM a FLAC sin pérdida" = "Convertir PCM a FLAC sin pérdida";
+"Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero." = "Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero.";
+"Audio · conversión elegida de PCM a FLAC sin pérdida" = "Audio · conversión elegida de PCM a FLAC sin pérdida";
+"Esta pista no admite conversión PCM a FLAC sin pérdida." = "Esta pista no admite conversión PCM a FLAC sin pérdida.";
+"Conversión de audio no disponible" = "Conversión de audio no disponible";
+"La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio." = "La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio.";
+"VOD completo · %@ · vídeo intacto · audio convertido a FLAC sin pérdida." = "VOD completo · %@ · vídeo intacto · audio convertido a FLAC sin pérdida.";
+"No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía." = "No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía.";
+"El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán." = "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán.";
+"Ocultar audio y subtítulos" = "Ocultar audio y subtítulos";
+"Mostrar audio y subtítulos" = "Mostrar audio y subtítulos";

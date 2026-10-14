@@ -8,6 +8,7 @@ final class PlaybackCheckScenarioRunner {
     private var loads: [Int] = []
     private var playlistPaths: [String] = []
     private var overflowed = false
+    private var requestedAudioOutput: AudioOutputMode = .original
     private let began = ProcessInfo.processInfo.systemUptime
     private var now: Double { ProcessInfo.processInfo.systemUptime }
     private var step = "scenario_setup" {
@@ -78,7 +79,9 @@ final class PlaybackCheckScenarioRunner {
             try await wait(seconds: 40) { self.coordinator.probeInfo != nil && self.coordinator.network.isReady }
             guard let probe = coordinator.probeInfo, (45...180).contains(probe.duration),
                 ["h264", "hevc"].contains(probe.videoCodec.lowercased()),
-                coordinator.selectedAudio?.canPassThrough == true,
+                clip.audioOutput == .losslessFLAC
+                    ? coordinator.selectedAudio?.canPrepareLosslessFLAC == true
+                    : coordinator.selectedAudio?.canPassThrough == true,
                 clip.route == .directHDR ? probe.isHDR : !probe.isHDR
             else { throw PlaybackCheckFailure.unsupportedFixture }
             coordinator.selectedSubtitleID = nil
@@ -87,9 +90,14 @@ final class PlaybackCheckScenarioRunner {
             {
                 coordinator.selectedSubtitleID = subtitle.id
             }
-            coordinator.audioOutputMode = .original
+            requestedAudioOutput = clip.audioOutput == .losslessFLAC ? .losslessFLAC : .original
+            coordinator.audioOutputMode = requestedAudioOutput
             if [.trackChanges, .hlsCacheReuse].contains(profile), clip.route == .hls {
-                guard coordinator.audioTracks.count == 2, coordinator.audioTracks.allSatisfy(\.canPassThrough) else {
+                guard coordinator.audioTracks.count == 2,
+                    coordinator.audioTracks.allSatisfy({
+                        requestedAudioOutput == .losslessFLAC ? $0.canPrepareLosslessFLAC : $0.canPassThrough
+                    })
+                else {
                     throw PlaybackCheckFailure.unsupportedFixture
                 }
                 coordinator.selectedAudioID = coordinator.audioTracks[0].id
@@ -180,7 +188,10 @@ final class PlaybackCheckScenarioRunner {
         guard let directory = coordinator.activePreparedDirectory,
             FileManager.default.fileExists(
                 atPath: directory.appendingPathComponent(route == .directHDR ? "movie.mp4" : "master.m3u8").path),
-            coordinator.audioOutputMode == .original, coordinator.selectedAudio?.canPassThrough == true
+            coordinator.audioOutputMode == requestedAudioOutput,
+            requestedAudioOutput == .losslessFLAC
+                ? coordinator.selectedAudio?.canPrepareLosslessFLAC == true
+                : coordinator.selectedAudio?.canPassThrough == true
         else {
             throw PlaybackCheckFailure.unsupportedFixture
         }
@@ -195,7 +206,8 @@ final class PlaybackCheckScenarioRunner {
         let start = now
         // Cache transitions need more sampling time on a busy capture source;
         // the offline frame, audio and cue requirements remain unchanged.
-        let duration = result.profile.stableObservationSeconds
+        let duration = result.profile.stableObservationSeconds(
+            audioOutput: requestedAudioOutput == .losslessFLAC ? .losslessFLAC : .original)
         try await wait(seconds: duration + 2, after: marker, allowStopped: true) { self.now - start >= duration }
         guard coordinator.isPlaying, coordinator.isStreaming else { throw PlaybackCheckFailure.receiverMismatch }
         result.outputWindows.append(PlaybackCheckOutputWindow(label: label, startedAtUptime: start, endedAtUptime: now))

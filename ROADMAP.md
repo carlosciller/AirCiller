@@ -51,6 +51,14 @@ effort. Keep implementation/preparation and final tests/publication separate.
 
 ## Compatibility research
 
+- **PCM/LPCM:** the 0.16.0 HLS candidate offers explicit lossless FLAC
+  conversion for known integer precision and native layouts. Local media, UI,
+  receiver controls and selected digital-output checks passed. SDR preserves
+  the source clock with separate audio; HDR without subtitles stays multiplexed.
+  Publication/installation are a separate phase. Direct HDR/subtitle MP4 remains
+  outside this first expansion.
+  [Investigation and matrix](Docs/AUDIO_EXPANSION.md).
+
 - **FLAC layouts:** retain channel-mask overrides that fMP4 currently changes.
   Require representative samples and receiver output before widening passthrough.
   Do not relabel speakers. [Current support](Docs/FLAC_AUDIO.md).

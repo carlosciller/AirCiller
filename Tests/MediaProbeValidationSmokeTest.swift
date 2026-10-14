@@ -41,6 +41,25 @@ struct MediaProbeValidationSmokeTest {
                 guard !accepted else { throw Failure.rejectedValidData }
             }
         }
+        for (fields, precision, eligible) in [
+            ("\"sample_fmt\":\"s16\",\"bits_per_sample\":0", Int?.some(16), true),
+            ("\"sample_fmt\":\"s32\",\"bits_per_raw_sample\":\"24\"", Int?.some(24), true),
+            ("\"sample_fmt\":\"s32\",\"bits_per_raw_sample\":\"20\"", Int?.some(20), false),
+            ("\"sample_fmt\":\"s32\",\"bits_per_sample\":0", Int?.none, false),
+        ] {
+            let json = """
+                {"streams":[{"index":0,"codec_type":"video","codec_name":"h264"},
+                {"index":1,"codec_type":"audio","codec_name":"pcm_bluray",
+                "sample_rate":"48000","channels":2,"channel_layout":"stereo",\(fields)}],
+                "format":{"duration":"8"}}
+                """
+            try "#!/bin/sh\nprintf '%s' '\(json)'\n".write(to: fixture, atomically: true, encoding: .utf8)
+            let probe = try await MediaProbeService.probe(url: movie, ffprobeURL: fixture)
+            guard let audio = probe.audioTracks.first, audio.sampleRate == 48_000,
+                audio.bitsPerSample == precision, audio.canPrepareLosslessFLAC == eligible
+            else { throw Failure.acceptedInvalidData }
+        }
+        print("Blu-ray PCM precision: explicit raw bits, decoder-specific signed16, no s32 inference: OK")
         print("Invalid media durations are rejected; invalid chapters are ignored: OK")
         print("Transport streams require one program and a finite duration: OK")
     }

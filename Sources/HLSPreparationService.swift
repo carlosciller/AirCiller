@@ -29,11 +29,17 @@ enum HLSPreparationService {
         observer: @escaping Observer = { _ in }
     ) async throws -> HLSPreparationResult {
         try Task.checkCancellation()
+        guard outputMode.isAvailable(audio: audio, isDirectMP4: probe.isHDR && subtitle != nil),
+            outputMode != .losslessFLAC || (audioDelay.isFinite && abs(audioDelay) < 0.001)
+        else {
+            throw AirCillerError.probeFailed(L10n.text("Esta pista no admite conversión PCM a FLAC sin pérdida."))
+        }
         let multiplexed = probe.isHDR
         let key = try? PreparedMediaCache.makeKey(
             source: input, probe: probe, audio: audio, outputMode: outputMode,
             audioDelay: audioDelay, multiplexed: multiplexed,
-            engineVersion: "hls-base-v1", engineURL: ffmpegURL
+            engineVersion: outputMode == .losslessFLAC ? "hls-pcm-source-clock-v2" : "hls-base-v1",
+            engineURL: ffmpegURL
         )
 
         // The immutable video/audio package and text extraction are independent.

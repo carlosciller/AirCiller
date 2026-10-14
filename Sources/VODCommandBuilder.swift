@@ -17,6 +17,10 @@ enum VODCommandBuilder {
         ]
 
         var audioInputIndex = 0
+        if outputMode == .losslessFLAC {
+            // A conversion advertised as lossless must not conceal decoder errors.
+            arguments.insert(contentsOf: ["-xerror", "-err_detect", "explode"], at: 1)
+        }
         if audio != nil, abs(audioDelay) >= 0.001 {
             arguments += ["-itsoffset", String(format: "%.3f", audioDelay)]
             arguments += ["-fflags", "+genpts", "-i", input.path]
@@ -42,12 +46,15 @@ enum VODCommandBuilder {
             segmentPattern: outputDirectory.appendingPathComponent("video-%08d.m4s").path,
             initializationFile: "video-init.mp4",
             playlistPath: outputDirectory.appendingPathComponent("video.m3u8").path,
-            independentSegments: true
+            independentSegments: true,
+            preserveSourceTimestamps: outputMode == .losslessFLAC
         )
 
         if let audio {
             arguments += ["-map", "\(audioInputIndex):\(audio.streamIndex)", "-vn", "-sn", "-dn"]
             switch outputMode {
+            case .losslessFLAC:
+                arguments += ["-c:a", "flac"]
             case .original:
                 arguments += ["-c:a", "copy"]
                 if audio.codec.lowercased() == "aac" {
@@ -68,7 +75,8 @@ enum VODCommandBuilder {
                 segmentPattern: outputDirectory.appendingPathComponent("audio-%08d.m4s").path,
                 initializationFile: "audio-init.mp4",
                 playlistPath: outputDirectory.appendingPathComponent("audio.m3u8").path,
-                independentSegments: false
+                independentSegments: false,
+                preserveSourceTimestamps: outputMode == .losslessFLAC
             )
         }
         return arguments
@@ -93,6 +101,9 @@ enum VODCommandBuilder {
         ]
 
         var audioInputIndex = 0
+        if outputMode == .losslessFLAC {
+            arguments.insert(contentsOf: ["-xerror", "-err_detect", "explode"], at: 1)
+        }
         if audio != nil, abs(audioDelay) >= 0.001 {
             arguments += ["-itsoffset", String(format: "%.3f", audioDelay)]
             arguments += ["-fflags", "+genpts", "-i", input.path]
@@ -118,6 +129,8 @@ enum VODCommandBuilder {
 
         if let audio {
             switch outputMode {
+            case .losslessFLAC:
+                arguments += ["-c:a", "flac"]
             case .original:
                 arguments += ["-c:a", "copy"]
                 if audio.codec.lowercased() == "aac" {
@@ -146,12 +159,13 @@ enum VODCommandBuilder {
         segmentPattern: String,
         initializationFile: String,
         playlistPath: String,
-        independentSegments: Bool
+        independentSegments: Bool,
+        preserveSourceTimestamps: Bool = false
     ) -> [String] {
         var flags = "temp_file"
         if independentSegments { flags += "+independent_segments" }
         return [
-            "-avoid_negative_ts", "make_zero",
+            "-avoid_negative_ts", preserveSourceTimestamps ? "disabled" : "make_zero",
             "-max_muxing_queue_size", "4096",
             "-f", "hls",
             "-hls_segment_type", "fmp4",
@@ -227,7 +241,9 @@ enum DirectFileCommandBuilder {
 
         if let audio {
             switch outputMode {
-            case .original:
+            case .original, .losslessFLAC:
+                // The coordinator rejects losslessFLAC on direct MP4. This
+                // independent packager never gains a new conversion path.
                 arguments += ["-c:a", "copy"]
             case .compatible:
                 arguments += ["-c:a", "eac3", "-b:a", "640k"]

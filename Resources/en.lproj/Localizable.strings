@@ -715,3 +715,14 @@
 "%@: formato no compatible" = "%@: unsupported format";
 "%@: no se pudo leer la carpeta o no contiene vídeos compatibles" = "%@: the folder could not be read or contains no supported videos";
 "Detalles de importación" = "Import Details";
+"Convertir PCM a FLAC sin pérdida" = "Convert PCM to lossless FLAC";
+"Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero." = "Converts PCM to FLAC while preserving samples, sample rate and channels. The codec changes; this is not original audio. Available in HLS only, with manual audio timing set to zero.";
+"Audio · conversión elegida de PCM a FLAC sin pérdida" = "Audio · selected PCM-to-lossless-FLAC conversion";
+"Esta pista no admite conversión PCM a FLAC sin pérdida." = "This track cannot be converted from PCM to lossless FLAC.";
+"Conversión de audio no disponible" = "Audio conversion unavailable";
+"La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio." = "PCM-to-FLAC conversion requires known precision and channels and the HLS route. Choose another audio output.";
+"VOD completo · %@ · vídeo intacto · audio convertido a FLAC sin pérdida." = "Complete VOD · %@ · unchanged video · audio converted to lossless FLAC.";
+"No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía." = "This audio output cannot be applied. Choose another format or reset audio timing.";
+"El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán." = "Original PCM delivery has not been validated on this AirCiller route. E-AC-3 adds loss. To preserve the samples, cancel and choose lossless FLAC in the audio options, if available. The video and original file will not change.";
+"Ocultar audio y subtítulos" = "Hide audio and subtitles";
+"Mostrar audio y subtítulos" = "Show audio and subtitles";
