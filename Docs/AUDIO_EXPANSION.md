@@ -522,8 +522,29 @@ and remote-command implementation remain unchanged from the released baseline.
 Earlier physical remote and natural-end evidence is retained for those unchanged
 boundaries; new digital checks do not certify physical remote interactions.
 
-The fresh PCM/WebVTT long-pause run is pending. Publication, exact-commit GitHub
-CI, signed-feed verification and an isolated updater check remain separate gates.
+Two fresh PCM/WebVTT long-pause runs retained the same session for six minutes,
+resumed at second 15 without reload, and confirmed stop/cleanup. The first,
+`capture-run-fwsnfe4n`, used the multitone 7.1 fixture against a scenario expecting
+880 Hz. Its tone verdict is inconclusive, not a playback failure or a pass.
+The corrected run, `capture-run-qtist906`, used the dual-track stereo fixture.
+Its resumed window observed eight frames, visible cues, motion and twenty
+matching 880 Hz audio measurements. The initial five-second capture window had
+insufficient frames, so the whole raw report remains inconclusive.
+
+Initial-output evidence is carried from `capture-run-4dibypx7`: twelve frames,
+visible cues and thirty-two matching 880 Hz measurements on the identical source
+SHA-256 `a73d39ed10a9125455fbca4f24eada3a68510f5698ec1ef01e8c0ca6d1d531d3`.
+Production playback sources and pinned engines are unchanged between these runs;
+release metadata and the test-only long-pause admission are the only differences.
+Acceptance combines that established initial output with the new same-session
+six-minute hold and fully observed resumed output. Neither inconclusive report
+is relabeled as a complete batch pass. Physical remote and speaker limitations
+remain as stated above.
+
+The archive and signed feed verify with Sparkle's official tools. Applying the
+63-to-64 delta to the downloaded public 0.15.0 reconstructs a strictly verified
+0.16.0 bundle with identical file contents and symlinks (mtime differences only).
+Exact-commit GitHub CI and an isolated updater check are separate release gates.
 The daily-use installed app has not been replaced.
 
 ## Primary references
