@@ -797,6 +797,8 @@ enum SubtitleService {
         }
         if audio != nil {
             switch audioOutputMode {
+            case .losslessFLAC:
+                values.append("fLaC")
             case .compatible:
                 values.append("ec-3")
             case .stereo:
@@ -840,6 +842,8 @@ enum SubtitleService {
 
     private static func audioChannels(audio: AudioTrack, outputMode: AudioOutputMode) -> String {
         switch outputMode {
+        case .losslessFLAC:
+            return String(audio.channels ?? 0)
         case .stereo:
             return "2"
         case .compatible:

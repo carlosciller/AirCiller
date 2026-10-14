@@ -102,6 +102,10 @@ compile_and_run track-settings \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/TrackSettings.swift" \
   "$project_dir/Tests/TrackSettingsSmokeTest.swift"
+compile_and_run pcm-audio-eligibility \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Tests/PCMAudioEligibilitySmokeTest.swift"
 compile_and_run playback-check-model \
   "$project_dir/Sources/MediaFileTypes.swift" \
   "$project_dir/Sources/PlaybackStartupTrace.swift" \

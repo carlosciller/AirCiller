@@ -16,6 +16,23 @@ import playback_capture as capture
 
 
 class CaptureWorkflowTests(unittest.TestCase):
+    def test_pcm_scenario_override_requires_explicit_conversion(self):
+        config = dict(self.config, cases=['hlsTrackChanges'],
+                      fixtureOverrides={'hlsTrackChanges': str(self.fixture)},
+                      losslessPCMCases=['hlsTrackChanges'])
+        self.assertEqual(capture.validate_config(config), ['hlsTrackChanges'])
+        with self.assertRaises(capture.CaptureError):
+            capture.validate_config(dict(config, losslessPCMCases=[]))
+
+    def test_pcm_conversion_requires_bounded_explicit_override(self):
+        self.setUpPCMConfig = dict(self.config, cases=['hlsNoSubtitles'],
+                                 fixtureOverrides={'hlsNoSubtitles': str(self.fixture)},
+                                 losslessPCMCases=['hlsNoSubtitles'])
+        self.assertEqual(capture.validate_config(self.setUpPCMConfig), ['hlsNoSubtitles'])
+        for values in (['directHDR'], ['hlsNoSubtitles', 'hlsNoSubtitles'], [[]]):
+            with self.assertRaises(capture.CaptureError):
+                capture.validate_config(dict(self.setUpPCMConfig, losslessPCMCases=values))
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="airciller-capture-test-")
         self.root = Path(self.temporary.name)

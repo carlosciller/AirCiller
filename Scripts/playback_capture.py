@@ -72,7 +72,7 @@ def fingerprint(path):
 
 
 def validate_config(config):
-    allowed = {"version", "deviceID", "captureSource", "hdrFixture", "fixtureEncoder", "cases", "fixtureOverrides"}
+    allowed = {"version", "deviceID", "captureSource", "hdrFixture", "fixtureEncoder", "cases", "fixtureOverrides", "losslessPCMCases"}
     if not isinstance(config, dict) or set(config) - allowed or type(config.get("version")) is not int or config["version"] != 1:
         raise CaptureError("invalidCaptureConfiguration")
     source = config.get("captureSource")
@@ -86,10 +86,20 @@ def validate_config(config):
             or any(not isinstance(case, str) or case not in CASES for case in cases) or len(set(cases)) != len(cases)):
         raise CaptureError("invalidCaptureCases")
     overrides = config.get("fixtureOverrides", {})
-    if not isinstance(overrides, dict) or any(c not in CONTROL_CASES or c not in cases for c in overrides):
+    pcm_scenarios = {'hlsTrackChanges', 'cancelPreparation', 'hlsLongPause'}
+    if not isinstance(overrides, dict) or any(
+            c not in (*CONTROL_CASES, *pcm_scenarios) or c not in cases for c in overrides):
         raise CaptureError("invalidFixtureOverrides")
     for value in overrides.values():
         validate_movie_path(value)
+    pcm_cases = config.get("losslessPCMCases", [])
+    if (not isinstance(pcm_cases, list) or any(not isinstance(c, str) for c in pcm_cases)
+            or len(set(pcm_cases)) != len(pcm_cases)
+            or any(c not in {"hlsSubtitles", "hlsNoSubtitles", "hlsHDRNoSubtitles", *pcm_scenarios}
+                   or c not in cases or c not in overrides for c in pcm_cases)):
+        raise CaptureError("invalidPCMConversionCases")
+    if any(c in pcm_scenarios and c not in pcm_cases for c in overrides):
+        raise CaptureError("unapprovedPCMScenarioOverride")
     generated_cases = [case for case in cases if case not in overrides]
     for key, needed in [("hdrFixture", needs_hdr(generated_cases)), ("fixtureEncoder", needs_hls(generated_cases))]:
         value = config.get(key)
@@ -212,7 +222,7 @@ def capture_readiness_guidance(diagnostic):
             "No fixture preparation or playback was started. This does not identify a movie-format failure.")
 
 
-def probe_fixture(path, ffmpeg, ffprobe, hdr):
+def probe_fixture(path, ffmpeg, ffprobe, hdr, lossless_pcm=False):
     try:
         local_input = ["-protocol_whitelist", "file,pipe", "-format_whitelist", "mov,matroska,mpegts"]
         probe = json.loads(bounded_command([ffprobe, "-v", "error", *local_input, "-show_streams", "-show_format",
@@ -228,7 +238,12 @@ def probe_fixture(path, ffmpeg, ffprobe, hdr):
         if not math.isfinite(duration) or not 45 <= duration <= 180 or video.get("codec_name") not in {"h264", "hevc"} or is_hdr != hdr or not audio:
             raise CaptureError("unsupportedFixture")
         selected = next((a for a in audio if a.get("disposition", {}).get("default")), audio[0])
-        if selected.get("codec_name") not in {"aac", "ac3", "eac3", "flac"} or selected.get("channels", 0) < 2:
+        eligible = selected.get("codec_name") in {"aac", "ac3", "eac3", "flac"}
+        if lossless_pcm:
+            eligible = selected.get("codec_name") in {"pcm_s16le", "pcm_s16be", "pcm_s24le", "pcm_s24be", "pcm_bluray"}
+            layouts = {1: "mono", 2: "stereo", 6: "5.1(side)", 8: "7.1"}
+            eligible = eligible and layouts.get(selected.get("channels")) == selected.get("channel_layout")
+        if not eligible or selected.get("channels", 0) < (1 if lossless_pcm else 2):
             raise CaptureError("unsupportedFixtureAudio")
         # Check the intervals used by the control test, including its 15-second seek.
         for start in (1, 15):
@@ -253,7 +268,8 @@ def prepare_fixtures(config, cases, project, directory):
     cases = [case for case in cases if case not in overrides]
     for name, value in overrides.items():
         path = Path(value).resolve()
-        fixtures[name] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=CASE_INFO[name][1] != "hls"))
+        fixtures[name] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=CASE_INFO[name][1] != "hls",
+                                             lossless_pcm=name in config.get("losslessPCMCases", [])))
     if needs_hdr(cases):
         path = Path(config["hdrFixture"]).resolve()
         fixtures["directHDR"] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=True))
@@ -465,6 +481,8 @@ def run_case(name, config, fixture, project, directory, candidate_hash):
     ready, stop = directory / "capture.ready", directory / "capture.stop"
     token = f"{secrets.randbelow(1_000_000):06d}"
     clip = {"path": str(fixture[0]), "route": CASE_INFO[name][1]}
+    if name in config.get("losslessPCMCases", []):
+        clip["audioOutput"] = "losslessFLAC"
     if name not in {"hlsNoSubtitles", "hlsHDRNoSubtitles"}:
         subtitle = directory / "cue.eng.srt"
         write_cues(subtitle, token)

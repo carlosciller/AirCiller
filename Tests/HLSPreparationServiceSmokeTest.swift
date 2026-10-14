@@ -11,6 +11,8 @@ struct HLSPreparationServiceSmokeTest {
         defer { try? FileManager.default.removeItem(at: root) }
 
         try await verifyCancellation(root: root)
+        try await verifyLosslessPolicy(root: root)
+        try await verifyLosslessCancellation(root: root)
         try await verifySiblingFailure(root: root, failure: "subtitle")
         try await verifySiblingFailure(root: root, failure: "video")
         try await verifyLaunchFailure(root: root)
@@ -18,6 +20,54 @@ struct HLSPreparationServiceSmokeTest {
         print(
             "HLS preparation ownership: cancellation, sibling failures, process join, cache space pressure and no late progress: OK"
         )
+    }
+
+    @MainActor
+    private static func verifyLosslessPolicy(root: URL) async throws {
+        let directory = try makeDirectory(root, "pcm-policy")
+        let fixture = try makeFixture(directory, failure: "none")
+        let valid = AudioTrack(
+            streamIndex: 1, codec: "pcm_s24le", profile: nil, channels: 2, channelLayout: "stereo",
+            language: nil, title: nil, isDefault: true, sampleRate: 48_000, bitsPerSample: 24)
+        var unknown = valid
+        unknown.bitsPerSample = nil
+        for (audio, delay) in [(AudioTrack?.none, 0.0), (unknown, 0.0), (valid, 0.5)] {
+            let record = Events()
+            do {
+                _ = try await HLSPreparationService.prepare(
+                    input: fixture.source, probe: fixtureProbe(), audio: audio, outputMode: .losslessFLAC,
+                    audioDelay: delay, subtitle: nil, subtitleDelay: 0, outputDirectory: directory,
+                    ffmpegURL: fixture.helper, observer: { event in record.receive(event) })
+                throw Failure.acceptedFailedPreparation
+            } catch AirCillerError.probeFailed {}
+            guard record.eventCount == 0,
+                !FileManager.default.fileExists(atPath: directory.appendingPathComponent("video.pid").path)
+            else { throw Failure.branchDidNotStart }
+        }
+    }
+
+    @MainActor
+    private static func verifyLosslessCancellation(root: URL) async throws {
+        let directory = try makeDirectory(root, "pcm-cancel")
+        let fixture = try makeFixture(directory, failure: "none")
+        let record = Events()
+        let audio = AudioTrack(
+            streamIndex: 1, codec: "pcm_s24le", profile: nil, channels: 2, channelLayout: "stereo",
+            language: nil, title: nil, isDefault: true, sampleRate: 48_000, bitsPerSample: 24)
+        let task = Task {
+            try await HLSPreparationService.prepare(
+                input: fixture.source, probe: fixtureProbe(), audio: audio, outputMode: .losslessFLAC,
+                audioDelay: 0, subtitle: nil, subtitleDelay: 0, outputDirectory: directory,
+                ffmpegURL: fixture.helper, observer: { event in record.receive(event) })
+        }
+        defer { task.cancel() }
+        try await waitForFile(directory.appendingPathComponent("video.pid"))
+        task.cancel()
+        do {
+            _ = try await task.value
+            throw Failure.acceptedCancelledPreparation
+        } catch is CancellationError {}
+        try await verifyJoined(record, directory: directory, expectedProcesses: 1)
     }
 
     @MainActor

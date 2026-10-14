@@ -157,7 +157,9 @@ final class PlaybackCheckRunner {
             guard let probe = coordinator.probeInfo, (45...180).contains(probe.duration),
                 !subtitleSeek || probe.duration >= 100,
                 ["h264", "hevc"].contains(probe.videoCodec.lowercased()),
-                coordinator.selectedAudio?.canPassThrough == true,
+                clip.audioOutput == .losslessFLAC
+                    ? coordinator.selectedAudio?.canPrepareLosslessFLAC == true
+                    : coordinator.selectedAudio?.canPassThrough == true,
                 clip.route == .hls ? !probe.isHDR : probe.isHDR
             else { throw PlaybackCheckFailure.unsupportedFixture }
 
@@ -173,7 +175,7 @@ final class PlaybackCheckRunner {
                 }
                 coordinator.selectedSubtitleID = subtitle.id
             }
-            coordinator.audioOutputMode = .original
+            coordinator.audioOutputMode = clip.audioOutput == .losslessFLAC ? .losslessFLAC : .original
             result.completedSteps.append(step)
 
             step = "start_and_media_request"
@@ -196,6 +198,16 @@ final class PlaybackCheckRunner {
             }
             guard FileManager.default.fileExists(atPath: directory.appendingPathComponent(expectedFile).path) else {
                 throw PlaybackCheckFailure.unsupportedFixture
+            }
+            if clip.audioOutput == .losslessFLAC {
+                guard coordinator.audioOutputMode == .losslessFLAC, coordinator.audioDelay == 0 else {
+                    throw PlaybackCheckFailure.conversionRequested
+                }
+                if clip.route == .hls {
+                    let master = try String(contentsOf: directory.appendingPathComponent(expectedFile), encoding: .utf8)
+                    guard master.contains("fLaC") else { throw PlaybackCheckFailure.unsupportedFixture }
+                }
+                result.completedSteps.append("explicit_pcm_to_flac")
             }
             result.completedSteps.append(step)
             if clip.route != .directHDR {

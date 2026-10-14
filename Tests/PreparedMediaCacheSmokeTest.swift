@@ -45,6 +45,7 @@ struct PreparedMediaCacheSmokeTest {
         let changedKeys = try [
             makeKey(source, engine: engine, audioIndex: 2),
             makeKey(source, engine: engine, mode: .compatible),
+            makeKey(source, engine: engine, mode: .losslessFLAC),
             makeKey(source, engine: engine, delay: 0.5),
             makeKey(source, engine: engine, multiplexed: true),
             makeKey(source, engine: engine, version: "next-packager"),

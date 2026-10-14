@@ -4,11 +4,16 @@ import Foundation
 struct PlaybackCheckPlan: Decodable {
     enum Route: String, Codable { case directHDR, hls, hlsHDR }
     enum HLSCacheMode: String, Codable { case disabled, isolated }
+    enum AudioOutput: String, Decodable { case original, losslessFLAC }
     enum Profile: String, Codable {
         case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap, subtitleSeek
         case hlsCacheReuse
 
         var stableObservationSeconds: Double { self == .hlsCacheReuse ? 8 : 5 }
+
+        func stableObservationSeconds(audioOutput: AudioOutput?) -> Double {
+            self == .trackChanges && audioOutput == .losslessFLAC ? 8 : stableObservationSeconds
+        }
     }
 
     struct NextClip: Decodable {
@@ -24,6 +29,7 @@ struct PlaybackCheckPlan: Decodable {
         let alternateSubtitle: String?
         let nextClip: NextClip?
         let expectedCacheHit: Bool?
+        let audioOutput: AudioOutput?
 
         func validate() throws {
             guard path.hasPrefix("/"),
@@ -84,6 +90,13 @@ struct PlaybackCheckPlan: Decodable {
             else { throw PlaybackCheckFailure.invalidPlan }
         }
         for clip in plan.clips {
+            if clip.audioOutput == .losslessFLAC {
+                guard clip.route != .directHDR,
+                    [.controls, .trackChanges, .cancelPreparation, .longPause].contains(plan.selectedProfile)
+                else {
+                    throw PlaybackCheckFailure.invalidPlan
+                }
+            }
             if plan.selectedHLSCacheMode == .isolated {
                 guard clip.route != .directHDR,
                     [.controls, .hlsCacheReuse].contains(plan.selectedProfile)

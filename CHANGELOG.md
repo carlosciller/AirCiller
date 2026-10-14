@@ -2,6 +2,25 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.16.0 (14 October 2026)
+
+- Audio and subtitles open in the sidebar inspector by default. Hide or show
+  the panel with its toolbar button. Applying track changes leaves it open;
+  loading another movie refreshes its draft without applying stale selections.
+
+- Choose **Convert PCM to lossless FLAC** in the tracks panel's audio options
+  for integer PCM or Blu-ray LPCM at 16 or 24 bits, with known mono, stereo,
+  side-channel 5.1 or 7.1 layouts.
+  This changes the audio codec while retaining its samples, sample rate and
+  channels; it does not change the original movie or encode its video.
+- **Preserve original** remains the default. The new option is limited to HLS
+  and zero manual audio adjustment. It is unavailable for the direct HDR route
+  with subtitles, unknown layouts, rear-channel 5.1 and 20-bit LPCM.
+
+The bundled engines are unchanged. Selected Apple TV controls and digital-output
+checks passed; speaker layout and full-movie reliability have separate limits.
+[Audio preparation and validation](Docs/AUDIO_EXPANSION.md)
+
 ## 0.15.0 (13 October 2026)
 
 - Drop a season folder into Playlist or select it with **Add Movie…**. Expand its

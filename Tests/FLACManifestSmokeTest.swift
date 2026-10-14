@@ -32,14 +32,25 @@ struct FLACManifestSmokeTest {
                         subtitle: selectedSubtitle, outputDirectory: directory)
                     let master = try String(
                         contentsOf: directory.appendingPathComponent("master.m3u8"), encoding: .utf8)
-                    guard master.contains("fLaC") == (mode == .original),
+                    guard master.contains("fLaC") == (mode == .original || mode == .losslessFLAC),
                         master.contains("wvtt") == (selectedSubtitle != nil),
                         mode != .original || master.contains("CHANNELS=\"\(channels)\"")
                     else { throw Failure.invalidManifest }
                 }
             }
         }
-        print("Original FLAC codec identifier, channel count, subtitles and explicit conversions: OK")
+        let pcm = AudioTrack(
+            streamIndex: 1, codec: "pcm_s24le", profile: nil, channels: 8, channelLayout: "7.1",
+            language: "eng", title: nil, isDefault: true, sampleRate: 48_000, bitsPerSample: 24)
+        try SubtitleService.writeMasterPlaylist(
+            probe: probe, audio: pcm, audioOutputMode: .losslessFLAC,
+            subtitle: subtitle, outputDirectory: directory)
+        let embedded = try String(contentsOf: directory.appendingPathComponent("master.m3u8"), encoding: .utf8)
+        guard embedded.contains("fLaC"), embedded.contains("TYPE=AUDIO"),
+            embedded.contains("TYPE=SUBTITLES"), embedded.contains("CHANNELS=\"8\""),
+            embedded.contains("audio.m3u8")
+        else { throw Failure.invalidManifest }
+        print("Original and multiplexed FLAC codec identifiers, channel counts, subtitles and explicit conversions: OK")
     }
 
     private enum Failure: Error { case invalidManifest }

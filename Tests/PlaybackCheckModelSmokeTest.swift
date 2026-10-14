@@ -3,7 +3,39 @@ import Foundation
 @main
 struct PlaybackCheckModelSmokeTest {
     static func main() throws {
+        let pcmPlan =
+            #"{"version":1,"deviceID":"fixture","clips":[{"path":"/clip.mov","route":"hls","audioOutput":"losslessFLAC"}]}"#
+        let decodedPCM = try PlaybackCheckPlan.decode(Data(pcmPlan.utf8))
+        let pcmTrackPlan = pcmPlan.replacingOccurrences(
+            of: "\"deviceID\":\"fixture\"", with: "\"deviceID\":\"fixture\",\"profile\":\"trackChanges\""
+        ).replacingOccurrences(
+            of: "\"audioOutput\":\"losslessFLAC\"",
+            with:
+                "\"audioOutput\":\"losslessFLAC\",\"externalSubtitle\":\"/cue.srt\",\"alternateSubtitle\":\"/alternate.srt\""
+        )
+        _ = try PlaybackCheckPlan.decode(Data(pcmTrackPlan.utf8))
+        let pcmCancelPlan = pcmPlan.replacingOccurrences(
+            of: "\"deviceID\":\"fixture\"", with: "\"deviceID\":\"fixture\",\"profile\":\"cancelPreparation\"")
+        _ = try PlaybackCheckPlan.decode(Data(pcmCancelPlan.utf8))
+        let pcmPausePlan = pcmCancelPlan.replacingOccurrences(of: "cancelPreparation", with: "longPause")
+            .replacingOccurrences(
+                of: "\"audioOutput\":\"losslessFLAC\"",
+                with: "\"audioOutput\":\"losslessFLAC\",\"externalSubtitle\":\"/cue.srt\"")
+        _ = try PlaybackCheckPlan.decode(Data(pcmPausePlan.utf8))
+        try expect(decodedPCM.clips[0].audioOutput == .losslessFLAC, "PCM conversion requires explicit plan selection")
+        try expectRejected(Data(pcmPlan.replacingOccurrences(of: "losslessFLAC", with: "compatible").utf8))
+        try expectRejected(
+            Data(
+                pcmPlan.replacingOccurrences(
+                    of: "\"route\":\"hls\"", with: "\"route\":\"directHDR\",\"subtitleIndex\":2"
+                ).utf8))
         try checkCachePlansAndEvidence()
+        try expect(
+            PlaybackCheckPlan.Profile.trackChanges.stableObservationSeconds(audioOutput: .losslessFLAC) == 8,
+            "Explicit FLAC track changes retain eight seconds of output evidence")
+        try expect(
+            PlaybackCheckPlan.Profile.trackChanges.stableObservationSeconds(audioOutput: .original) == 5,
+            "Original track-change observation duration is unchanged")
         try expect(
             PlaybackCheckPlan.Profile.hlsCacheReuse.stableObservationSeconds == 8, "Cache windows last eight seconds")
         for profile: PlaybackCheckPlan.Profile in [

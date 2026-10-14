@@ -214,7 +214,7 @@ def assess_long_pause(result):
 def run_scenario(name, config, fixtures, project, directory, candidate_hash):
     directory.mkdir(mode=0o700)
     profile, route = CASE_INFO[name]
-    fixture = fixtures[route]
+    fixture = fixtures[name] if name in config.get('fixtureOverrides', {}) else fixtures[route]
     binary = project / ".build/AirCiller Playback Checks.app/Contents/MacOS/AirCiller"
     tools = project / ".build/playback-capture-tools"
     plan = {"version": 1, "deviceID": config["deviceID"], "profile": profile,
@@ -222,6 +222,8 @@ def run_scenario(name, config, fixtures, project, directory, candidate_hash):
     if profile == "hlsCacheReuse":
         plan["hlsCacheMode"] = "isolated"
     clip = plan["clips"][0]
+    if name in config.get('losslessPCMCases', []):
+        clip['audioOutput'] = 'losslessFLAC'
     tokens = [f"{value:06d}" for value in secrets.SystemRandom().sample(range(1_000_000), 2)]
     if profile != "cancelPreparation":
         first = directory / "initial.eng.srt"

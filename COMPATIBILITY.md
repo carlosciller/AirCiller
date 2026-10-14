@@ -28,6 +28,11 @@ Add external text or bitmap files from the tracks panel, or place matching files
 
 ## Other limits
 
+PCM-to-FLAC preparation has local and bounded Apple TV digital-output validation
+for the 0.16.0 release candidate. Choose it explicitly in Audio Options;
+Preserve original remains the default. See the [audio investigation](Docs/AUDIO_EXPANSION.md)
+for tested layouts, local sample comparisons and outstanding receiver checks.
+
 - Manual audio timing adjustments can be discarded during SDR HLS preparation. This confirmed pre-existing defect is not fixed by the startup optimization; the [repair is deferred](Docs/HLS_AUDIO_TIMING.md). Subtitle timing is a separate control.
 - No video transcoder: unsupported codecs such as AV1, VP9 and MPEG-2 are not converted.
 - No DCP packages, DVD/Blu-ray menus, disc navigation or encrypted media.

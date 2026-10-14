@@ -9,6 +9,28 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
     let language: String?
     let title: String?
     let isDefault: Bool
+    var sampleRate: Int? = nil
+    var bitsPerSample: Int? = nil
+
+    /// Packaging eligibility, not receiver acceptance. Unknown precision or
+    /// speaker labels must not authorize an advertised lossless conversion.
+    var canPrepareLosslessFLAC: Bool {
+        let codecs = ["pcm_s16le", "pcm_s16be", "pcm_s24le", "pcm_s24be", "pcm_bluray"]
+        guard codecs.contains(codec.lowercased()),
+            let sampleRate, sampleRate > 0,
+            let bitsPerSample, [16, 24].contains(bitsPerSample),
+            let channels, let channelLayout
+        else { return false }
+        let expectedPrecision: Int?
+        switch codec.lowercased() {
+        case "pcm_s16le", "pcm_s16be": expectedPrecision = 16
+        case "pcm_s24le", "pcm_s24be": expectedPrecision = 24
+        default: expectedPrecision = nil
+        }
+        if let expectedPrecision, bitsPerSample != expectedPrecision { return false }
+        let layouts = [1: "mono", 2: "stereo", 6: "5.1(side)", 8: "7.1"]
+        return layouts[channels] == channelLayout.lowercased()
+    }
 
     var id: String { "audio-\(streamIndex)" }
 
@@ -215,14 +237,20 @@ struct MediaChapter: Identifiable, Hashable, Sendable {
 
 enum AudioOutputMode: String, CaseIterable, Identifiable {
     case original
+    case losslessFLAC
     case compatible
     case stereo
 
     var id: String { rawValue }
 
+    func isAvailable(audio: AudioTrack?, isDirectMP4: Bool) -> Bool {
+        self != .losslessFLAC || (!isDirectMP4 && audio?.canPrepareLosslessFLAC == true)
+    }
+
     var title: String {
         switch self {
         case .original: return L10n.text("Conservar original")
+        case .losslessFLAC: return L10n.text("Convertir PCM a FLAC sin pérdida")
         case .compatible: return L10n.text("Convertir a E-AC-3 (hasta 5.1)")
         case .stereo: return L10n.text("Convertir a AAC (estéreo)")
         }
@@ -230,6 +258,10 @@ enum AudioOutputMode: String, CaseIterable, Identifiable {
 
     var explanation: String {
         switch self {
+        case .losslessFLAC:
+            return L10n.text(
+                "Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero."
+            )
         case .original:
             return L10n.text(
                 "Opción preferida. AirCiller conserva el códec y todos los canales de la pista elegida. Si Apple TV no la admite, pedirá permiso antes de convertir."

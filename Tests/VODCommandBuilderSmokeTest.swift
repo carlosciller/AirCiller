@@ -35,6 +35,9 @@ struct VODCommandBuilderSmokeTest {
             outputMode: .original,
             audioDelay: 0
         )
+        guard separate.contains("make_zero"), !separate.contains("disabled") else {
+            throw NSError(domain: "VODCommandBuilderSmokeTest.OriginalClock", code: 1)
+        }
         let multiplexed = VODCommandBuilder.multiplexedArguments(
             input: input,
             outputDirectory: directory,
@@ -63,7 +66,7 @@ struct VODCommandBuilderSmokeTest {
             let audio = AudioTrack(
                 streamIndex: 8, codec: codec, profile: nil, channels: 2, channelLayout: "stereo",
                 language: nil, title: nil, isDefault: true)
-            for mode in AudioOutputMode.allCases {
+            for mode in [AudioOutputMode.original, .compatible, .stereo] {
                 let variants = [
                     VODCommandBuilder.arguments(
                         input: input, outputDirectory: directory, probe: probe, audio: audio,
@@ -95,6 +98,26 @@ struct VODCommandBuilderSmokeTest {
                     throw NSError(domain: "VODCommandBuilderSmokeTest.FLACEligibility", code: 3)
                 }
             }
+        }
+        let pcm = AudioTrack(
+            streamIndex: 8, codec: "pcm_s24le", profile: nil, channels: 8, channelLayout: "7.1",
+            language: nil, title: nil, isDefault: true, sampleRate: 48_000, bitsPerSample: 24)
+        for (index, command) in [
+            VODCommandBuilder.arguments(
+                input: input, outputDirectory: directory, probe: probe, audio: pcm,
+                outputMode: .losslessFLAC, audioDelay: 0),
+            VODCommandBuilder.multiplexedArguments(
+                input: input, outputDirectory: directory, probe: probe, audio: pcm,
+                outputMode: .losslessFLAC, audioDelay: 0),
+        ].enumerated() {
+            guard command.contains("disabled") == (index == 0),
+                command.contains("make_zero") == (index == 1)
+            else { throw NSError(domain: "VODCommandBuilderSmokeTest.LosslessClock", code: 6) }
+            guard let encoder = command.firstIndex(of: "-c:a"), command[encoder + 1] == "flac",
+                command.contains("-xerror"), command.contains("explode"),
+                !command.contains("-ac:a"), !command.contains("-ar"), !command.contains("-af"),
+                let video = command.firstIndex(of: "-c:v"), command[video + 1] == "copy"
+            else { throw NSError(domain: "VODCommandBuilderSmokeTest.LosslessPCM", code: 5) }
         }
         for layout in ["5.1", "stereo", "unknown", ""] {
             let audio = AudioTrack(
