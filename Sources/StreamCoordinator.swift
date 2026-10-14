@@ -241,7 +241,7 @@ final class StreamCoordinator {
             self?.skip(by: interval)
         }
 
-        #if !AIRCILLER_PLAYBACK_CHECKS
+        #if !AIRCILLER_PLAYBACK_CHECKS && !AIRCILLER_UI_CHECKS
             Task { [weak self] in
                 guard let self else { return }
                 if !self.launchOptions.skipsDeviceScan {
@@ -429,6 +429,8 @@ final class StreamCoordinator {
     var audioPlan: String {
         guard let selectedAudio else { return L10n.text("Sin audio") }
         switch audioOutputMode {
+        case .losslessFLAC:
+            return L10n.text("Audio · conversión elegida de PCM a FLAC sin pérdida")
         case .original:
             return selectedAudio.canPassThrough
                 ? L10n.format(
@@ -475,6 +477,9 @@ final class StreamCoordinator {
         let audioStreamIndex: Int?
         let fixedAudioBitsPerSecond: Double?
         switch audioOutputMode {
+        case .losslessFLAC:
+            audioStreamIndex = selectedAudio?.streamIndex
+            fixedAudioBitsPerSecond = nil
         case .original:
             audioStreamIndex = selectedAudio?.streamIndex
             fixedAudioBitsPerSecond = nil
@@ -965,6 +970,18 @@ final class StreamCoordinator {
             presentError(title: "Esta pista no puede enviarse todavía", detail: reason)
             return
         }
+        guard
+            audioOutputMode.isAvailable(
+                audio: selectedAudio, isDirectMP4: info.isHDR && selectedSubtitle != nil
+            ), audioOutputMode != .losslessFLAC || (audioDelay.isFinite && abs(audioDelay) < 0.001)
+        else {
+            presentError(
+                title: "Conversión de audio no disponible",
+                detail:
+                    "La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio."
+            )
+            return
+        }
         if let audio = selectedAudio,
             audioOutputMode == .original,
             !audio.canPassThrough
@@ -973,7 +990,11 @@ final class StreamCoordinator {
             conversionReason = L10n.format(
                 "La pista elegida usa %@, que Apple TV no admite en este HLS. AirCiller puede convertir solamente el audio a E-AC-3 y mantendrá el vídeo intacto.",
                 audio.codec.uppercased())
-            if audio.codec.lowercased() == "flac" {
+            if audio.codec.lowercased().hasPrefix("pcm_") {
+                conversionReason = L10n.text(
+                    "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán."
+                )
+            } else if audio.codec.lowercased() == "flac" {
                 conversionReason = L10n.format(
                     "La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original.",
                     audio.channelLayout ?? L10n.text("Desconocido"))
@@ -1808,17 +1829,21 @@ final class StreamCoordinator {
                 self.status = L10n.format(
                     "Reproduciendo en %@", self.airPlay.selectedDevice?.name ?? "Apple TV")
                 self.detail =
-                    usesDirectHDRRendition
-                    ? (subtitle == nil
-                        ? L10n.format(
-                            "HDR/Dolby Vision · %@ · vídeo y audio intactos.",
-                            TimeFormatting.duration(packagedDuration))
-                        : L10n.format(
-                            "HDR/Dolby Vision · %@ · vídeo y audio intactos · subtítulos WebVTT.",
-                            TimeFormatting.duration(packagedDuration)))
-                    : L10n.format(
-                        "VOD completo · %@ · control AirPlay directo.",
+                    outputMode == .losslessFLAC
+                    ? L10n.format(
+                        "VOD completo · %@ · vídeo intacto · audio convertido a FLAC sin pérdida.",
                         TimeFormatting.duration(packagedDuration))
+                    : usesDirectHDRRendition
+                        ? (subtitle == nil
+                            ? L10n.format(
+                                "HDR/Dolby Vision · %@ · vídeo y audio intactos.",
+                                TimeFormatting.duration(packagedDuration))
+                            : L10n.format(
+                                "HDR/Dolby Vision · %@ · vídeo y audio intactos · subtítulos WebVTT.",
+                                TimeFormatting.duration(packagedDuration)))
+                        : L10n.format(
+                            "VOD completo · %@ · control AirPlay directo.",
+                            TimeFormatting.duration(packagedDuration))
             } catch is CancellationError {
                 self.startupTrace?.finish(.cancelled, sessionID: sessionID)
                 if self.preparingHLSDirectory == sessionDirectory { self.preparingHLSDirectory = nil }

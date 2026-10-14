@@ -104,7 +104,7 @@ actor PreparedMediaCache {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let sourceData = try encoder.encode(identity)
-        let parameters: [String] = [
+        var parameters: [String] = [
             String(formatVersion), engineVersion,
             String(probe.videoStreamIndex), probe.videoCodec, probe.videoProfile ?? "",
             String(probe.videoLevel ?? -1), probe.hevcCodecIdentifier ?? "",
@@ -118,6 +118,9 @@ actor PreparedMediaCache {
             abs(audioDelay) < 0.001
                 ? "0" : String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), audioDelay),
         ]
+        if outputMode == .losslessFLAC {
+            parameters += [String(audio?.sampleRate ?? -1), String(audio?.bitsPerSample ?? -1)]
+        }
         var data = sourceData
         data.append(try encoder.encode(engineIdentity))
         data.append(try encoder.encode(parameters))

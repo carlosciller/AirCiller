@@ -513,12 +513,19 @@ struct TrackSettingsView: View {
     }
 
     private var canApply: Bool {
-        draft.canApply(
-            replacing: original,
-            current: coordinator.trackSettings,
-            sameMedia: coordinator.selectedURL == videoURL,
-            controlsEnabled: coordinator.commandAvailability.canEditTracks
-        )
+        audioOutputAvailable
+            && draft.canApply(
+                replacing: original,
+                current: coordinator.trackSettings,
+                sameMedia: coordinator.selectedURL == videoURL,
+                controlsEnabled: coordinator.commandAvailability.canEditTracks
+            )
+    }
+
+    private var audioOutputAvailable: Bool {
+        draft.hasSupportedAudioOutput(
+            audio: coordinator.audioTracks.first { $0.id == draft.audioID },
+            isHDR: coordinator.probeInfo?.isHDR)
     }
 
     var body: some View {
@@ -569,7 +576,7 @@ struct TrackSettingsView: View {
                     .pickerStyle(.menu)
                     .help(selectedSubtitle?.displayName ?? L10n.text("Desactivados"))
                     .accessibilityValue(selectedSubtitle?.displayName ?? L10n.text("Desactivados"))
-                    if draft.audioID != nil && draft.audioOutputMode != .original {
+                    if draft.audioID != nil && draft.audioOutputMode != .original && !showingAudioOptions {
                         Text(draft.audioOutputMode.explanation)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -607,6 +614,12 @@ struct TrackSettingsView: View {
                     Picker("Formato de salida", selection: $draft.audioOutputMode) {
                         ForEach(AudioOutputMode.allCases) { mode in
                             Text(mode.title).tag(mode)
+                                .disabled(
+                                    (mode == .losslessFLAC && abs(draft.audioDelay) >= 0.001)
+                                        || !mode.isAvailable(
+                                            audio: coordinator.audioTracks.first { $0.id == draft.audioID },
+                                            isDirectMP4: coordinator.probeInfo?.isHDR == true && draft.subtitleID != nil
+                                        ))
                         }
                     }
                     .pickerStyle(.menu)
@@ -650,7 +663,11 @@ struct TrackSettingsView: View {
             .formStyle(.grouped)
             .disabled(!coordinator.commandAvailability.canEditTracks)
             VStack(alignment: .leading, spacing: 12) {
-                if draft == original {
+                if !audioOutputAvailable {
+                    Text("No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if draft == original {
                     Text("No hay cambios pendientes.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -671,7 +688,7 @@ struct TrackSettingsView: View {
                     Button("Aplicar cambios") {
                         guard canApply else { return }
                         coordinator.trackSettings = draft
-                        isPresented = false
+                        original = draft
                         coordinator.applyTrackSettings()
                     }
                     .buttonStyle(.borderedProminent)
@@ -689,7 +706,6 @@ struct TrackSettingsView: View {
                 }
             }
         }
-        .onChange(of: coordinator.selectedURL) { _, _ in isPresented = false }
     }
 
     private var selectedAudioDescription: String {

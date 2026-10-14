@@ -15,7 +15,7 @@ enum MediaProbeService {
             process.arguments = [
                 "-v", "error",
                 "-show_entries",
-                "format=format_name,duration,size,bit_rate:program=program_id:stream=index,codec_type,codec_name,profile,level,extradata,width,height,r_frame_rate,color_transfer,channels,channel_layout:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired,attached_pic:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
+                "format=format_name,duration,size,bit_rate:program=program_id:stream=index,codec_type,codec_name,profile,level,extradata,width,height,r_frame_rate,color_transfer,channels,channel_layout,sample_rate,sample_fmt,bits_per_sample,bits_per_raw_sample:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired,attached_pic:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
                 "-show_data",
                 "-of", "json",
                 url.path,
@@ -99,7 +99,9 @@ enum MediaProbeService {
                     channelLayout: stream.channelLayout,
                     language: stream.tags?.language,
                     title: stream.tags?.title,
-                    isDefault: stream.disposition?.defaultValue == 1
+                    isDefault: stream.disposition?.defaultValue == 1,
+                    sampleRate: stream.sampleRate.flatMap(Int.init),
+                    bitsPerSample: stream.effectiveBitsPerSample
                 )
             }
 
@@ -318,6 +320,20 @@ private struct ProbeStream: Decodable {
     let colorTransfer: String?
     let channels: Int?
     let channelLayout: String?
+    let sampleRate: String?
+    let bitsPerSample: Int?
+    let bitsPerRawSample: String?
+    let sampleFormat: String?
+
+    var effectiveBitsPerSample: Int? {
+        if let raw = bitsPerRawSample.flatMap(Int.init), raw > 0 { return raw }
+        if let bitsPerSample, bitsPerSample > 0 { return bitsPerSample }
+        // This pinned decoder accepts only 16/24-bit Blu-ray PCM. It reports
+        // 24 raw bits explicitly but omits precision for its signed16 output.
+        // Do not infer precision from s32: that can contain 20 or 24 bits.
+        if codecName == "pcm_bluray", sampleFormat == "s16" { return 16 }
+        return nil
+    }
     let tags: ProbeTags?
     let disposition: ProbeDisposition?
     let sideDataList: [ProbeSideData]?
@@ -329,6 +345,10 @@ private struct ProbeStream: Decodable {
         case frameRate = "r_frame_rate"
         case colorTransfer = "color_transfer"
         case channelLayout = "channel_layout"
+        case sampleRate = "sample_rate"
+        case bitsPerSample = "bits_per_sample"
+        case bitsPerRawSample = "bits_per_raw_sample"
+        case sampleFormat = "sample_fmt"
         case sideDataList = "side_data_list"
     }
 }

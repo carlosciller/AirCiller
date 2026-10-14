@@ -9,7 +9,7 @@ struct ContentView: View {
     let appDelegate: AirCillerAppDelegate
     @Environment(\.undoManager) private var undoManager
     @WindowState private var libraryTab: LibraryTab = .playlist
-    @WindowState private var showingTracks = false
+    @WindowState private var showingTracks = true
     @WindowState private var trackEditingID = UUID()
     @WindowState private var showingStreamInfo = false
     @WindowState private var isScrubbing = false
@@ -85,10 +85,11 @@ struct ContentView: View {
                                 presentTracks()
                             }
                         } label: {
-                            Label("Audio y subtítulos", systemImage: "sidebar.right")
+                            Label(
+                                L10n.text(showingTracks ? "Ocultar audio y subtítulos" : "Mostrar audio y subtítulos"),
+                                systemImage: "sidebar.right")
                         }
-                        .help("Audio y subtítulos")
-                        .disabled(!showingTracks && !coordinator.commandAvailability.canEditTracks)
+                        .help(L10n.text(showingTracks ? "Ocultar audio y subtítulos" : "Mostrar audio y subtítulos"))
                     }
                 }
         }
@@ -124,12 +125,14 @@ struct ContentView: View {
         .onChange(of: coordinator.isImportingLibrary) { _, _ in synchronizeUpdateAvailability() }
         .onChange(of: coordinator.isStreaming) { _, _ in synchronizeUpdateAvailability() }
         .onChange(of: coordinator.isWaitingToStart) { _, _ in synchronizeUpdateAvailability() }
-        .onChange(of: coordinator.isAnalyzing) { _, analyzing in
+        .onChange(of: coordinator.isAnalyzing) { _, _ in
             synchronizeUpdateAvailability()
-            if analyzing { showingTracks = false }
+            // Reset stale track drafts at analysis boundaries, keeping the
+            // inspector visible unless the user explicitly hides it.
+            trackEditingID = UUID()
         }
         .onChange(of: coordinator.selectedURL) { _, _ in
-            showingTracks = false
+            trackEditingID = UUID()
             isScrubbing = false
         }
         .onChange(of: showingTracks) { _, shown in

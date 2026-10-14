@@ -8,10 +8,18 @@ struct TrackSettings: Equatable {
     var subtitleDelay: Double = 0
     var audioOutputMode: AudioOutputMode = .original
 
+    func hasSupportedAudioOutput(audio: AudioTrack?, isHDR: Bool?) -> Bool {
+        guard audioOutputMode == .losslessFLAC else { return true }
+        guard let isHDR else { return false }
+        return audioOutputMode.isAvailable(audio: audio, isDirectMP4: isHDR && subtitleID != nil)
+            && audioDelay.isFinite && abs(audioDelay) < 0.001
+    }
+
     /// The known limitation is confined to SDR's separate HLS renditions.
     /// An unknown probe result must not be presented as a diagnosed timing fault.
     func hasKnownAudioTimingLimitation(isHDR: Bool?, hasSelectedAudio: Bool) -> Bool {
-        isHDR == false && hasSelectedAudio && audioDelay.isFinite && abs(audioDelay) >= 0.001
+        audioOutputMode != .losslessFLAC && isHDR == false && hasSelectedAudio
+            && audioDelay.isFinite && abs(audioDelay) >= 0.001
     }
 
     /// An unchanged or stale inspector must never restart playback or overwrite

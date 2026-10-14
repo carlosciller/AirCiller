@@ -20,6 +20,10 @@ allowlisted `local.carlosciller.AirCiller.PlaybackChecks` credential-client
 identity. Do not run them concurrently. This avoids widening credential-service
 trust to another application identifier.
 
+UI candidates do not perform automatic device discovery or command-line
+playback on launch. A local interface review must not contact a receiver
+implicitly. Receiver checks use the separately authorized playback runner.
+
 Internal bundles do not advertise movie-file or URL associations and have no
 Sparkle feed/public key; their automatic update settings are disabled. The icon
 is a visual distinction, **not a data sandbox**. Internal builds still need the
