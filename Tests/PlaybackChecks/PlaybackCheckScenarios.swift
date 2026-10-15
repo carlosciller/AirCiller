@@ -92,6 +92,13 @@ final class PlaybackCheckScenarioRunner {
             }
             requestedAudioOutput = clip.audioOutput == .losslessFLAC ? .losslessFLAC : .original
             coordinator.audioOutputMode = requestedAudioOutput
+            if let delay = profile.fixedAudioDelay {
+                guard (59.8...60.2).contains(probe.duration) else {
+                    throw PlaybackCheckFailure.unsupportedFixture
+                }
+                coordinator.audioDelay = delay
+                coordinator.subtitleDelay = 0
+            }
             if [.trackChanges, .hlsCacheReuse].contains(profile), clip.route == .hls {
                 guard coordinator.audioTracks.count == 2,
                     coordinator.audioTracks.allSatisfy({
@@ -135,8 +142,16 @@ final class PlaybackCheckScenarioRunner {
                         expectedCacheHit: profile == .hlsCacheReuse ? false : nil,
                         result: &result)
                 }
-                try await observe(initialLabel, after: marker, result: &result)
-                if profile == .trackChanges {
+                if let delay = profile.fixedAudioDelay {
+                    try await checkAudioTiming(
+                        delay: delay, requestedAt: requestedAt, after: marker,
+                        result: &result, directories: &directories)
+                } else {
+                    try await observe(initialLabel, after: marker, result: &result)
+                }
+                if profile.fixedAudioDelay != nil {
+                    // The timing scenario already observed its natural end.
+                } else if profile == .trackChanges {
                     try await changeTracks(clip, result: &result, directories: &directories)
                 } else if profile == .hlsCacheReuse {
                     try await checkCacheReuse(clip, result: &result, directories: &directories)
@@ -229,6 +244,185 @@ final class PlaybackCheckScenarioRunner {
             try await applyChange("audioChanged", route: clip.route, result: &result, directories: &directories)
             coordinator.selectedSubtitleID = nil
             try await applyChange("subtitlesOff", route: clip.route, result: &result, directories: &directories)
+        }
+    }
+
+    private func checkAudioTiming(
+        delay: Double, requestedAt: Double, after marker: Int, result: inout PlaybackCheckResult,
+        directories: inout Set<URL>
+    ) async throws {
+        guard let directory = coordinator.activePreparedDirectory,
+            let info = try HLSAudioTimelineInfo.load(directory: directory),
+            abs(info.sourceDuration - 60) < 0.2,
+            abs(coordinator.duration - info.presentationDuration) < 0.2
+        else { throw PlaybackCheckFailure.unsupportedFixture }
+        result.audioTiming = PlaybackCheckAudioTimingEvidence(
+            requestedDelay: delay, sourceDuration: info.sourceDuration,
+            presentationDuration: info.presentationDuration, videoContentOffset: info.videoContentOffset,
+            playRequestedAtUptime: requestedAt)
+        step = "audio_timing_opening"
+        let opening = now
+        try await wait(seconds: 15, after: marker, allowStopped: true) { self.now - opening >= 12 }
+        result.outputWindows.append(
+            PlaybackCheckOutputWindow(label: "initial", startedAtUptime: opening, endedAtUptime: now))
+        guard coordinator.isStreaming, coordinator.isPlaying else { throw PlaybackCheckFailure.receiverMismatch }
+        step = "audio_timing_pause"
+        let pauseMarker = events.count
+        guard coordinator.airPlay.pause() else { throw PlaybackCheckFailure.receiverMismatch }
+        try await wait(seconds: 12, after: pauseMarker) {
+            PlaybackCheckEvidence.paused(self.events[pauseMarker...]) && !self.coordinator.isPlaying
+        }
+        let pausedAt = now
+        try await wait(seconds: 4, after: pauseMarker) {
+            guard self.coordinator.isStreaming, !self.coordinator.isPlaying else {
+                throw PlaybackCheckFailure.receiverMismatch
+            }
+            return self.now - pausedAt >= 2
+        }
+        result.completedSteps.append("audio_timing_pause_same_session")
+        step = "audio_timing_seek_resume"
+        let target = floor(15 + info.videoContentOffset)
+        let seekMarker = events.count
+        coordinator.seek(to: target)
+        try await wait(seconds: 12, after: seekMarker) {
+            PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[seekMarker...], target: target, count: 1)
+        }
+        let resumeMarker = events.count
+        guard coordinator.airPlay.resume() else { throw PlaybackCheckFailure.receiverMismatch }
+        try await wait(seconds: 15, after: resumeMarker) {
+            self.events[resumeMarker...].contains { $0.receiverIsPlaying == true && $0.position != nil }
+        }
+        guard PlaybackCheckEvidence.resumedAt(events[resumeMarker...], target: target) == .confirmed,
+            coordinator.activePreparedDirectory == directory, loads == [1]
+        else { throw PlaybackCheckFailure.receiverMismatch }
+        try await observe("afterPause", after: resumeMarker, result: &result)
+        result.completedSteps.append("audio_timing_seek_resume_same_session")
+        if delay < 0 {
+            try await checkAudioTimingTransitions(result: &result, directories: &directories)
+        }
+        step = "audio_timing_tail"
+        let tailDirectory = coordinator.activePreparedDirectory
+        let tailTarget = floor(info.presentationDuration - 9)
+        let tailMarker = events.count
+        coordinator.seek(to: tailTarget)
+        try await wait(seconds: 12, after: tailMarker) {
+            PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[tailMarker...], target: tailTarget, count: 1)
+        }
+        // Request an explicit pause/resume to obtain an independent receiver
+        // position. The seek acknowledgement alone cannot establish its target.
+        guard coordinator.airPlay.pause() else { throw PlaybackCheckFailure.receiverMismatch }
+        try await wait(seconds: 12, after: tailMarker) {
+            PlaybackCheckEvidence.paused(self.events[tailMarker...]) && !self.coordinator.isPlaying
+        }
+        let tailResume = events.count
+        guard coordinator.airPlay.resume() else { throw PlaybackCheckFailure.receiverMismatch }
+        try await wait(seconds: 12, after: tailResume) {
+            self.events[tailResume...].contains { $0.receiverIsPlaying == true && $0.position != nil }
+        }
+        guard let resumed = events[tailResume...].first(where: { $0.receiverIsPlaying == true && $0.position != nil }),
+            let position = resumed.position, abs(position - tailTarget) <= 1,
+            tailDirectory != nil, coordinator.activePreparedDirectory == tailDirectory
+        else { throw PlaybackCheckFailure.receiverMismatch }
+        result.audioTiming?.resumePosition = position
+        result.audioTiming?.resumeEventSeconds = resumed.seconds
+        try await wait(seconds: 18, after: tailResume, allowStopped: true, allowEnd: true) {
+            self.events[tailResume...].contains { $0.kind == "ended" && $0.origin == .receiver }
+        }
+        let endings = events[tailResume...].filter { $0.kind == "ended" && $0.origin == .receiver }
+        guard endings.count == 1, let ended = endings.first,
+            ended.seconds - resumed.seconds >= info.presentationDuration - position - 1,
+            ended.seconds - resumed.seconds <= info.presentationDuration - position + 4, loads == [1]
+        else { throw PlaybackCheckFailure.receiverMismatch }
+        result.audioTiming?.endEventSeconds = ended.seconds
+        result.completedSteps.append("audio_timing_complete_tail")
+        try await Task.sleep(for: .milliseconds(600))
+    }
+
+    private func checkAudioTimingTransitions(
+        result: inout PlaybackCheckResult, directories: inout Set<URL>
+    ) async throws {
+        for (label, delay) in [("timingReplay", -5.0), ("timingDelayChanged", 5.0), ("timingAdvanceRestored", -5.0)] {
+            step = label
+            guard let previous = coordinator.activePreparedDirectory,
+                let oldTimeline = try HLSAudioTimelineInfo.load(directory: previous)
+            else { throw PlaybackCheckFailure.applicationError }
+            let pauseMarker = events.count
+            guard coordinator.airPlay.pause() else { throw PlaybackCheckFailure.receiverMismatch }
+            try await wait(seconds: 12, after: pauseMarker) {
+                PlaybackCheckEvidence.paused(self.events[pauseMarker...]) && !self.coordinator.isPlaying
+            }
+            // Independent oracle: receiver clock minus the old package's offset.
+            // Do not use the coordinator's private mapping function here.
+            let moviePosition = max(0, coordinator.currentTime - oldTimeline.videoContentOffset)
+            var savedPosition: Double?
+            var savedDuration: Double?
+            if label == "timingReplay" {
+                guard moviePosition > 5, moviePosition < oldTimeline.sourceDuration - 30 else {
+                    throw PlaybackCheckFailure.receiverMismatch
+                }
+                coordinator.stop()
+                let immediatePosition = coordinator.currentTime
+                let immediateDuration = coordinator.duration
+                try await wait(seconds: 8, allowStopped: true) { self.coordinator.playbackCheckRuntimeIsIdle }
+                let saved = HistoryStore.loadRecent().first(where: { $0.path == coordinator.selectedURL?.path })
+                let directoryRemoved = !FileManager.default.fileExists(atPath: previous.path)
+                result.audioTiming?.stopCheckpoint = PlaybackCheckAudioTimingStopCheckpoint(
+                    expectedMoviePosition: moviePosition, expectedMovieDuration: oldTimeline.sourceDuration,
+                    immediatePosition: immediatePosition, immediateDuration: immediateDuration,
+                    settledPosition: coordinator.currentTime, settledDuration: coordinator.duration,
+                    directoryRemoved: directoryRemoved,
+                    savedMoviePosition: saved?.lastPosition, savedMovieDuration: saved?.duration)
+                step = "timingReplay_stop_directory"
+                guard directoryRemoved else { throw PlaybackCheckFailure.receiverMismatch }
+                step = "timingReplay_stop_position"
+                guard abs(coordinator.currentTime - moviePosition) < 0.002 else {
+                    throw PlaybackCheckFailure.receiverMismatch
+                }
+                step = "timingReplay_stop_duration"
+                guard abs(coordinator.duration - oldTimeline.sourceDuration) < 0.002 else {
+                    throw PlaybackCheckFailure.receiverMismatch
+                }
+                step = "timingReplay_stop_history_present"
+                guard let saved else { throw PlaybackCheckFailure.receiverMismatch }
+                step = "timingReplay_stop_history_position"
+                guard abs(saved.lastPosition - moviePosition) < 0.002 else {
+                    throw PlaybackCheckFailure.receiverMismatch
+                }
+                step = "timingReplay_stop_history_duration"
+                guard abs(saved.duration - oldTimeline.sourceDuration) < 0.002 else {
+                    throw PlaybackCheckFailure.receiverMismatch
+                }
+                savedPosition = saved.lastPosition
+                savedDuration = saved.duration
+                result.completedSteps.append("audio_timing_source_history_saved")
+                step = label
+            }
+            coordinator.audioDelay = delay
+            let marker = events.count
+            if label == "timingReplay" {
+                coordinator.start()
+            } else {
+                coordinator.applyTrackSettings()
+            }
+            // This fixture has a zero video origin; its small original audio
+            // lead is verified separately against the actual package below.
+            let expectedPosition = moviePosition + max(0, -delay)
+            try await started(after: marker, route: .hls, expectedPosition: expectedPosition, result: &result)
+            guard let directory = coordinator.activePreparedDirectory, directory != previous,
+                let timeline = try HLSAudioTimelineInfo.load(directory: directory),
+                abs(timeline.videoContentOffset - max(0, -delay)) < 0.05,
+                let receiver = events[marker...].first(where: { $0.receiverIsPlaying == true && $0.position != nil }),
+                let position = receiver.position
+            else { throw PlaybackCheckFailure.receiverMismatch }
+            directories.insert(directory)
+            result.audioTiming?.transitions.append(
+                PlaybackCheckAudioTimingTransition(
+                    label: label, requestedDelay: delay, expectedMoviePosition: moviePosition,
+                    expectedReceiverPosition: expectedPosition, receiverPosition: position,
+                    receiverEventSeconds: receiver.seconds, videoContentOffset: timeline.videoContentOffset,
+                    savedMoviePosition: savedPosition, savedMovieDuration: savedDuration))
+            try await observe(label, after: marker, result: &result)
+            result.completedSteps.append(label)
         }
     }
 

@@ -1,4 +1,247 @@
-# HLS audio timing investigation (deferred)
+# HLS audio timing
+
+## 0.17.0 scope, 15 October 2026
+
+The repair has bounded local and Apple TV digital-output evidence. Publication
+and installed-update verification are separate distribution stages.
+Direct MP4 and HDR HLS packaging remain unchanged. Ordinary zero-adjustment
+HLS retains its established packaging policy.
+
+Adjusted SDR uses separate video/audio renditions on a shared clock, without
+MP4 edit lists. Finalized HLS version 8 playlists describe real leading/trailing
+intervals with GAP tags. A positive adjustment retains video from the beginning
+and allows delayed audio to finish after the last image. A negative adjustment
+holds the first encoded video frame while retaining all leading audio. This
+changes that first packet's timestamps/duration, without encoding or duplicating
+its picture. The stream duration includes these intervals.
+
+Movie history and chapter locations use the original source clock. Receiver
+commands and the active slider use the presentation clock. Starting from zero
+includes the complete leading interval; restarting at a later movie point maps
+that point onto the new presentation. Stop restores the source clock, and its
+late acknowledgement no longer republishes the retired presentation time.
+The final captured history/replay/track-change run passed; earlier failures
+and offline reassessments are retained separately below.
+
+### Final integration acceptance
+
+The fresh `capture-run-erg42wx2/report.json` passed on 15 October with check-app
+SHA-256 `dde6b4b8bdd3d29b2de54f5b10fc2a7d86672f635543fd4cd0776121da7f3527`.
+Its five observation windows each passed motion, digital audio and subtitle
+checks with 10 to 12 assessed frames. It recorded 39 matching tone measurements
+and 51 matching cue measurements, with no contradictions. Stop, saved source
+position, replay, -5 to +5 to -5 changes, natural end and cleanup passed their
+receiver checks. The independent delayed-audio tail and +5-second opening
+evidence remain in the corrected positive run and offline reassessment below.
+
+Two QA defects were fixed before this fresh run: cue recognition now keeps
+transport-time OCR lines separate, and tone measurement requires a coherent
+sinusoid without knowing its expected frequency. Pure incorrect tones remain
+contradictions; uncertain buffers provide no frequency evidence. Regressions
+cover DC offset, gain changes, transients, mixtures, noise and incorrect tones.
+The original inconclusive reports have not been relabeled or replaced.
+Capture-tool hashes are retained in the final report; thresholds and required
+matching observations were not reduced.
+
+The production-input fingerprint (sorted per-file SHA-256 for Sources,
+Resources and CredentialService, then SHA-256 of that manifest) is
+`a525cbac45067d04c257804d0f43568159f64cc5fcf2e0f94c8827bd4ce5dee5`.
+It is unchanged from the corrected native UI and three-path regression batch
+`capture-run-3tmk7ug5`. The latter separately passed direct HDR with subtitles,
+HLS with subtitles and HLS without them. Differences between those check-app
+executables are QA observation windows, not production playback code. Release
+version metadata does not alter these inputs; pinned engines are unchanged.
+
+These observations establish sampled digital output and recorded receiver
+controls. They do not certify physical speakers, HDR rendering, physical
+remote use, frame-accurate synchronization or whole-movie reliability.
+
+### Local conservation and cache
+
+`Scripts/validate_hls_audio_timing_service.py` drives the actual preparation
+service against bounded synthetic MKV and a TS derivative with a nonzero origin.
+Forty cases passed: Original at positive/negative 0.05, 0.5 and 5 seconds, cold
+and warm; explicit E-AC-3/stereo-AAC output at positive/negative 0.5 and 5 seconds.
+
+Each Original case retained all 1,440 video packets and 1,875 encoded audio
+packets. Coded-picture hashes and every encoded audio payload matched the source.
+Packet timing checks cover the explicit first-frame hold and the remaining
+common-clock shift, with a one-millisecond source-clock tolerance. Renditions
+cover the complete presentation. Warm cases hit the cache; timeline metadata
+is hashed, bounded and copied independently into each session. Corrupt metadata
+and remote gap references are rejected by deterministic regressions.
+
+Explicit audio conversions retained coded video and complete audio duration;
+they are not sample-identical audio claims. PCM-to-FLAC manual adjustment remains
+unavailable under its existing eligibility rule. The new range guard rejects
+nonfinite or out-of-range audio adjustments before launching preparation.
+
+Private local reports: `.build/audio-timing-service-matrix-20261015-3/report.json`
+and `.build/audio-timing-service-ts-matrix-20261015/report.json`. Earlier failed
+matrix attempts are retained. One assertion initially rejected floating-point
+roundoff at the exact one-millisecond boundary; its tolerance now includes
+1e-9 seconds for arithmetic roundoff. A later cache miss exposed unsupported GAP
+metadata admission and led to the cache regression above.
+
+### Earlier receiver evidence, before expanded integration
+
+The isolated check executable was
+`33138cc2f08274df3ef7d6c327e08e09c306b090bae9c4a58cafd8e1b3a041e9`.
+The pinned engines were unchanged. Only the previously approved exact Apple TV
+digital screen/audio source was used; no camera or microphone was opened.
+
+- **+5 seconds:** receiver controls, pause/seek/resume, complete natural end,
+  moving picture, cue presence, initial silence and the delayed audio tail were
+  observed. The raw report is inconclusive because the first evaluator used the
+  frozen last image as a clock for subsequent audio. All eight contradictory
+  comparisons occurred outside the recorded moving-video windows. A separate
+  offline reassessment restricts clock comparisons to those windows and retains
+  independent tail checks: 28 matching tones, zero mismatches, 16 initial silent
+  measurements, no premature audio. A further offline cue-clock assessment
+  finds 11 matching subtitle intervals with no contradictory cue. The original
+  report is unchanged.
+- **-5 seconds:** a fresh run passed receiver controls, complete opening,
+  pause/seek/resume, natural end, motion, cue presence and 31 matching tone
+  measurements with zero mismatches. Offline cue-clock assessment finds 12
+  matching subtitle intervals with no contradictory cue. The first image is deliberately held;
+  later movie content continues on its shifted clock.
+
+Private reports: `.build/playback-checks/capture-run-jqzgkm_f/` and
+`.build/playback-checks/capture-run-l4deitjb/`. These sampled observations do not
+certify physical speakers or frame-accurate timing. Cue-clock reassessments use
+the unchanged saved captures and preserve their new analyzer/evaluator hashes
+under `offline-audio-timing-cue-clocks.json`; they are not new device runs.
+These earlier captures do not establish latest-candidate history/track-change
+or Stop/replay acceptance; the corrected runs are recorded below. The full
+strict local suite passed after the history/cache changes. Publication and
+installed updating have not run.
+
+### Expanded integration and local-Stop regression
+
+On 15 October, the negative profile was extended to check Stop, saved source time,
+replay and changes between -5 and +5 seconds. The positive case passed first in
+`capture-run-9hbyqqou`: 19 matching tone measurements, no contradictory tones,
+15 matching subtitle intervals and complete receiver-confirmed tail playback.
+The negative case failed immediately after Stop, before its replay phase.
+Its report is retained; it is not an approved negative integration result.
+
+The failure exposed a real ordering bug. The coordinator had already restored
+source position and duration when the helper's local-Stop acknowledgement
+arrived. The controller published its retired presentation clock again, which
+could overwrite the restored state. Local Stop now acknowledges closure without
+publishing that clock. A receiver-initiated Stop still publishes its final time
+before invoking cleanup.
+
+`AirPlayControllerStopSmokeTest` drives the real JSON decoder and event handler
+without launching a helper. It fails against the previous behavior and passes
+the correction for normal/silent local Stop, remote Stop, late events/ticks and
+old-session isolation. The expanded hardware profile additionally records
+immediate, settled and persisted values after Stop, without loosening its
+position checks. The subsequent corrected run below establishes those control
+checks separately from captured-output acceptance.
+
+### Corrected candidate: positive adjustment and offline reassessment
+
+The corrected executable is
+`53439d94c965663c78812b3bc9357b2c8c0ab45162758067d46ecd50651009e1`.
+Its +5-second run in `capture-run-racqvvrf/case-01/controls.json` passed
+receiver controls, pause/seek/resume, natural end and cleanup. The original
+`report.json` remains inconclusive with `insufficientCapturedFrames`; it has
+not been replaced or converted into a passing batch.
+
+The initial observation lasted 12.075 seconds, but the evaluator selected only
+its last five seconds. After its existing half-second margin at each end, that
+left five video samples. The saved capture contains eight samples in the last
+seven seconds after applying the same margins. Those seven seconds start after
+the deliberate five-second audio delay or opening-image hold, since the initial
+window must last at least twelve seconds.
+
+The evaluator now uses that seven-second interval for the initial audiovisual
+check. It still requires six distinct frames spanning at least two seconds,
+coverage within 1.5 seconds of each trimmed edge, motion, picture/cue recognition
+and active audio. The independent complete-opening, silence, tone-offset,
+subtitle-clock and delayed-tail checks are unchanged. Deterministic regressions
+exercise the real shared evaluator at moderate picture cadence in both delay
+directions: the earlier five-second selection fails, the seven-second selection
+passes, and insufficient frame count or edge coverage still fails. All 88 local
+Python playback tests passed after the evaluator change.
+
+A separate offline assessment of the unchanged +5-second capture observes eight
+initial frames and seven after pause, 25 matching tones with no mismatches,
+18 initial silent measurements with no premature audio, and 11 matching cue
+intervals with none contradictory. Its outcome is `sampled_output_observed`.
+The private record is
+`.build/playback-checks/capture-run-racqvvrf/case-01/timing-reassessment-seven-second-opening.json`.
+It records the candidate and evaluator hashes and the hashes of the unchanged
+original report, controls, frame analysis and sample manifest. This is an
+offline reassessment, not a new capture or a physical speaker/timing claim.
+
+### Corrected negative controls and remaining capture gap
+
+The same corrected executable completed every negative-profile control check
+in `capture-run-yzhxvx86`: Stop and cleanup, saved source history, replay,
+-5 to +5 to -5 changes, pause/seek/resume and natural end. Source position after
+Stop was 20.077359910 seconds immediately, after helper shutdown and in persisted
+history; all three durations were 60 seconds. Each new presentation target was
+independently confirmed by the receiver.
+
+The output report remains inconclusive. Its final `timingAdvanceRestored`
+window lasted 5.041 seconds and contained six captured frames; the final frame
+fell inside the existing half-second end margin, leaving only five usable
+frames. The other windows met the shared output check: initial 11 frames,
+after-pause seven, replay seven, and the +5 change six. The private diagnostic
+`capture-run-yzhxvx86/case-01/observation-window-diagnostic.json` retains the
+recorded intervals, sample counts and exact failure. No window was extended
+after capture, and no threshold was lowered to accept the run.
+
+The negative check now records seven actual seconds after pause and after each
+of its three transitions. The evaluator requires 7 to 9 seconds, preserving its
+two-second scheduling allowance and every audiovisual acceptance threshold.
+The positive profile and other scenarios retain their existing durations.
+The initial opening and natural-tail checks are unchanged. Four additional
+two-second observations add eight seconds to the measured 70.09-second run;
+this remains within the unchanged 120-second capture and 165-second control
+limits. A fresh negative capture is required to establish final sampled-output
+acceptance.
+
+Fresh shared-control baselines on the corrected executable passed in
+`capture-run-3tmk7ug5`: direct HDR with subtitles, ordinary HLS with subtitles,
+and ordinary HLS without subtitles. All three report `sampled_output_observed`
+without gaps. These samples do not establish physical HDR rendering or speaker
+layout. Publication, installed updating and final app-close checks have not
+been established here.
+
+### Seven-second negative run and observer defects
+
+The fresh run `capture-run-9s8c7uav`, executable
+`dde6b4b8bdd3d29b2de54f5b10fc2a7d86672f635543fd4cd0776121da7f3527`,
+completed all controls and all five basic output windows. Each window had
+10 to 12 assessed frames, motion, fresh subtitles and active digital audio.
+Stop preserved source position 22.161939974 seconds immediately, after helper
+shutdown and in history; the source duration remained 60 seconds. Only the
+test profile's observation duration changed from the previous executable;
+production sources and pinned engines were unchanged.
+
+The overall report remains inconclusive. The cue-index parser concatenated
+unrelated OCR lines: a subtitle ending in index 3 followed by the transport
+time `00:27` became an invalid longer index. Digital frames visibly retain the
+correct subtitle. The deterministic regression fails with the original parser;
+the corrected parser accepts one complete, current-token cue line and rejects
+ambiguous, stale or oversized indices. A separately saved offline reanalysis,
+`case-01/timing-reassessment-cue-lines.json`, finds 11, 7 and 13 matching cue
+intervals in the three transitions, with none contradictory. It preserves the
+original files and records input and analyzer hashes.
+
+Two tone estimates remain unresolved in that capture: 395.05 Hz where 440 Hz
+was expected, and 931.78 Hz where 880 Hz was expected. There were 65 matching
+measurements. Neither questionable estimate is the opposite fixture tone;
+the retained measurements do not establish whether the transient came from
+the receiver or the zero-crossing estimator. Raw audio is not retained, so
+this report cannot be approved by recomputing those measurements. A focused
+observer regression and fresh capture are required; no playback tolerance or
+sample-count requirement is relaxed.
+
+## Historical deferred investigation
 
 Investigation, 13 September 2026. The maintainer chose to separate this repair from the startup optimization release after the receiver checks below failed. All experimental packaging, subtitle-timeline and cache-format changes were removed from the delivery. The original manual audio-adjustment limitation remains; ordinary playback at zero audio adjustment is the accepted scope.
 

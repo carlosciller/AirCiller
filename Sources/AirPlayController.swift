@@ -20,6 +20,30 @@ struct AirPlayDevice: Identifiable, Codable, Hashable {
     }
 }
 
+#if AIRCILLER_CONTROLLER_TESTS
+    extension AirPlayController {
+        // Exercise the real event decoder, handler and teardown without launching a helper.
+        func beginEventTestSession(position: Double, duration: Double) -> UUID {
+            precondition(playbackProcess == nil)
+            let sessionID = UUID()
+            playbackSessionID = sessionID
+            playbackProcess = Process()
+            receivedTerminalEvent = false
+            confirmedPlayback = false
+            resetTimeline(position: position, duration: duration)
+            return sessionID
+        }
+
+        func receiveEventTestOutput(_ data: Data, sessionID: UUID) {
+            consumeOutput(data, sessionID: sessionID)
+        }
+
+        func endEventTestSession(_ sessionID: UUID) {
+            processTerminated(sessionID: sessionID, status: 0, stderr: Data())
+        }
+    }
+#endif
+
 enum DirectAirPlayError: LocalizedError {
     case helperMissing
     case noDevice
@@ -888,8 +912,10 @@ final class AirPlayController {
             status = "AirPlay detenido"
             logger.info("Parada confirmada por el Apple TV")
             stopTimeline()
-            publishTimeline()
-            if !wasStoppedLocally { onPlaybackStopped?() }
+            if !wasStoppedLocally {
+                publishTimeline()
+                onPlaybackStopped?()
+            }
         case "warning":
             if let message = event.message { logger.warning("\(message, privacy: .private)") }
         case "error":

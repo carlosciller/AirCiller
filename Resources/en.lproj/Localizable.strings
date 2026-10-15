@@ -108,6 +108,11 @@
 
 /* Tracks */
 "Pistas y sincronización" = "Tracks & Sync";
+"Al adelantar el audio, el primer fotograma se mantiene brevemente para conservar todo el inicio. La duración del stream aumenta." = "Advancing audio holds the opening frame briefly to retain the complete beginning. The stream duration increases.";
+"Al retrasar el audio, la reproducción continúa después del último fotograma hasta completar la pista. La duración del stream aumenta." = "Delaying audio continues playback past the last video frame until the track ends. The stream duration increases.";
+"La sincronización de audio debe estar entre −5 y +5 segundos." = "Audio timing must be between -5 and +5 seconds.";
+"El mapa temporal del audio no es válido." = "The audio timeline is invalid.";
+"No se pudo preparar la sincronización de audio sin recortar la película." = "Audio timing could not be prepared without cutting part of the movie.";
 "Pista" = "Track";
 "Pista de audio" = "Audio Track";
 "Formato de salida" = "Output Format";
@@ -715,12 +720,13 @@
 "%@: formato no compatible" = "%@: unsupported format";
 "%@: no se pudo leer la carpeta o no contiene vídeos compatibles" = "%@: the folder could not be read or contains no supported videos";
 "Detalles de importación" = "Import Details";
-"Convertir PCM a FLAC sin pérdida" = "Convert PCM to lossless FLAC";
-"Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero." = "Converts PCM to FLAC while preserving samples, sample rate and channels. The codec changes; this is not original audio. Available in HLS only, with manual audio timing set to zero.";
-"Audio · conversión elegida de PCM a FLAC sin pérdida" = "Audio · selected PCM-to-lossless-FLAC conversion";
-"Esta pista no admite conversión PCM a FLAC sin pérdida." = "This track cannot be converted from PCM to lossless FLAC.";
+"Convertir a FLAC sin pérdida" = "Convert to lossless FLAC";
+"Convierte una pista PCM o TrueHD compatible a FLAC conservando las muestras, la frecuencia y los canales. No conserva los objetos Atmos. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero." = "Converts a compatible PCM or TrueHD track to FLAC, preserving samples, sample rate and channels. Atmos objects are not preserved. The codec changes; this is not original audio. Available in HLS only, with manual audio timing set to zero.";
+"Audio · conversión elegida a FLAC sin pérdida" = "Audio · selected lossless FLAC conversion";
+"Esta pista no admite conversión a FLAC sin pérdida." = "This track cannot be converted to lossless FLAC.";
 "Conversión de audio no disponible" = "Audio conversion unavailable";
-"La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio." = "PCM-to-FLAC conversion requires known precision and channels and the HLS route. Choose another audio output.";
+"Esta pista necesita conversión para reproducirse. FLAC conserva las muestras y todos los canales; E-AC-3 añade pérdida y admite hasta 5.1 canales. Los objetos Atmos no se conservan. El vídeo y el archivo original no cambiarán." = "This track needs conversion to play. FLAC preserves the samples and all channels; E-AC-3 is lossy and supports up to 5.1 channels. Atmos objects are not preserved. The video and original file remain unchanged.";
+"La conversión a FLAC necesita una pista compatible con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio." = "FLAC conversion requires a compatible track with known precision and channels and the HLS route. Choose another audio output.";
 "VOD completo · %@ · vídeo intacto · audio convertido a FLAC sin pérdida." = "Complete VOD · %@ · unchanged video · audio converted to lossless FLAC.";
 "No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía." = "This audio output cannot be applied. Choose another format or reset audio timing.";
 "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán." = "Original PCM delivery has not been validated on this AirCiller route. E-AC-3 adds loss. To preserve the samples, cancel and choose lossless FLAC in the audio options, if available. The video and original file will not change.";

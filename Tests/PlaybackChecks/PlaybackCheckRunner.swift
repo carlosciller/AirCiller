@@ -207,7 +207,9 @@ final class PlaybackCheckRunner {
                     let master = try String(contentsOf: directory.appendingPathComponent(expectedFile), encoding: .utf8)
                     guard master.contains("fLaC") else { throw PlaybackCheckFailure.unsupportedFixture }
                 }
-                result.completedSteps.append("explicit_pcm_to_flac")
+                result.completedSteps.append(
+                    coordinator.selectedAudio?.codec.lowercased() == "truehd"
+                        ? "explicit_truehd_to_flac" : "explicit_pcm_to_flac")
             }
             result.completedSteps.append(step)
             if clip.route != .directHDR {

@@ -110,6 +110,11 @@
 
 /* Tracks */
 "Pistas y sincronización" = "Pistas y sincronización";
+"Al adelantar el audio, el primer fotograma se mantiene brevemente para conservar todo el inicio. La duración del stream aumenta." = "Al adelantar el audio, el primer fotograma se mantiene brevemente para conservar todo el inicio. La duración del stream aumenta.";
+"Al retrasar el audio, la reproducción continúa después del último fotograma hasta completar la pista. La duración del stream aumenta." = "Al retrasar el audio, la reproducción continúa después del último fotograma hasta completar la pista. La duración del stream aumenta.";
+"La sincronización de audio debe estar entre −5 y +5 segundos." = "La sincronización de audio debe estar entre −5 y +5 segundos.";
+"El mapa temporal del audio no es válido." = "El mapa temporal del audio no es válido.";
+"No se pudo preparar la sincronización de audio sin recortar la película." = "No se pudo preparar la sincronización de audio sin recortar la película.";
 "Pista" = "Pista";
 "Pista de audio" = "Pista de audio";
 "Formato de salida" = "Formato de salida";
@@ -715,12 +720,13 @@
 "%@: formato no compatible" = "%@: formato no compatible";
 "%@: no se pudo leer la carpeta o no contiene vídeos compatibles" = "%@: no se pudo leer la carpeta o no contiene vídeos compatibles";
 "Detalles de importación" = "Detalles de importación";
-"Convertir PCM a FLAC sin pérdida" = "Convertir PCM a FLAC sin pérdida";
-"Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero." = "Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero.";
-"Audio · conversión elegida de PCM a FLAC sin pérdida" = "Audio · conversión elegida de PCM a FLAC sin pérdida";
-"Esta pista no admite conversión PCM a FLAC sin pérdida." = "Esta pista no admite conversión PCM a FLAC sin pérdida.";
+"Convertir a FLAC sin pérdida" = "Convertir a FLAC sin pérdida";
+"Convierte una pista PCM o TrueHD compatible a FLAC conservando las muestras, la frecuencia y los canales. No conserva los objetos Atmos. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero." = "Convierte una pista PCM o TrueHD compatible a FLAC conservando las muestras, la frecuencia y los canales. No conserva los objetos Atmos. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero.";
+"Audio · conversión elegida a FLAC sin pérdida" = "Audio · conversión elegida a FLAC sin pérdida";
+"Esta pista no admite conversión a FLAC sin pérdida." = "Esta pista no admite conversión a FLAC sin pérdida.";
 "Conversión de audio no disponible" = "Conversión de audio no disponible";
-"La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio." = "La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio.";
+"Esta pista necesita conversión para reproducirse. FLAC conserva las muestras y todos los canales; E-AC-3 añade pérdida y admite hasta 5.1 canales. Los objetos Atmos no se conservan. El vídeo y el archivo original no cambiarán." = "Esta pista necesita conversión para reproducirse. FLAC conserva las muestras y todos los canales; E-AC-3 añade pérdida y admite hasta 5.1 canales. Los objetos Atmos no se conservan. El vídeo y el archivo original no cambiarán.";
+"La conversión a FLAC necesita una pista compatible con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio." = "La conversión a FLAC necesita una pista compatible con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio.";
 "VOD completo · %@ · vídeo intacto · audio convertido a FLAC sin pérdida." = "VOD completo · %@ · vídeo intacto · audio convertido a FLAC sin pérdida.";
 "No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía." = "No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía.";
 "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán." = "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán.";

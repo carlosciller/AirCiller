@@ -139,17 +139,21 @@ enum StreamDemandAnalyzer {
         guard !videoSegments.isEmpty else {
             throw AirCillerError.invalidVODPackage("No hay segmentos para medir el caudal del stream.")
         }
+        if try HLSAudioTimelineInfo.load(directory: outputDirectory) != nil {
+            return try adjustedHLSProfile(
+                segments: videoSegments + audioSegments,
+                duration: videoSegments.reduce(0) { $0 + $1.duration },
+                directory: outputDirectory)
+        }
 
         var totalBytes = 0.0
         var totalDuration = 0.0
         var peak = 0.0
         var peakTime = 0.0
         for (index, video) in videoSegments.enumerated() {
-            let videoBytes = try fileSize(
-                outputDirectory.appendingPathComponent(video.fileName)
-            )
+            let videoBytes = video.isGap ? 0 : try fileSize(outputDirectory.appendingPathComponent(video.fileName))
             let audioBytes =
-                index < audioSegments.count
+                index < audioSegments.count && !audioSegments[index].isGap
                 ? try fileSize(outputDirectory.appendingPathComponent(audioSegments[index].fileName))
                 : 0
             let bytes = videoBytes + audioBytes
@@ -169,6 +173,67 @@ enum StreamDemandAnalyzer {
             windowDuration: windowDuration,
             isMeasured: true
         )
+    }
+
+    /// Adjusted renditions have different segment boundaries. Measure their
+    /// combined demand on the shared presentation clock, never by array index.
+    private static func adjustedHLSProfile(
+        segments: [HLSSegment], duration: Double, directory: URL
+    ) throws -> StreamDemandProfile {
+        var events: [(time: Double, delta: Double)] = []
+        var totalBytes = 0.0
+        for segment in segments where !segment.isGap {
+            let bytes = try fileSize(directory.appendingPathComponent(segment.fileName))
+            let rate = bytes / segment.duration
+            totalBytes += bytes
+            events.append((segment.startTime, rate))
+            events.append((segment.startTime + segment.duration, -rate))
+        }
+        events.sort { $0.time < $1.time }
+        var times = [0.0]
+        var cumulative = [0.0]
+        var rates = [0.0]
+        var rate = 0.0
+        for event in events {
+            let previous = times.last!
+            let bytes = cumulative.last! + rate * (event.time - previous)
+            if event.time == previous {
+                rate += event.delta
+                rates[rates.count - 1] = rate
+            } else {
+                times.append(event.time)
+                cumulative.append(bytes)
+                rate += event.delta
+                rates.append(rate)
+            }
+        }
+        func bytesThrough(_ time: Double) -> Double {
+            let time = min(max(time, 0), duration)
+            var low = 0
+            var high = times.count
+            while low + 1 < high {
+                let middle = (low + high) / 2
+                if times[middle] <= time { low = middle } else { high = middle }
+            }
+            return cumulative[low] + rates[low] * (time - times[low])
+        }
+        let window = min(windowDuration, duration)
+        var peak = 0.0
+        var peakTime = 0.0
+        for boundary in times {
+            for candidate in [boundary, boundary - window] {
+                let start = min(max(candidate, 0), max(0, duration - window))
+                let bits = max(0, bytesThrough(start + window) - bytesThrough(start)) * 8 / window
+                if bits > peak {
+                    peak = bits
+                    peakTime = start
+                }
+            }
+        }
+        return StreamDemandProfile(
+            averageBitsPerSecond: totalBytes * 8 / duration,
+            peakBitsPerSecond: peak, peakTime: peakTime,
+            windowDuration: window, isMeasured: true)
     }
 
     static func directFileProfile(

@@ -53,6 +53,15 @@ python3 Scripts/playback_checks.py /absolute/path/to/capture-config.json --captu
 
 Without `--run`, this command only validates the configuration and local file bounds; it opens no process or device. Add `--prepare` to probe the HDR input and generate and validate the synthetic fixture without discovery, Keychain access or television playback. `cases` selects from the basic cases and optional scenarios below. An unavailable credential or capture source stops a live batch before any clip starts; it does not trigger pairing or fall back to an unwatched control-only pass.
 
+An explicit lossless-audio fixture can use `fixtureOverrides` together with
+`losslessAudioCases`, listing its HLS case names. The older `losslessPCMCases`
+field remains accepted; do not list a case in both. These overrides select
+FLAC explicitly, never modify the source, and cannot apply to direct MP4 or
+manual-audio-delay profiles. TrueHD fixtures must satisfy the candidate's
+declared precision, native-rate and speaker-layout checks. Preparation validates
+audibility at the observation positions; the live check still has its own
+receiver and captured-output gates.
+
 Each case has its own capture gate. Authorization finishes first, then the verified screen source supplies its first video frame, and only then does playback start. Capture uses one muxed Apple TV input with video and audio sample outputs. The exact source ID, name, model, transport and media types are checked before input creation and monitored during capture. No camera or microphone is opened, and there is no preview or movie-file writer.
 
 ### Initial capture readiness
@@ -92,6 +101,26 @@ The final `report.json` is in a new private `.build/playback-checks/capture-run-
 `sampled_output_observed` requires passing receiver checks and cleanup plus moving picture, non-silent audio and the expected subtitle presence in the aligned playback window. Subtitle cues include a fresh per-case identifier; the HLS image must match the generated color pattern. An advancing timer, a screensaver, stale subtitle text, truncated coverage, silence or missing capture evidence cannot establish that result. All other cases stop the batch with a named gap or blocked result.
 
 These are sampled digital-output checks. They do not certify physical speakers, Atmos channel layout, television HDR rendering, frame-accurate subtitle timing, physical remote use or whole-movie reliability. The control-only mode below retains its deliberately different `automated_checks_passed_output_unverified` result.
+
+## SDR audio-timing profiles
+
+`hlsAudioDelayTail` and `hlsAudioAdvanceTail` use a generated 60-second SDR
+fixture with a visible source clock, changing tones and numbered subtitle cues.
+They request +5 and -5 seconds respectively, with original audio and caching
+disabled. Both check the complete opening, pause/seek/resume and natural end.
+The negative profile additionally checks Stop, source-clock history, replay and
+changes from -5 to +5 and back, with a separate output window for each phase.
+Those four short negative-profile windows observe seven actual seconds each.
+The initial observation lasts twelve seconds, with the last seven used for
+the moving-output check after the five-second hold or silence. Existing frame
+counts, coverage margins, tone/cue checks and capture limits remain unchanged.
+
+`Scripts/playback_audio_timing.py` requires real receiver position events and
+compares the captured clock, tone and cue with the requested adjustment. Older
+negative-profile reports without the transition evidence cannot satisfy that
+expanded check. Standard capture limits still apply; a timeout or missing
+phase remains inconclusive. These are sampled digital checks, not frame-accurate
+physical synchronization measurements.
 
 ## Startup timing from saved captures
 

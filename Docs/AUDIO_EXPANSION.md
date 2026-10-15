@@ -1,13 +1,31 @@
 # Audio expansion investigation
 
-Implementation/preparation delivery, 14 October 2026. The 0.16.0 candidate
-adds explicit PCM-to-FLAC preparation on HLS, validated locally and in the
-bounded digital-output cases recorded below. SDR uses separate renditions with
-the source's relative clock preserved; HDR without subtitles stays multiplexed.
-The maintainer prohibited receiver tests during local preparation, then authorized
-the exact Apple TV digital screen/audio source on 14 October 2026. Cameras and
-microphones remain forbidden.
-The installed application and engines are unchanged.
+## Current scope
+
+0.16.0 introduced explicit PCM/LPCM-to-FLAC preparation on HLS. Version 0.17.0
+adds known 24-bit TrueHD channel presentations. Its complete-sample
+and internal-timing checks pass locally, with sampled Apple TV output for SDR
+stereo/5.1(side) and HDR stereo. See the dated records near the end of this
+document for candidate identities, failures, follow-up fixes and delivery gates.
+DTS-HD MA lossless conversion remains blocked by the damaged-extension cases.
+
+Final shared-control acceptance is recorded in [HLS audio timing](HLS_AUDIO_TIMING.md#final-integration-acceptance).
+The fixed Stop handler and native inspector were checked without changing
+TrueHD packaging or pinned engines. Release publication and installed updating
+are separate from these playback observations.
+
+SDR uses separate renditions with the relative source clock preserved; HDR
+without subtitles stays multiplexed. Direct HDR MP4 with selected subtitles
+does not offer these lossless conversions. Original remains the default,
+conversion is explicit and the bundled engines are unchanged.
+
+## Initial investigation, 14 October 2026
+
+The tables below record the initial investigation, not the latest acceptance
+state. Later sections retain each experiment and its superseding result. The
+maintainer first prohibited receiver tests during preparation, then authorized
+the exact Apple TV digital screen/audio source. Cameras and microphones remain
+forbidden.
 
 ## Evidence boundaries
 
@@ -546,6 +564,303 @@ The archive and signed feed verify with Sparkle's official tools. Applying the
 0.16.0 bundle with identical file contents and symlinks (mtime differences only).
 Exact-commit GitHub CI and an isolated updater check are separate release gates.
 The daily-use installed app has not been replaced.
+
+## DTS-HD MA and TrueHD investigation, 15 October 2026
+
+DTS-HD MA remains blocked. TrueHD lossless preparation was implemented before
+receiver validation; subsequent local and digital-output results follow below.
+The pinned engine remains unchanged.
+
+The published FATE fixture `xll_51_24_48_768.dtshd` was inspected with the actual
+bundled decoder. It reports DTS-HD MA, signed planar 32-bit output carrying
+24-bit precision, 48 kHz and 5.1(side). Its complete logical decoded output
+matches the four published lossless-reference CRCs. Core-only decoding produces
+four different CRCs. This establishes use of the lossless extension for this
+short fixture; it does not establish safe handling of every Master Audio file.
+
+`Scripts/research_dts_lossless_guard.py` changes one XLL sync byte in a separate
+copy. With `-xerror`, `-err_detect explode` and extension decoding requested
+(`-core_only 0`), FFmpeg still completes both FLAC outputs
+with status zero and equal sample counts. The damaged copy produces different
+decoded samples and reports `Invalid XLL sync word` at verbose log level.
+The original is unchanged. Thus exit status and output precision alone are
+insufficient for a lossless claim. A guard must reject recovery/core substitution
+across the whole preparation, including messages split across pipe reads and
+output-format changes. No automatic lossy fallback is authorized.
+
+The candidate now has a bounded, sticky diagnostic guard. Deterministic tests
+cover every split point in both recovery messages, byte-at-a-time input,
+non-UTF8 bytes and later output exceeding the ordinary log tail. The local
+`DTSLosslessGuardMediaTest` feeds actual bundled-decoder diagnostics through it:
+the valid fixture is accepted, while the damaged fixture is rejected despite
+its zero decoder exit and identical 36,864-byte decoded length. This component
+is research-only. A second damaged copy changes an extension sync header;
+the native decoder still exits zero, retains the 36,864-byte decoded length,
+and reports none of those recovery messages. The samples change again.
+Forcing integer input/output in an explicit resampler and disabling automatic
+conversion filters does not prevent this core substitution. The partial guard
+and pipe-ownership experiment therefore remain under `Tests/LosslessValidation`,
+outside the application.
+
+**DTS-HD MA is blocked for this delivery.** A successful decoder exit, declared
+Master Audio profile, integer precision and complete output length cannot prove
+that every output sample used the lossless extension. Future work needs complete
+bitstream qualification or an equivalent decoder guarantee, with recovery
+regressions; diagnostic signatures alone are insufficient. Current rejection
+and the explicitly approved lossy-conversion route remain unchanged.
+
+The expanded reproduction is retained separately in
+`.build/lossless-audio-research/dts-strict-recovery-and-core/report.json`.
+
+Private result: `.build/lossless-audio-research/dts-strict-recovery/report.json`.
+Source SHA-256:
+`c0830af121ec78a8271d008999cc54b99843f17b9b33203bb9adbcbc3271d0a9`.
+The fixture and derived audio remain outside Git.
+
+Separately, a generated two-second stereo WAV at 24-bit/48 kHz was encoded to
+TrueHD with the explicitly selected development encoder. The bundled decoder
+reports 24-bit precision. The complete WAV, decoded TrueHD and decoded FLAC
+all contain 576,000 PCM bytes with SHA-256
+`4e07439e95e04545955a974bfa1aaff5f14b46ff7bbae59ae08711156acb9e51`.
+This is a first local preservation result, with no movie packaging, corruption
+matrix or receiver acceptance yet. It is not an Atmos-object preservation claim.
+
+A second independent local reference was checked on 15 October 2026:
+FFmpeg FATE's `lossless-audio/truehd_5.1.raw`, 655,360 bytes. The pinned decoder
+reports 24-bit/48 kHz, six channels in `5.1(side)`. Strict decoding to complete
+32-bit PCM matches the published FATE MD5 `95d8aac39dd9f0d7fb83dc7b6f88df35`.
+Converting this fixture to FLAC and decoding the complete FLAC produces the same
+MD5. This establishes sample preservation for this 5.1 fixture, not general
+TrueHD eligibility, damaged-input rejection, timestamp preservation or Apple TV
+acceptance. The original and derived fixture remain in the ignored research
+directory. Reference: [TrueHD FATE tests](https://github.com/FFmpeg/FFmpeg/blob/n9.0.1/tests/fate/truehd.mak).
+
+`Scripts/research_truehd_integrity.py` reproduces this reference and three
+damaged copies without modifying the input. The first run is retained at
+`.build/lossless-audio-research/truehd-integrity-first/report.json`:
+
+- Valid reference: 3,273,600 decoded 32-bit PCM bytes, matching the published MD5.
+- A flipped byte: successful exit and the same length, but different PCM;
+  the decoder emits an error about primitive matrices.
+- One byte removed: identical complete decoded PCM for this fixture.
+- 4,096 tail bytes removed: successful exit without an error diagnostic, but
+  only 3,253,440 decoded PCM bytes.
+
+Adding `crccheck` to `explode` still returns success for the flipped-byte case.
+These results do not yet block all TrueHD conversion: they establish that
+exit status alone is inadequate and that preservation checks must cover
+decoder diagnostics and complete expected sample/timestamp coverage. A raw
+tail cut is not proof that every container can detect a missing original tail.
+No production eligibility has been changed on this evidence.
+
+The official `truehd/atmos.thd` fixture (58,738 bytes) also provides a bounded
+24-bit/48 kHz, eight-channel `7.1` case. Complete native decoded 32-bit PCM and
+the decoded FLAC both have MD5 `53da6ce35c778bcc2182ef2160bf16a2` in the local
+15 October run. This compares the channel-based decode before and after FLAC,
+not an independently published PCM reference. It does not retain or test Atmos
+object metadata. Neither this fixture nor the 5.1 sample has yet been packaged
+and observed on the receiver in this candidate.
+
+Sources: [FATE's lossless suite](https://github.com/FFmpeg/FFmpeg/blob/n9.0.1/tests/fate/dca.mak),
+[published 24-bit reference](https://github.com/FFmpeg/FFmpeg/blob/n9.0.1/tests/ref/fate/dca-xll_51_24_48_768),
+[native DCA recovery](https://github.com/FFmpeg/FFmpeg/blob/n9.0.1/libavcodec/dcadec.c),
+[XLL synchronization handling](https://github.com/FFmpeg/FFmpeg/blob/n9.0.1/libavcodec/dca_xll.c).
+
+### TrueHD working candidate, 15 October 2026
+
+The current source offers explicit TrueHD-to-FLAC preparation on HLS only, with
+manual audio timing at zero. Eligibility requires declared 24-bit precision,
+mono/stereo/5.1(side)/7.1 matching the channel count, and a native 44.1/48/88.2/96/
+176.4/192 kHz sample rate. Unknown labels, precision and other rates are rejected;
+16-bit TrueHD remains unverified. Original stays the default. The UI states that
+Atmos objects are not retained. Direct MP4 and pinned runtimes are unchanged.
+
+`Scripts/research_truehd_samples.py` generates independent per-channel integer
+samples, uses only the explicitly supplied development encoder for TrueHD, and
+compares complete pinned-decoder PCM and FLAC PCM to the generated samples.
+All 36 cases passed at six native rates, mono/stereo/5.1(side), starting from
+16-bit and 24-bit WAV. The development encoder declares 24-bit TrueHD for both
+source precisions; these cases do not establish 16-bit TrueHD support. Metadata
+precision is compared against the actual encoded input. Initial reports that
+required the WAV precision to equal the encoded
+precision remain retained separately.
+
+`Scripts/validate_truehd_hls.py` then invoked the production preparation service
+for 18 generated 24-bit TrueHD movies, cold and warm. All 36 cases retained the
+complete PCM/sample count, sample rate, precision, speaker labels, coded video
+and relative timelines, within one Matroska millisecond for timestamp rounding.
+The looped official 7.1 fixture passed the same two cold/warm checks. All are
+receiver-free observations. Reports remain in the ignored research directories
+`truehd-sample-matrix-all-native-rates`, `truehd-production-hls-second` and
+`truehd-production-hls-71`. The first HLS verifier attempt lacked packet durations
+for TrueHD; the corrected verifier measures decoded sample counts and frame PTS
+instead of inventing a duration for those packets.
+
+TrueHD packaging retains warning/error logging, strict error/CRC flags, and a sticky
+diagnostic pipe that drains through EOF after joining the child. Unknown warning
+or error bytes, invalid UTF-8 diagnostics or incomplete pipes reject the package
+before cache storage or delivery, even if FFmpeg exits zero. One exact, scoped
+HLS-muxer warning for FLAC's empty final packet is exempted after complete sample
+and timing checks. Decoder messages never use that exception. The production
+service rejected
+the damaged primitive-matrix fixture with `ffmpegStopped`; that reproduction is
+retained in `truehd-corrupt-production`. This is not a guarantee of detecting
+every missing original byte or every possible damaged bitstream. A truncated raw
+file that cleanly decodes fewer samples cannot reveal what existed before it was
+truncated. Conversion does not recover absent source audio.
+
+The stricter warning run initially rejected all 38 cases: the 36 generated
+movies carried the exact empty-final-FLAC-packet muxer warning. The two looped
+7.1 cases also carried a real `Lossless check failed` decoder warning. The
+earlier equality of decoded PCM is not sufficient to qualify that looped input;
+it is now correctly rejected. Its original short, unlooped fixture decodes
+without a lossless-check warning. A valid 7.1 playback-length fixture remains
+pending. The failed stricter report is retained in
+`truehd-production-hls-strict-warnings`. The TrueHD cache namespace advances to
+`hls-truehd-strict-v2` so an earlier error-only cache cannot bypass the new guard.
+
+After the scoped mux-warning policy, the 36 generated cold/warm cases passed
+again in `truehd-production-hls-final-guard`. A short, unlooped official 7.1
+prefix also passed cold/warm complete sample, layout, rate, precision and
+timeline comparisons in `truehd-production-hls-71-valid-prefix`. This is not
+a playback-length 7.1 receiver fixture. The source of the ignored mux warning
+is the FLAC encoder's empty final packet carrying updated STREAMINFO:
+[pinned FLAC encoder](https://github.com/FFmpeg/FFmpeg/blob/n9.0.1/libavcodec/flacenc.c).
+
+At this checkpoint, native UI, receiver/output and complete release gates were
+still pending. Later sections record their outcomes separately.
+
+### Native FLAC block-size repair
+
+The first TrueHD capture attempt stopped at analysis because the scenario
+writer did not forward the new explicit lossless-mode field. A regression now
+checks the actual emitted plan for both the generic and legacy configuration
+fields. The next attempt reached startup but failed before receiver playback.
+Both reports are retained in `capture-run-f8eg_8x_` and `capture-run-0dje_492`.
+
+The same source prepared successfully with subtitles through the isolated
+production-service CLI. A muted local HTTP/AVPlayer test then reproduced the
+native decoder failure, CoreMedia `-16170`. The PCM-to-FLAC control played and
+reached its natural end in the same environment. TrueHD's 40-sample access-unit
+size had been inherited by the FLAC encoder: the one-minute stereo output
+contained 72,000 tiny FLAC frames. The pinned FLAC encoder honors an explicitly
+provided frame size, as its source confirms.
+
+The working repair sets `-frame_size:a 4608` only for explicit TrueHD-to-FLAC,
+on the two HLS layouts. It does not change PCM, original audio or direct MP4.
+The new stereo output contains 625 frames of 4,608 samples. The muted local
+player now reaches ready state, displays the opening at time zero, observes
+68 picture buffers and reaches its natural end. Its declared duration is
+60.096 seconds; the final position is 60.0886 seconds with rate zero. This is
+local decoding evidence, not receiver acceptance. The muxer's empty final
+metadata packet can contribute a short declared tail; it is not an additional
+encoded audio frame. After this change, all 42 cold/warm production HLS checks
+passed again: the 18 generated native-rate/layout inputs, the short unlooped
+7.1 prefix and the two one-minute receiver fixtures. Complete PCM, sample count,
+precision, speaker labels, rate, coded video and relative timestamps remain
+verified. The report is retained in `truehd-production-hls-standard-blocks`.
+
+The TrueHD cache namespace is now `hls-truehd-standard-blocks-v3`, excluding
+previous packages with inherited tiny blocks. Source, baseline and repaired
+packages remain in `truehd-subtitle-diagnostic`. Temporary private-error
+instrumentation did not capture this AVPlayer callback failure and was removed;
+the controlled local reproduction provides the error evidence instead.
+
+### Interrupted handoff and subsequent validation
+
+The final capture attempt with the standard-block repair stopped in capture
+preflight because no initial frame arrived. The maintainer then confirmed that
+the Apple TV was off. `capture-run-02vqmsz_` is retained as blocked infrastructure
+evidence, not a TrueHD playback failure or an approved output check. The
+maintainer subsequently confirmed availability; the new observations are
+recorded below.
+
+The handoff identified these remaining gates; subsequent results are below:
+
+1. Observe the two complete TrueHD fixtures through the authorized digital
+   Apple TV capture: explicit FLAC, subtitles and track changes on stereo;
+   multichannel playback without subtitles on 5.1(side). Keep decoded sample
+   preservation separate from observed receiver output and speaker-layout claims.
+2. Validate the latest shared coordinator changes with adjusted SDR HLS,
+   including saved position, track changes, subtitles, pause, seek, natural end,
+   stop and replay. Assess the unchanged direct-MP4 route separately because
+   its coordinator is shared. Earlier timing captures do not cover later
+   coordinator changes.
+3. Check the actual native inspector: original is still the default, lossless
+   conversion is explicit, unsupported combinations remain unavailable, and
+   timing explanations are readable in English and Spanish. This required a
+   fresh UI build after the standard-block repair.
+4. Complete the distribution procedure for the exact accepted commit and tag:
+   CI, signed downloads and feed, rollback copy, native Sparkle installation
+   and relaunched version. Local builds do not establish these outcomes.
+
+DTS-HD MA remains blocked for this delivery. Do not add another decoder or
+weaken its acceptance criteria to close the release. No release or daily-app
+replacement had taken place at that handoff.
+
+### TrueHD receiver checks, 15 October 2026
+
+After the maintainer confirmed that the receiver was awake and available, the
+standard-block candidate completed both configured SDR cases. The isolated
+application executable was
+`35eb81589eddd60f83f18a0c77fee3421dd311723de4220cd0dc70b313a2d2a5`.
+Its source, resources, helpers and pinned runtime inputs were unchanged since
+its build. The private report is `capture-run-r9f6bck_/report.json`.
+
+The stereo TrueHD fixture passed initial playback, subtitle replacement, a
+change between two TrueHD tracks and subtitle removal, all using explicitly
+selected FLAC. Each phase had fresh captured motion and digital audio. The
+measured tone changed from 880 Hz to 440 Hz with the selected audio track;
+expected subtitle cues appeared in the first three phases and were absent in
+the fourth. Each phase had 11 to 13 assessed frames. The separate 5.1(side)
+TrueHD fixture without subtitles passed the basic playback controls with
+29 assessed frames and 63 non-silent audio measurements. Both cases reported
+no evidence gaps and confirmed cleanup.
+
+This establishes those sampled SDR receiver/output cases. It does not prove
+physical speaker routing, Atmos, complete-movie reliability or HDR TrueHD
+output. The later conversion-choice alert is also outside this recorded
+candidate. Final adjusted-timeline integration, native UI and distribution
+checks remain separate delivery gates.
+
+### Independent review and HDR observation, 15 October 2026
+
+The independent review extended `validate_truehd_hls.py` to compare the decoded
+sample-index clock at every source and output frame boundary, including internal
+gaps and overlaps with unchanged endpoints. The one-millisecond tolerance is
+unchanged. Its self-test rejects those internal timing changes and accepts
+different frame sizes when they preserve the same sample clock.
+
+The real-service matrix now passes 44 cold/warm cases, including a short HDR
+TrueHD case. Complete PCM, sample count, precision, rate, speaker labels, coded
+video and internal timing are checked. The private report is
+`truehd-hdr-independent-review-2MKcPc/internal-clock-matrix/report.json`.
+
+A separate 60-second HDR pattern retains all 1,440 encoded video packets,
+PQ/mastering metadata and the complete stereo TrueHD audio from the accepted
+SDR fixture. Its authorized receiver run, `capture-run-qv_okgj5/report.json`,
+passed controls, cleanup and sampled output: 30 assessed frames and 57
+non-silent audio measurements, with no evidence gaps. The executable was
+`fc75b54acb1137e77dd291cc615af8b73216cd86cdf06cd7928a8e80cd637063`.
+This is HDR-source playback through HLS, not a physical HDR-rendering or
+speaker-layout certification.
+
+The native conversion alert was inspected in English and Spanish on the same
+candidate's UI build. Its complete text and three actions were readable.
+Choosing FLAC reached receiver-confirmed playback; Cancel kept Original and
+did not start playback. The open inspector did not refresh that externally
+chosen output, which prompted a bounded draft-refresh correction.
+
+The corrected UI candidate was then rebuilt with the local-Stop fix. In the
+native Spanish interface, accepting FLAC immediately refreshed the already-open
+inspector and its explanation. A nonzero manual-audio draft made Apply unavailable
+and showed the recovery instruction; Cancel discarded that draft. Stop retained
+the movie position, Replay resumed from it, and quitting during active playback
+removed the candidate and its AirPlay helper processes. These are native UI and
+receiver-state observations, not an additional captured-output run. The earlier
+English/Spanish alert inspection remains applicable because its text and actions
+did not change. The final shared-control batch and distribution gates are
+recorded separately.
 
 ## Primary references
 

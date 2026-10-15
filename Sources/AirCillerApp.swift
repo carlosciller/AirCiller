@@ -593,17 +593,14 @@ struct TrackSettingsView: View {
                 }
                 DisclosureGroup("Sincronización", isExpanded: $showingSynchronization) {
                     delayControl("Audio (s)", value: $draft.audioDelay, range: -5...5, step: 0.05)
-                    if draft.hasKnownAudioTimingLimitation(
+                    if draft.hasAdjustedAudioTimeline(
                         isHDR: coordinator.probeInfo?.isHDR,
                         hasSelectedAudio: coordinator.audioTracks.contains { $0.id == draft.audioID }
                     ) {
-                        Label(
-                            "El ajuste de audio puede no aplicarse en esta película. La sincronización de subtítulos es independiente.",
-                            systemImage: "exclamationmark.triangle"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                        Text(draft.adjustedAudioTimelineExplanation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                     delayControl("Subtítulos (s)", value: $draft.subtitleDelay, range: -10...10, step: 0.1)
                     Text("Un valor positivo retrasa la pista; uno negativo la adelanta.")
@@ -696,6 +693,13 @@ struct TrackSettingsView: View {
                 }
             }
             .padding(18)
+        }
+        .onChange(of: coordinator.trackSettings) { _, current in
+            // A playback alert can choose an output while this inspector stays
+            // open. Refresh an untouched draft without discarding user edits.
+            guard draft == original else { return }
+            draft = current
+            original = current
         }
         .sheet(isPresented: $showingOpenSubtitles) {
             if let videoURL {

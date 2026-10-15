@@ -95,7 +95,7 @@ def main():
         expected_rejection = metadata.get('channel_layout') == '5.1'
         if expected_rejection:
             case['passed'] = prepared.returncode == 2 and (
-                'Esta pista no admite conversión PCM a FLAC sin pérdida.' in case['stderr']
+                'Esta pista no admite conversión a FLAC sin pérdida.' in case['stderr']
             ) and not list(output.glob('*.m4s'))
         elif prepared.returncode == 0:
             case['runner'] = json.loads(prepared.stdout.decode().splitlines()[-1])

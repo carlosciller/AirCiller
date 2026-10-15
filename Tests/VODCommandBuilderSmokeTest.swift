@@ -115,6 +115,7 @@ struct VODCommandBuilderSmokeTest {
             else { throw NSError(domain: "VODCommandBuilderSmokeTest.LosslessClock", code: 6) }
             guard let encoder = command.firstIndex(of: "-c:a"), command[encoder + 1] == "flac",
                 command.contains("-xerror"), command.contains("explode"),
+                !command.contains("-frame_size:a"),
                 !command.contains("-ac:a"), !command.contains("-ar"), !command.contains("-af"),
                 let video = command.firstIndex(of: "-c:v"), command[video + 1] == "copy"
             else { throw NSError(domain: "VODCommandBuilderSmokeTest.LosslessPCM", code: 5) }
@@ -126,6 +127,25 @@ struct VODCommandBuilderSmokeTest {
             guard !audio.canPassThrough else {
                 throw NSError(domain: "VODCommandBuilderSmokeTest.FLACLayout", code: 4)
             }
+        }
+        let truehd = AudioTrack(
+            streamIndex: 1, codec: "truehd", profile: "Dolby TrueHD + Dolby Atmos", channels: 8,
+            channelLayout: "7.1", language: nil, title: nil, isDefault: true,
+            sampleRate: 48_000, bitsPerSample: 24)
+        for command in [
+            VODCommandBuilder.arguments(
+                input: input, outputDirectory: directory, probe: probe, audio: truehd,
+                outputMode: .losslessFLAC, audioDelay: 0),
+            VODCommandBuilder.multiplexedArguments(
+                input: input, outputDirectory: directory, probe: probe, audio: truehd,
+                outputMode: .losslessFLAC, audioDelay: 0),
+        ] {
+            guard let level = command.firstIndex(of: "-loglevel"), command[level + 1] == "warning",
+                command.contains("crccheck+explode"), command.contains("-xerror"),
+                let block = command.firstIndex(of: "-frame_size:a"), command[block + 1] == "4608",
+                !command.contains("-ac:a"), !command.contains("-ar"), !command.contains("-af"),
+                let video = command.firstIndex(of: "-c:v"), command[video + 1] == "copy"
+            else { throw NSError(domain: "VODCommandBuilderSmokeTest.StrictTrueHD", code: 7) }
         }
         print("Exact primary video stream mapping for HLS and direct MP4: OK")
         print("HLS adapts ADTS framing only for original AAC; audio conversion remains explicit: OK")
