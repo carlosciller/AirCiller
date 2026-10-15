@@ -56,17 +56,10 @@ Found a problem? [Open an issue](https://github.com/carlosciller/AirCiller/issue
 
 The app uses Swift 6, SwiftUI and AppKit. A bundled Python bridge provides AirPlay 2 through pyatv. FFmpeg prepares compatible media and Apple Vision recognizes bitmap subtitles.
 
-On an Apple silicon Mac with the Swift 6 Command Line Tools:
-
-```sh
-brew bundle
-./Scripts/bootstrap_dependencies.sh
-./Scripts/bootstrap_sparkle.sh
-./Scripts/bootstrap_engine.sh
-./Scripts/check.sh
-```
-
-The checks build `.build/AirCiller.app` without replacing or launching an installed copy. Use `./build.sh` for subsequent development builds.
+Development requires an Apple silicon Mac and the Swift 6 Command Line Tools.
+Follow [checkout preparation and checks](CONTRIBUTING.md#prepare-a-checkout).
+The checks build `.build/AirCiller.app` without replacing or launching an installed
+copy. Use `./build.sh` for subsequent development builds.
 
 [Contributing](CONTRIBUTING.md) · [Architecture](ARCHITECTURE.md) · [Testing](TESTING.md) · [Distribution](DISTRIBUTION.md)
 

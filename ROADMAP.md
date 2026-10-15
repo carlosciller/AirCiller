@@ -4,7 +4,7 @@ AirCiller should stay quick to open and dependable through a whole movie. This i
 the order of work, not a release schedule. Completed changes are in the
 [release notes](CHANGELOG.md); detailed evidence belongs in [Testing](TESTING.md).
 
-## 0.17.0 scope
+## Released in 0.17.0
 
 Implemented and validated within the linked records' observation limits:
 
@@ -23,8 +23,10 @@ Implemented and validated within the linked records' observation limits:
   [Audio validation](Docs/AUDIO_EXPANSION.md).
 
 DTS-HD MA lossless preparation is excluded from this delivery; its blocker is
-recorded below. Release, CI, signed-download and native-update evidence is
-separate from playback acceptance and follows [Distribution](DISTRIBUTION.md).
+recorded below. Publication, exact-commit/tag CI, signed downloads and the native
+Sparkle update from 0.16.0 to 0.17.0 are complete. Library and preferences were
+preserved. [Release verification](Docs/RELEASE_0.17.0.md) records distribution
+evidence separately from playback acceptance.
 
 ## Released scope
 
@@ -94,6 +96,8 @@ Their limits are in [Compatibility](COMPATIBILITY.md), with separate
 [transport-stream](Docs/TRANSPORT_STREAMS.md), [PGS](Docs/EXTERNAL_PGS.md) and
 [VobSub](Docs/EXTERNAL_VOBSUB.md) records.
 
+<a id="deferred-apple-shortcuts"></a>
+
 ## Deferred and blocked
 
 - **DTS-HD MA lossless preparation:** damaged lossless extensions can return
@@ -112,6 +116,12 @@ Their limits are in [Compatibility](COMPATIBILITY.md), with separate
   membership is available. Sparkle signatures do not replace notarization.
 
 ## Maintenance and distribution
+
+Correct the distribution audit's signer classification: it currently labels
+every non-ad-hoc certificate as Developer ID. The existing structural signature
+check is separate and remains required. Until that diagnostic is corrected,
+inspect the actual authority chain as documented in
+[Distribution](DISTRIBUTION.md#distribution-diagnostics).
 
 Engines remain pinned and bundled. Dependency changes need a regenerated lock,
 runtime imports, packaging checks and applicable playback validation. Current
