@@ -1,36 +1,98 @@
 # Testing strategy
 
-AirCiller separates three levels of validation so that a successful build is never mistaken for successful playback.
+This guide defines current validation. Dated outcomes belong in the linked
+records and [validation history](Docs/VALIDATION_HISTORY.md); an old pass is not
+evidence that a different candidate has passed.
 
-## 1. Deterministic checks
+## Choose checks from the change
 
-The [0.12.5 external bitmap record](Docs/EXTERNAL_VOBSUB.md) covers paired VobSub discovery, languages, damaged input, cache invalidation, local timing and corrected Apple TV output checks. It retains incomplete assessments, initial capture failures and the MP4 language-tag failure separately. [External PGS and rapid Mac seeks](Docs/EXTERNAL_PGS.md) have their own preceding validation record.
+Follow [Contributing](CONTRIBUTING.md#minimum-validation). Identify the affected
+behavior and applicable cases before testing:
 
-The [0.12.4 FLAC record](Docs/FLAC_AUDIO.md) covers original-frame comparisons, channel-layout rejection, HLS codec declarations, bundle-size checks and seven captured receiver cases. It preserves the failed capture-start attempt separately.
+| Change | Required validation |
+| --- | --- |
+| Documentation or agent instructions only | Review the diff and changed references; run `git diff --check`. No app build or playback session |
+| Code, dependencies or build configuration | Meaningful regression coverage and `./Scripts/check.sh`, which includes the strict application build |
+| Native UI | Inspect the changed interaction in the running app. Pure interface work does not require unrelated playback tests |
+| A control that starts, changes or stops playback | Check its native interaction and affected playback behavior |
+| One playback path | Local media checks and applicable receiver/output cases for that path |
+| Shared session/control/server code, or an engine upgrade | Assess and validate affected behavior on both direct MP4 and HLS |
 
-`./Scripts/check.sh` validates formatting, compiles the code in strict Swift 6 mode, runs tests without private media, and checks the Python bridge through a simulation.
+The matrix below is the playback case catalogue, not a requirement to repeat
+every case for every release. An applicable case remains a release gate; a
+failure or missing required observation must be resolved or explicitly left
+pending. After playback validation, include stop, replay and app close.
 
-Push, pull-request and release-tag CI use the released `macos-26` runner. The CI workflow can also be started manually with `xcode-27` to investigate preview compatibility; this runs the same full suite and does not ignore failures. Compiler and OS versions are recorded in each run. See [the Vision CI investigation](Docs/VISION_CI.md) for the reason these environments are separate.
+Once the required checks pass, stop. Repeat or broaden them for new changes,
+failures or unresolved concerns. Carrying earlier evidence forward requires a
+comparison of the candidate's relevant source, pinned runtimes and build
+configuration; it does not constitute a new device run. Publication and installed
+updating are separate checks under [Distribution](DISTRIBUTION.md).
 
-## 2. Local tests with media
+## Evidence levels
 
-The [startup optimization candidate](Docs/STARTUP_OPTIMIZATION.md) separates reproducible local preparation benchmarks and byte comparisons from its pending receiver matrix. A warm prepared-media cache is reported separately from a first preparation; operating-system cache state is not reset by the benchmark.
+Record these separately. They describe what was observed, not four mandatory
+rounds of testing for every change.
 
-Executables in `Tests/` that require a real file receive its path through an argument or environment variable. Media remains outside the repository. These tests validate containers, OCR, AVPlayer, and VOD playlists, but they do not prove that tvOS will accept the session.
+| Evidence | Establishes | Does not establish |
+| --- | --- | --- |
+| Local or simulated | Compilation, deterministic behavior, media structure, sample/packet conservation, local decoder behavior | Apple TV acceptance or output |
+| Receiver | Events, reported progress, accepted control changes and session cleanup from the Apple TV | Visible picture, audible sound or subtitle output |
+| Captured digital output | The approved Apple TV source supplied the sampled moving picture, digital audio and expected cues | Physical speaker routing, Atmos, HDR rendering or uninterrupted full-movie playback |
+| Physical observation | What a person directly confirmed on the television and sound system, within the observed interval | Untested tracks, layouts, devices or an entire movie from a short sample |
 
-## 3. Physical Apple TV matrix
+Keep failed and incomplete reports alongside later results. A corrected offline
+assessment must identify its inputs and changed evaluator separately; it must
+not overwrite the original report or be described as a new capture. Repair
+verification defects with a regression, not by weakening a criterion to make
+the candidate pass.
 
-The opt-in [playback check runner](Docs/PLAYBACK_CHECKS.md) can batch a subset of control checks through an isolated build of the real app. It distinguishes receiver evidence from command acknowledgements and leaves uncaptured audiovisual output unverified. Its capture workflow prepares audible fixtures and produces one report for direct Dolby Vision and HLS with and without subtitles, using only an explicitly approved Apple TV screen source. It observes sampled digital picture, audio levels and subtitle cues; it does not certify physical speakers, Atmos, HDR rendering or the full matrix below. The development record keeps prototype and integrated-run results separate.
+## Deterministic checks
 
-The integrated three-case command passed on 6 September 2026 without password dialogs or manual viewing confirmation. Receiver controls and captured-output checks passed separately, all test processes finished, and the installed app was unchanged. Counts and remaining limits are recorded in [the validation report](Docs/PLAYBACK_CHECKS.md#reusable-command-validation-6-september-2026).
+Run `./Scripts/check.sh` from the repository root. It validates formatting,
+strict Swift 6 compilation with warnings-as-errors, standalone regressions,
+Python bridge simulations, packaging and publication checks. It already builds
+the application; do not repeat an identical build after it passes.
 
-The subsequent [expanded seven-case batch](Docs/PLAYBACK_CHECKS.md#expanded-scenario-validation-6-september-2026) also passed subtitle replacement, a measured change between original audio tracks, subtitle removal, cancellation of a running FFmpeg preparation and exactly one automatic Playlist transition after a tail seek and natural end. Each stable playback phase had separate captured-output evidence. This does not establish long-pause behavior, analysis/OCR cancellation or full-movie reliability. No daily-use app was replaced.
+Tests use synthetic inputs and do not require private media. The suite builds
+and typechecks the optional playback tools without opening a capture source or
+starting an Apple TV session. The standalone tests it runs are listed in
+`Scripts/check.sh`.
 
-A version is not considered ready to install until these cases have been completed separately:
+Push, pull-request and release-tag CI use the released `macos-26` runner. The CI
+workflow can also be started manually with `xcode-27` to investigate preview
+compatibility; it runs the same full suite and does not ignore failures.
+Compiler and OS versions are recorded in each run. See the
+[Vision CI investigation](Docs/VISION_CI.md) for why these environments are separate.
 
-The opt-in `directLongPause` and `hlsLongPause` scenarios completed six-minute holds and resumed at second 15 with captured output before and after. [The validation record](Docs/PLAYBACK_CHECKS.md#long-pause-validation-6-september-2026) distinguishes the corrected offline assessment for direct HDR from the subsequent live HLS pass. Local analysis-owner and Vision cancellation checks run in the strict suite. The separate [in-app bitmap profile](Docs/PLAYBACK_CHECKS.md#in-app-bitmap-cancellation-6-september-2026) passed twelve receiver-free PGS/VobSub extraction, OCR and file-replacement cases. A focused [Apple TV HLS run](Docs/PLAYBACK_CHECKS.md#pgs-canvas-output-validation-6-september-2026) subsequently passed controls and sampled motion/audio, with two captured PGS cues compared against their source bitmaps without clipping.
+## Local tests with media
 
-| Path | Minimum case | Expected result |
+Executables and scripts that require a real file receive its path through an
+argument or environment variable. Keep media and private reports outside Git,
+normally under `.build/`. These checks can validate containers, OCR, local
+AVPlayer behavior and finalized VOD playlists. They do not prove tvOS acceptance.
+
+Choose the relevant media matrix from the validation records below. The audio
+records distinguish packet copy, decoded-sample conservation, layouts, internal
+timestamps, damaged input and cache reuse. A decoder exit status alone does not
+prove losslessness. Use the pinned bundled engines for comparisons.
+
+<a id="3-physical-apple-tv-matrix"></a>
+
+## Receiver and output checks
+
+The opt-in [playback check runner](Docs/PLAYBACK_CHECKS.md) uses an isolated build
+of the real app and reports receiver controls separately from captured output.
+Use its documented profiles and source-selection procedure. Never activate
+Mac/iPhone cameras or microphones; capture only the explicitly approved, exact
+Apple TV digital screen/audio source, with no default-source fallback. Stop if
+that source cannot be guaranteed.
+
+Select applicable cases from this catalogue according to the changed boundary.
+Use separate evidence for the two media paths and distinguish command
+acknowledgements from receiver-confirmed behavior.
+
+| Path | Case | Expected result |
 | --- | --- | --- |
 | Direct MP4 | HDR/Dolby Vision, E-AC-3/Atmos, with selectable subtitles | Correct picture and tracks; synchronized duration and position |
 | HLS/fMP4 | Without subtitles | Complete VOD, no live indicator or preparation pauses |
@@ -39,135 +101,25 @@ The opt-in `directLongPause` and `hlsLongPause` scenarios completed six-minute h
 | Control | Natural end of the current item | The Apple TV confirms completion and the next Playlist item starts once |
 | Control | Rapid pause, resume and seek commands from Mac, Apple TV Remote and iPhone Remote | Commands remain ordered, the timeline stays synchronized and AirPlay remains linked |
 
-After playback, also test stop, replay, and closing the app. Only then should the patch version be increased and the installed app replaced, while keeping a rollback copy.
+The runner covers a subset of these observations. Its automated commands do not
+establish that a physical remote was used; digital audio capture does not certify
+Atmos or physical speakers. Record that distinction. Do not ask the user to repeat
+a check that automation has already established at the required level.
 
-## 0.12.2 release candidate
+Keep the installed app intact until the applicable validation and distribution
+gates pass. Retain a rollback copy when installing, as described in
+[Distribution](DISTRIBUTION.md).
 
-The subsequent [0.12.3 transport-stream candidate](Docs/TRANSPORT_STREAMS.md) is tracked separately. It passed eight local copy-only media checks and four Apple TV cases for TS/MTS/M2TS. A later review found PGS timing, canvas and missing-language problems plus an ineffective QA program-count check. The corrected candidate passed the strict suite and two further embedded-PGS cases using the same M2TS inputs on HLS and direct HDR. Captured subtitle text was compared with source bitmaps. Failed observations remain in the record. These bounded checks do not certify physical HDR rendering or whole-movie reliability.
+## Signed application updates
 
-The 6 September playback-check records above cover the changes in this candidate. The PGS canvas correction passed a focused HLS output comparison on Apple TV. Cancellation passed twelve local in-app PGS/VobSub cases and the deterministic analysis/Vision tests. Shared controls also have separately recorded direct HDR and HLS playback, track-change, Playlist-transition and six-minute-pause evidence.
+Follow [Distribution](DISTRIBUTION.md) for release authorization, CI, packaging,
+signatures, appcast checks, native Sparkle installation and rollback. A build,
+signed archive or successful download is not an installed-update check. Verify
+the relaunched version separately from playback acceptance.
 
-Those device runs used the isolated 0.12.1 check build before the release metadata advanced to 0.12.2 (build 55). No production playback source or pinned engine changed after the final PGS run. The public package uses the established ad hoc/direct-Keychain configuration; the local installation uses the unchanged certificate-signed credential service. Neither is notarized. Packaging, GitHub CI and installation results are separate from the recorded playback observations.
+<a id="12-reproducible-performance-fixtures"></a>
 
-## 4. Signed application updates
-
-### HTTP completion telemetry regression, 13 October 2026
-
-The first [0.15.0 tag run](https://github.com/carlosciller/AirCiller/actions/runs/38420958391)
-failed the HTTP telemetry assertion (code 18), while the same commit passed its
-main-branch run. The original assertion did not print which field failed. Review
-found that it stopped the server after client receipt without waiting for the
-server's final transfer callback.
-
-A controlled fixture defers the final telemetry publication until after client
-receipt. The old assertion fails with the same code; waiting for the completion
-snapshot passes. The regression retains exact payload, byte-count, client-match
-and completed-transfer checks, with a bounded timeout and useful failure details.
-Only test code changes; the HTTP server, playback paths and release package do not.
-The original failed run is retained when checking a diagnostic rerun.
-
-The 0.15.0 library delivery has a separate [acceptance matrix](Docs/LIBRARY_SEASONS.md)
-covering admission before analysis, active-session preservation, season folders,
-legacy data, progress, watched state, native reordering, Undo and cancellation.
-Its recorded native and sampled Apple TV evidence is distinguished from the
-separate release, CI and installed-update gates.
-
-The first complete Sparkle update was validated on 26 August 2026. The installed app moved from AirCiller 0.10.2 (build 42) to 0.10.3 (build 43) through the public signed appcast, installed the update, and relaunched successfully. The resulting app bundle and every embedded Sparkle helper passed strict code-signature verification.
-
-Version 0.10.3 did not change playback or media preparation, so this result validates the update path only. Apple TV playback remains subject to the separate physical matrix above.
-
-## 5. AirCiller 0.10.4 physical validation
-
-The 0.10.4 candidate completed the physical Apple TV matrix on 30 and 31 August 2026:
-
-- Direct Dolby Vision/HDR MP4 with E-AC-3 audio and selectable subtitles.
-- HLS/fMP4 VOD with WebVTT subtitles.
-- Picture, sound, subtitle selection, remote commands, long pause, resume, and seeking.
-- Remote exit returned AirCiller to a stopped state without a ghost timer or false connection error.
-
-The original media files were not modified.
-
-## 6. Post-0.11.0 reliability candidate
-
-Build 46 completed the remaining physical control checks on 1 September 2026:
-
-- The Apple TV reported the natural end of a movie and AirCiller advanced once to the next Playlist item.
-- Rapid pause, resume, forward seek and backward seek commands from the physical Apple TV remote, iPhone Remote and AirCiller remained synchronized.
-- Stopping from AirCiller ended playback cleanly without reconnecting, requesting a new authorization code or leaving a ghost session.
-- AirPlay remained linked throughout the command sequence.
-
-The validation used the candidate app directly. It did not replace the installed app or modify the original media files.
-
-## 7. AirCiller 0.11.2 Playlist keyboard validation
-
-The candidate and installed build 48 were checked locally on 1 and 2 September 2026:
-
-- Up and Down select a Playlist row without starting playback.
-- Option-Command-Up and Option-Command-Down move the focused row and preserve focus.
-- Move Up and Move Down are also available in the Playlist and contextual menus.
-- The original Playlist order was restored after testing.
-
-This change does not alter either playback route.
-
-## 8. AirCiller 0.11.3 Playlist interaction validation
-
-Candidate builds 51 and 52 were checked locally on 2 September 2026:
-
-- The Playlist uses one native AppKit selection with no competing custom highlight.
-- A single click selects a row without loading it or changing the current movie.
-- Up and Down move the selection without affecting playback.
-- Option-Command-Up and Option-Command-Down keep the moved movie selected, and the original order was restored after testing.
-- Return and double-click use the existing explicit Playlist playback action.
-
-The playback pipeline is unchanged. Physical Apple TV playback was not repeated for this interface-only release.
-
-## 9. OpenSubtitles candidate
-
-The initial OpenSubtitles candidate was checked locally on 2 September 2026:
-
-- The standard OpenSubtitles file fingerprint is calculated from the file size and the first and last 64 KB.
-- REST search and download requests include the required API key and AirCiller user agent.
-- Search responses tolerate nullable metadata and preserve ASS, SRT and WebVTT format information.
-- Credentials are stored as one serialized Keychain item and removed together.
-- Search, empty-configuration and Settings screens were inspected in the built app.
-- The full strict Swift 6 check suite and public repository audit passed.
-
-The live OpenSubtitles check was completed on 3 September 2026:
-
-- A real API key passed the connection check and was retained in Keychain without appearing in diagnostics or repository files.
-- The service found no fingerprint match for the test Blu-ray and clearly switched to title results.
-- The closest release match downloaded as a valid SRT file, was attached locally, converted to selectable WebVTT and displayed on the physical Apple TV.
-- The downloaded subtitle remained in AirCiller's bounded local subtitle cache; the original movie was not uploaded or modified.
-
-The OpenSubtitles integration itself does not change either Apple TV playback route.
-
-## 10. Abandoned range reliability candidate
-
-The local playback server regression test was extended on 3 September 2026 to reproduce the request pattern seen in the Mandalorian stall:
-
-- It opens and abandons 160 partial requests against a sparse 5 GB movie.
-- The process is restricted to 128 open descriptors during the test so that retained files or sockets fail quickly.
-- Open descriptor usage returns to its baseline after the abandoned requests.
-- A new partial request succeeds afterwards, confirming that the server remains usable.
-- Local read failures now close the active playback session and report a recoverable error instead of leaving Apple TV loading indefinitely.
-
-The strict local check suite passes.
-
-## 11. AirCiller 0.12.0 physical reliability candidate
-
-Build 53 completed the physical Apple TV reliability check on 3 September 2026:
-
-- A 4K Dolby Vision Profile 8.1 movie played with its original E-AC-3 5.1 audio and selectable English subtitles.
-- Picture, sound and subtitles were confirmed on the television.
-- Pause, resume, chapter navigation and a burst of forward seeks remained synchronized without disconnecting AirPlay.
-- The Apple TV requested new byte ranges throughout playback and reached the natural end without an endless loading state or a retained session.
-- Two brief buffer waits after explicit resume and seek operations recovered automatically.
-- The HLS/fMP4 route then played a Full HD H.264 movie with its original E-AC-3 5.1 audio, first with a selectable WebVTT subtitle and then with subtitles disabled.
-- Picture and sound were confirmed in both HLS/fMP4 runs; subtitles appeared only in the selected-subtitle run, and changing the track preserved the playback position.
-
-The original movies were not modified. The local and physical release gates are complete; GitHub CI remains required before tagging.
-
-## 12. Reproducible performance fixtures
+## Reproducible performance fixtures
 
 Run `./Scripts/benchmark_performance.sh` for optimized, synthetic measurements of ASS conversion and bounded process output. It reports all seven samples and their median, checks stable conversion and buffer output, and saves generated WebVTT alongside timings under `.build/performance/`. It does not use private media or install the app.
 
@@ -177,41 +129,24 @@ These measurements cover 2,000 subtitle cues and 32 MiB of writes in 4 KiB chunk
 
 `./Scripts/check.sh` includes deterministic tests for buffer limits, compaction, retained snapshots, concurrent writes, legacy subtitle alignment, and concurrent conversions. Timing thresholds are intentionally excluded from CI.
 
-## 13. Stability review candidate
+The [startup optimization record](Docs/STARTUP_OPTIMIZATION.md) contains separate
+preparation and end-to-end observations. Report cold preparation and warm cache
+reuse separately; the benchmark does not reset the operating-system cache.
+Further startup work follows the [roadmap](ROADMAP.md#faster-playback-startup).
 
-The integrated checks passed on 5 September 2026. New coverage includes early process cancellation, obsolete authorization completions, unavailable Keychain reads, bounded HTTP responses, duplicate online results, invalid media/ASS times, sparse demand timestamps and malformed byte ranges. `StreamDiagnosticsSmokeTest` is now part of the required suite.
+## Validation records
 
-The candidate's bundled FFmpeg and Python imports were checked directly. A 60-second direct Dolby Vision sample passed packaging and AVFoundation asset checks with E-AC-3 audio and selectable subtitles.
+Read the record relevant to the change, not every previous run. Each records its
+own candidate, failures, observations and remaining limits.
 
-The HLS/WebVTT sample passed packaging, duration and subtitle-group checks, but the local AVPlayer playback test returned AVFoundation -11848 / CoreMedia -15516. The unmodified published base returned the same error in this environment and produced byte-for-byte identical output. Do not describe local HLS decoding as passed or infer physical Apple TV playback from these results.
-
-The empty window, library picker, non-playing Recents selection and loaded controls were inspected. Changing audio output and cancelling preserved the original selection when the tracks panel reopened. Applying temporary audio (+0.05 s) and subtitle (-0.10 s) delays preserved both values on reopening, without starting playback; Reset and Apply restored both to zero. The final preview corners and control layout were also inspected. GitHub CI passed for `d005f58` on both push and pull-request runs.
-
-On 5 September, the user confirmed picture, original E-AC-3 5.1 audio, selectable English subtitles and remote pause/resume on the physical Apple TV for the direct Dolby Vision Profile 8.1 candidate. Stop returned the app to idle. A separate Stop during HLS preparation also returned to idle; a process check found no remaining FFmpeg process, and explicit Play started a fresh preparation.
-
-The user then confirmed picture, original E-AC-3 5.1 audio and selectable English WebVTT subtitles on the physical Apple TV for the HLS/fMP4 candidate. The app reported no buffer waits during the observed sample. A peak-demand warning remained visible; the sample does not establish adequate network capacity for the whole movie.
-
-The user also confirmed picture and original audio with HLS subtitles disabled. Applying the change resumed at the existing playback position; subtitles were absent as expected.
-
-The candidate remained connected during a pause of about six minutes with its own automatic-sleep assertion active. The user confirmed picture and sound after resuming without authorization. One additional buffer wait was recorded on resume.
-
-A rapid +10, +10, -10, -10 sequence then exposed stale replies changing the base of a later skip. The follow-up fix correlates each helper reply with its local request and bounds position reconciliation. Deterministic tests cover interleaved old replies and status reports, duplicate acknowledgements, timeouts and session reset. The Python simulation verifies that seek replies retain their request IDs without changing the AirPlay command payload.
-
-The original picture/audio confirmations above apply to `d005f58`. After the follow-up correction, the full local suite passed again. A +10, +10, -10, -10 sequence returned to the intended position on both HLS and direct Dolby Vision, with matching acknowledgements from the physical receiver. Pause/resume remained linked, and the sequence was also repeated while Dolby Vision was playing. These checks used the Mac's controls; rapid commands from the physical remotes remain separate.
-
-Natural completion exposed a SIGPIPE exit immediately after the receiver's `ended` event. Cleanup sent Stop into a closed helper pipe. A subprocess regression now reproduces signal 13 using the unprotected write and verifies that the protected writer reports EPIPE without terminating the app. The writer applies to playback and pairing commands without changing process-wide signal handling. Terminal and repeated Stop calls no longer resend the shutdown command.
-
-The full local suite and both GitHub CI runs passed for the follow-up code in `6a46dbe`. After unlocking the Mac, the physical completion check was repeated:
-
-- Direct Dolby Vision reached its natural end; the next HLS item started once and the receiver confirmed playback.
-- HLS reached its natural end as the final Playlist item and returned to idle without starting another session.
-- The same app process remained alive across both completions. Closing the candidate afterwards released its process and sleep assertion.
-- Temporary Playlist changes were reverted to the original order.
-
-On a fresh launch, Stop was pressed while the UI displayed the initial authorization check. The app remained idle afterwards and no bundled helper process remained. An explicit Play started preparation again without deleting credentials or renewing pairing. This validates the preflight cancellation boundary, not cancellation of a new PIN-pairing dialog.
-
-These follow-up checks establish receiver acknowledgements and application lifecycle; the earlier user-confirmed picture, sound and subtitle results are recorded separately.
-
-The user subsequently confirmed picture, sound and selectable subtitles on the corrected direct Dolby Vision candidate, and repeated pause/resume plus forward/backward commands from both the physical Apple TV remote and iPhone Remote. AirCiller remained synchronized and connected. The planned physical checks for this review are complete. See [the review record](Docs/STABILITY_REVIEW.md) for evidence and remaining limitations.
-
-After acceptance, 0.12.1 (build 54) passed the complete local suite again. The playback source and locked dependencies match the physically tested code in `6a46dbe`; the release changes version metadata and documentation only. Packaging and signed-update verification remain separate distribution checks. The daily-use installed app is unchanged.
+- [Playback runner, capture and control checks](Docs/PLAYBACK_CHECKS.md)
+- [PCM/LPCM and TrueHD audio conversion](Docs/AUDIO_EXPANSION.md),
+  [SDR manual audio timing](Docs/HLS_AUDIO_TIMING.md) and
+  [original FLAC soundtracks](Docs/FLAC_AUDIO.md)
+- [Transport streams](Docs/TRANSPORT_STREAMS.md),
+  [external PGS](Docs/EXTERNAL_PGS.md) and [external VobSub](Docs/EXTERNAL_VOBSUB.md)
+- [Library and seasons](Docs/LIBRARY_SEASONS.md) and
+  [native interface integration](Docs/NATIVE_UI_INTEGRATION.md)
+- [Startup optimization](Docs/STARTUP_OPTIMIZATION.md) and
+  [stability review](Docs/STABILITY_REVIEW.md)
+- [Archived validation history](Docs/VALIDATION_HISTORY.md)

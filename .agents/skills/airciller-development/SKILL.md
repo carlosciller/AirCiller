@@ -1,31 +1,33 @@
 ---
 name: airciller-development
-description: Implement, debug, review and validate changes in the AirCiller repository, including native macOS UI/UX, playback-path selection and release readiness. Use for AirCiller development; not ordinary media playback or unrelated projects.
+description: Implement, debug, review and validate the AirCiller macOS app, its playback paths and releases. Use for work in this repository, not ordinary media playback or unrelated projects.
 ---
 
 # AirCiller development
 
-Follow [AGENTS.md](../../../AGENTS.md). Run commands from the repository root; resolve these links relative to this file. Treat current code as evidence of implemented behavior, contribution/architecture documents as requirements, and dated validation records as evidence only for their recorded candidates. If they conflict, identify the discrepancy before changing behavior or claiming acceptance.
+Follow [AGENTS.md](../../../AGENTS.md). Run commands from the repository root;
+resolve these links relative to this file. Code establishes implemented behavior,
+maintained guides define requirements, and dated records support only their
+identified candidates. Resolve a material conflict before changing behavior or
+claiming acceptance.
 
-## Select the task
+## Select the workflow
 
-Read [CONTRIBUTING.md](../../../CONTRIBUTING.md#minimum-validation) to choose the validation gate, then load only the relevant branch below. Do not load all playback or release documents for an unrelated edit.
+Start with [minimum validation](../../../CONTRIBUTING.md#minimum-validation),
+then load only the relevant entry points:
 
-| Task | Entry point |
+| Task | Read and inspect |
 | --- | --- |
-| Documentation or agent instructions only | Review the diff and changed references; run `git diff --check` against the delivery base, including new files. No app build or device session. |
-| UI/UX design, interface implementation or accessibility | Read the applicable [native design guidance](../../../Docs/NATIVE_DESIGN.md); use its dated audit only for baseline context. Inspect the affected view/service and tests. For implemented interface changes, validate native interaction and accessibility in the running app; design research and documentation alone follow the documentation gate. A mockup is not runtime acceptance. |
-| Library, credentials or other non-playback code | Inspect the affected service and tests; use [library recovery](../../../Docs/LIBRARY_RECOVERY.md) or [credential service](../../../Docs/CREDENTIAL_SERVICE.md) only if involved. |
-| Playback, preparation, subtitles or shared controls | Read [playback development and evidence](references/playback.md), then the specific architecture, compatibility and test sections it identifies. |
-| Performance | Read [reproducible local fixtures](../../../TESTING.md#12-reproducible-performance-fixtures) or the relevant [ROADMAP.md](../../../ROADMAP.md) phase. Use the playback reference for end-to-end claims. Retain the dedicated startup-phase checkpoint in AGENTS. |
-| Packaging, release-readiness review, installation or publication | Read [release readiness](references/release-readiness.md). Assessment alone does not trigger publication steps. |
+| Documentation or agent instructions | Changed references and their callers. Use the documentation gate; no app build or receiver session unless executable behavior changes. |
+| Native UI/UX | [Native design](../../../Docs/NATIVE_DESIGN.md), the affected view/service and its tests. Inspect implemented interaction in the running app; a mockup is not runtime acceptance. |
+| Library or credentials | The affected service/tests and, as relevant, [library recovery](../../../Docs/LIBRARY_RECOVERY.md), [seasons](../../../Docs/LIBRARY_SEASONS.md) or [credential service](../../../Docs/CREDENTIAL_SERVICE.md). |
+| Playback, preparation, subtitles or shared controls | [Playback development and evidence](references/playback.md), which routes to architecture, format limits and affected tests. |
+| Performance | [Local fixtures](../../../TESTING.md#12-reproducible-performance-fixtures) and the authorized [roadmap phase](../../../ROADMAP.md#faster-playback-startup). Use playback evidence for end-to-end claims. |
+| Release assessment, packaging or installation | [Release readiness](references/release-readiness.md), then Distribution at the relevant stage. An assessment does not authorize publication. |
 
-## Implement, debug or review
+## Working with this repository
 
-1. Identify the requested outcome, current branch/commit, existing changes and affected boundary. For a bug, reproduce the smallest failing case and retain its result; for review-only work, inspect and report without applying fixes. State material reproduction gaps instead of assuming a cause.
-2. Trace the affected entry point to the responsible code. Inspect the existing test and command in [Scripts/check.sh](../../../Scripts/check.sh). For suspected environment/tooling failures, compare the unchanged baseline under the same conditions and preserve both results; do not weaken validation to manufacture a pass.
-3. Make the smallest fix that preserves the documented invariants. Add regression coverage for meaningful changed behavior using synthetic/non-private fixtures or simulated events. A test should distinguish the failure from the fix; avoid assertions that merely restate implementation. Add new required standalone tests to the check script when appropriate. Documentation-only edits do not require new tests.
-4. Use focused checks while iterating, then the contribution-policy gate: `./Scripts/check.sh` for code, dependency or build changes. It includes the strict build; an identical second build is unnecessary. Use repository bootstrap scripts for missing prerequisites, and the documented lock-regeneration procedure for Python dependency changes. Do not hand-edit `requirements.lock` or substitute a host playback engine.
-5. Review the complete delivery diff and applicable evidence. Report what changed, what ran, what was observed and what remains unverified. Historical passes need an explicit comparison with the current candidate. Stop when required checks pass; expand only for new changes, failures or unresolved concerns.
-
-Read the applicable [TESTING.md](../../../TESTING.md) section before choosing tests. Pure UI work needs local validation of its actual interaction; a control that starts, changes or stops playback also needs the affected playback checks. Preserve original data and the user's existing authorization boundaries throughout.
+- Trace the real entry point and test target in [Scripts/check.sh](../../../Scripts/check.sh). Add meaningful regressions with synthetic inputs or simulated events. For environment failures, compare the unchanged baseline under the same conditions.
+- `check.sh` includes the strict Swift 6 build. Use focused checks while iterating, then run the applicable final gate once. Bootstrap and lock-regeneration commands belong to CONTRIBUTING; never substitute a host playback engine.
+- Preserve evidence identity across changes: production source, resources/helpers, locked engines, relevant build configuration and media. A release-metadata edit is not a fresh device test; a changed playback input can invalidate earlier evidence.
+- Keep failures and offline reassessments distinguishable from fresh runs. Required observation gaps block the corresponding claim, not independent work that can proceed safely.
