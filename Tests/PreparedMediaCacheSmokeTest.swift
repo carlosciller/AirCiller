@@ -58,6 +58,7 @@ struct PreparedMediaCacheSmokeTest {
             "Sub-millisecond no-op matches command-builder semantics")
 
         try await checkCorruption(cache: cache, cacheRoot: cacheRoot, key: key, base: base, root: root)
+        try await checkAdjustedTimeline(root: root, source: source, engine: engine)
         try await checkPartialCheckout(key: key, root: root)
         try await checkBudgetRefresh(root: root)
         try await checkSpacePressure(root: root, source: source, engine: engine)
@@ -159,6 +160,52 @@ struct PreparedMediaCacheSmokeTest {
         try require(
             !(try await otherCache.store(key: key, from: invalidBase)),
             "Empty EXTINF is a miss rather than an index trap")
+    }
+
+    private static func checkAdjustedTimeline(root: URL, source: URL, engine: URL) async throws {
+        let base = try makeBase(root.appendingPathComponent("adjusted-base"))
+        let info = HLSAudioTimelineInfo(
+            version: 1, sourceDuration: 6, presentationDuration: 11, timestampOrigin: 10, videoContentOffset: 0)
+        try JSONEncoder().encode(info).write(to: base.appendingPathComponent(HLSAudioTimelineInfo.fileName))
+        for kind in ["video", "audio"] {
+            let path = base.appendingPathComponent(kind + ".m3u8")
+            var text = try String(contentsOf: path, encoding: .utf8)
+            text = text.replacingOccurrences(of: "#EXT-X-VERSION:7", with: "#EXT-X-VERSION:8")
+            text = text.replacingOccurrences(
+                of: "#EXTINF:6.000000,", with: "#EXT-X-PROGRAM-DATE-TIME:2000-01-01T00:00:00.000Z\n#EXTINF:6.000000,")
+            if kind == "video" {
+                text = text.replacingOccurrences(
+                    of: "#EXT-X-ENDLIST", with: "#EXT-X-GAP\n#EXTINF:5,\nvideo-trailing-gap.m4s\n#EXT-X-ENDLIST")
+            } else {
+                text = text.replacingOccurrences(
+                    of: "#EXTINF:6.000000,", with: "#EXT-X-GAP\n#EXTINF:5,\naudio-leading-gap.m4s\n#EXTINF:6.000000,")
+            }
+            try text.write(to: path, atomically: true, encoding: .utf8)
+        }
+        let cacheRoot = root.appendingPathComponent("adjusted-cache")
+        let cache = PreparedMediaCache(rootDirectory: cacheRoot, limitBytes: 1_000_000)
+        let key = try makeKey(source, engine: engine, delay: 5, version: "hls-adjusted-clock-v1")
+        try require(try await cache.store(key: key, from: base), "Adjusted VOD and bounded timeline are retained")
+        let session = try makeDirectory(root.appendingPathComponent("adjusted-session"))
+        try require(try await cache.checkout(key: key, into: session), "Adjusted warm replay hits")
+        let entry = cacheRoot.appendingPathComponent(key.digest)
+        try require(
+            inode(entry.appendingPathComponent(HLSAudioTimelineInfo.fileName))
+                != inode(session.appendingPathComponent(HLSAudioTimelineInfo.fileName)),
+            "Timeline metadata is an independent session copy")
+        try require(
+            !FileManager.default.fileExists(atPath: entry.appendingPathComponent("audio-leading-gap.m4s").path),
+            "A marked gap is not fictitious media")
+        try Data("{}".utf8).write(to: entry.appendingPathComponent(HLSAudioTimelineInfo.fileName))
+        let miss = try makeDirectory(root.appendingPathComponent("adjusted-corrupt-session"))
+        try require(!(try await cache.checkout(key: key, into: miss)), "Corrupt timeline cannot reuse media")
+        try require(try await cache.store(key: key, from: base), "Corrupt adjusted entry can be rebuilt")
+        let invalid = try String(contentsOf: base.appendingPathComponent("audio.m3u8"), encoding: .utf8)
+            .replacingOccurrences(of: "audio-leading-gap.m4s", with: "https://invalid.example/gap.m4s")
+        try invalid.write(to: base.appendingPathComponent("audio.m3u8"), atomically: true, encoding: .utf8)
+        let unsafeCache = PreparedMediaCache(
+            rootDirectory: root.appendingPathComponent("adjusted-unsafe"), limitBytes: 1_000_000)
+        try require(!(try await unsafeCache.store(key: key, from: base)), "Gap tags cannot admit remote references")
     }
 
     private static func checkBoundsAndPruning(

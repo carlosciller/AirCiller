@@ -30,6 +30,25 @@ struct PlaybackCheckModelSmokeTest {
                     of: "\"route\":\"hls\"", with: "\"route\":\"directHDR\",\"subtitleIndex\":2"
                 ).utf8))
         try checkCachePlansAndEvidence()
+        let timingPlan =
+            #"{"version":1,"deviceID":"fixture","profile":"hlsAudioDelayTail","clips":[{"path":"/clip.mkv","route":"hls","externalSubtitle":"/cue.srt"}]}"#
+        try expect(
+            try PlaybackCheckPlan.decode(Data(timingPlan.utf8)).selectedProfile.fixedAudioDelay == 5,
+            "Timing delay is fixed and opt-in")
+        try expect(
+            try PlaybackCheckPlan.decode(
+                Data(timingPlan.replacingOccurrences(of: "hlsAudioDelayTail", with: "hlsAudioAdvanceTail").utf8)
+            )
+            .selectedProfile.fixedAudioDelay == -5,
+            "Timing advance is fixed and opt-in")
+        try expectRejected(Data(timingPlan.replacingOccurrences(of: "\"hls\"", with: "\"directHDR\"").utf8))
+        try expectRejected(
+            Data(timingPlan.replacingOccurrences(of: ",\"externalSubtitle\":\"/cue.srt\"", with: "").utf8))
+        try expectRejected(
+            Data(
+                timingPlan.replacingOccurrences(
+                    of: "\"route\":\"hls\"", with: "\"route\":\"hls\",\"audioOutput\":\"losslessFLAC\""
+                ).utf8))
         try expect(
             PlaybackCheckPlan.Profile.trackChanges.stableObservationSeconds(audioOutput: .losslessFLAC) == 8,
             "Explicit FLAC track changes retain eight seconds of output evidence")
@@ -38,6 +57,12 @@ struct PlaybackCheckModelSmokeTest {
             "Original track-change observation duration is unchanged")
         try expect(
             PlaybackCheckPlan.Profile.hlsCacheReuse.stableObservationSeconds == 8, "Cache windows last eight seconds")
+        try expect(
+            PlaybackCheckPlan.Profile.hlsAudioAdvanceTail.stableObservationSeconds == 7,
+            "Negative timing records seven seconds after pause and each of its three transitions")
+        try expect(
+            PlaybackCheckPlan.Profile.hlsAudioDelayTail.stableObservationSeconds == 5,
+            "Positive timing retains its accepted five-second post-pause observation")
         for profile: PlaybackCheckPlan.Profile in [
             .controls, .trackChanges, .cancelPreparation, .playlistTransition, .longPause, .cancelBitmap, .subtitleSeek,
         ] {

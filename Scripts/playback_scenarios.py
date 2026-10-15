@@ -7,7 +7,7 @@ import secrets
 from playback_checks import run_process
 from playback_capture import (CASE_INFO, CONTROL_PASS, OUTPUT_PASS, CANCELLATION_PASS, CaptureError,
                               assess_samples, bounded_command, finite, fingerprint, read_json,
-                              save_json, supervise_case, write_cues)
+                              save_json, supervise_case, write_cues, lossless_audio_cases)
 
 
 def expected_windows(name, tokens):
@@ -214,7 +214,7 @@ def assess_long_pause(result):
 def run_scenario(name, config, fixtures, project, directory, candidate_hash):
     directory.mkdir(mode=0o700)
     profile, route = CASE_INFO[name]
-    fixture = fixtures[name] if name in config.get('fixtureOverrides', {}) else fixtures[route]
+    fixture = fixtures.get(name, fixtures.get(route))
     binary = project / ".build/AirCiller Playback Checks.app/Contents/MacOS/AirCiller"
     tools = project / ".build/playback-capture-tools"
     plan = {"version": 1, "deviceID": config["deviceID"], "profile": profile,
@@ -222,7 +222,7 @@ def run_scenario(name, config, fixtures, project, directory, candidate_hash):
     if profile == "hlsCacheReuse":
         plan["hlsCacheMode"] = "isolated"
     clip = plan["clips"][0]
-    if name in config.get('losslessPCMCases', []):
+    if name in lossless_audio_cases(config):
         clip['audioOutput'] = 'losslessFLAC'
     tokens = [f"{value:06d}" for value in secrets.SystemRandom().sample(range(1_000_000), 2)]
     if profile != "cancelPreparation":
@@ -257,7 +257,11 @@ def run_scenario(name, config, fixtures, project, directory, candidate_hash):
             samples = read_json(capture_dir / "samples.json")
             analysis = json.loads(bounded_command([tools / "analyze-frames", capture_dir, ",".join(tokens)], timeout=90))
             save_json(directory / "frame-analysis.json", analysis)
-            result.update(assess_scenario(samples, analysis, controls, name, tokens))
+            if profile in {"hlsAudioDelayTail", "hlsAudioAdvanceTail"}:
+                from playback_audio_timing import assess_audio_timing
+                result.update(assess_audio_timing(samples, analysis, controls, name, tokens))
+            else:
+                result.update(assess_scenario(samples, analysis, controls, name, tokens))
             result["sampleManifestSHA256"] = fingerprint(capture_dir / "samples.json")
         if fingerprint(binary) != candidate_hash: raise CaptureError("candidateChangedDuringRun")
     except CaptureError as error:

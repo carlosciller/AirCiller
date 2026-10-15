@@ -8,8 +8,23 @@ struct PlaybackCheckPlan: Decodable {
     enum Profile: String, Codable {
         case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap, subtitleSeek
         case hlsCacheReuse
+        case hlsAudioDelayTail, hlsAudioAdvanceTail
 
-        var stableObservationSeconds: Double { self == .hlsCacheReuse ? 8 : 5 }
+        var fixedAudioDelay: Double? {
+            switch self {
+            case .hlsAudioDelayTail: 5
+            case .hlsAudioAdvanceTail: -5
+            default: nil
+            }
+        }
+
+        var stableObservationSeconds: Double {
+            switch self {
+            case .hlsCacheReuse: 8
+            case .hlsAudioAdvanceTail: 7
+            default: 5
+            }
+        }
 
         func stableObservationSeconds(audioOutput: AudioOutput?) -> Double {
             self == .trackChanges && audioOutput == .losslessFLAC ? 8 : stableObservationSeconds
@@ -90,6 +105,12 @@ struct PlaybackCheckPlan: Decodable {
             else { throw PlaybackCheckFailure.invalidPlan }
         }
         for clip in plan.clips {
+            if plan.selectedProfile.fixedAudioDelay != nil {
+                guard clip.route == .hls, clip.externalSubtitle != nil,
+                    clip.audioOutput == nil || clip.audioOutput == .original,
+                    plan.selectedHLSCacheMode == .disabled
+                else { throw PlaybackCheckFailure.invalidPlan }
+            }
             if clip.audioOutput == .losslessFLAC {
                 guard clip.route != .directHDR,
                     [.controls, .trackChanges, .cancelPreparation, .longPause].contains(plan.selectedProfile)
@@ -303,6 +324,44 @@ struct PlaybackCheckResult: Encodable {
     var pauseWindow: PlaybackCheckOutputWindow?
     var bitmapCancellation: BitmapCancellationEvidence?
     var startups: [PlaybackCheckStartupEvidence] = []
+    var audioTiming: PlaybackCheckAudioTimingEvidence?
+}
+
+struct PlaybackCheckAudioTimingEvidence: Encodable {
+    let requestedDelay: Double
+    let sourceDuration: Double
+    let presentationDuration: Double
+    let videoContentOffset: Double
+    let playRequestedAtUptime: Double
+    var resumePosition: Double?
+    var resumeEventSeconds: Double?
+    var endEventSeconds: Double?
+    var transitions: [PlaybackCheckAudioTimingTransition] = []
+    var stopCheckpoint: PlaybackCheckAudioTimingStopCheckpoint?
+}
+
+struct PlaybackCheckAudioTimingStopCheckpoint: Encodable {
+    let expectedMoviePosition: Double
+    let expectedMovieDuration: Double
+    let immediatePosition: Double
+    let immediateDuration: Double
+    let settledPosition: Double
+    let settledDuration: Double
+    let directoryRemoved: Bool
+    let savedMoviePosition: Double?
+    let savedMovieDuration: Double?
+}
+
+struct PlaybackCheckAudioTimingTransition: Encodable {
+    let label: String
+    let requestedDelay: Double
+    let expectedMoviePosition: Double
+    let expectedReceiverPosition: Double
+    let receiverPosition: Double
+    let receiverEventSeconds: Double
+    let videoContentOffset: Double
+    let savedMoviePosition: Double?
+    let savedMovieDuration: Double?
 }
 
 struct BitmapCancellationEvidence: Encodable {

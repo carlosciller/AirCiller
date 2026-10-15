@@ -20,16 +20,16 @@ struct TrackSettingsSmokeTest {
         precondition(!draft.canApply(replacing: original, current: original, sameMedia: true, controlsEnabled: true))
         draft.audioOutputMode = .stereo
         precondition(draft.canApply(replacing: original, current: original, sameMedia: true, controlsEnabled: true))
-        precondition(!draft.hasKnownAudioTimingLimitation(isHDR: false, hasSelectedAudio: true))
+        precondition(!draft.hasAdjustedAudioTimeline(isHDR: false, hasSelectedAudio: true))
         for delay in [-5.0, -0.05, 0.05, 5.0] {
             draft.audioDelay = delay
-            precondition(draft.hasKnownAudioTimingLimitation(isHDR: false, hasSelectedAudio: true))
-            precondition(!draft.hasKnownAudioTimingLimitation(isHDR: true, hasSelectedAudio: true))
-            precondition(!draft.hasKnownAudioTimingLimitation(isHDR: nil, hasSelectedAudio: true))
-            precondition(!draft.hasKnownAudioTimingLimitation(isHDR: false, hasSelectedAudio: false))
+            precondition(draft.hasAdjustedAudioTimeline(isHDR: false, hasSelectedAudio: true))
+            precondition(!draft.hasAdjustedAudioTimeline(isHDR: true, hasSelectedAudio: true))
+            precondition(!draft.hasAdjustedAudioTimeline(isHDR: nil, hasSelectedAudio: true))
+            precondition(!draft.hasAdjustedAudioTimeline(isHDR: false, hasSelectedAudio: false))
         }
         draft.audioDelay = .nan
-        precondition(!draft.hasKnownAudioTimingLimitation(isHDR: false, hasSelectedAudio: true))
+        precondition(!draft.hasAdjustedAudioTimeline(isHDR: false, hasSelectedAudio: true))
         let pcm = AudioTrack(
             streamIndex: 1, codec: "pcm_s24le", profile: nil, channels: 2, channelLayout: "stereo",
             language: nil, title: nil, isDefault: true, sampleRate: 48_000, bitsPerSample: 24)
@@ -45,7 +45,7 @@ struct TrackSettingsSmokeTest {
         for delay in [-0.05, 0.05, Double.nan] {
             draft.audioDelay = delay
             precondition(!draft.hasSupportedAudioOutput(audio: pcm, isHDR: false))
-            precondition(!draft.hasKnownAudioTimingLimitation(isHDR: false, hasSelectedAudio: true))
+            precondition(!draft.hasAdjustedAudioTimeline(isHDR: false, hasSelectedAudio: true))
         }
         print("Track settings: unchanged, edited, reverted, stale and busy drafts passed")
     }

@@ -96,7 +96,10 @@ struct ContentView: View {
         .navigationSplitViewStyle(.balanced)
         .alert("AirCiller necesita convertir el audio", isPresented: $coordinator.showConversionAlert) {
             Button("Cancelar", role: .cancel) { coordinator.cancelAudioConversion() }
-            Button("Convertir solo el audio") { coordinator.confirmAudioConversion() }
+            if coordinator.canOfferLosslessAudioConversion {
+                Button("Convertir a FLAC sin pérdida") { coordinator.confirmAudioConversion(to: .losslessFLAC) }
+            }
+            Button("Convertir a E-AC-3 (hasta 5.1)") { coordinator.confirmAudioConversion() }
         } message: {
             Text(L10n.text(coordinator.conversionReason))
         }

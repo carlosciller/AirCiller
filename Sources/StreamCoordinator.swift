@@ -22,6 +22,14 @@ final class StreamCoordinator {
     var mediaDescription: String?
     var duration: Double = 0
     var currentTime: Double = 0
+    @ObservationIgnored private var activeMovieTimeline: MoviePlaybackTimeline?
+    private var moviePosition: Double {
+        activeMovieTimeline?.sourcePosition(forPresentation: currentTime) ?? currentTime
+    }
+    private var movieDuration: Double { activeMovieTimeline?.sourceDuration ?? duration }
+    private func presentationPosition(forMovie position: Double) -> Double {
+        activeMovieTimeline?.presentationPosition(forSource: position) ?? position
+    }
     var preparationProgress: Double = 0
     private(set) var demandAnalysis: MediaDemandAnalysis?
     private(set) var packagedDemandProfile: StreamDemandProfile?
@@ -210,7 +218,7 @@ final class StreamCoordinator {
         }
         airPlay.onAuthorizationRequired = { [weak self] message in
             guard let self else { return }
-            let retryTime = self.currentTime
+            let retryTime = self.moviePosition
             self.cleanupRuntime()
             self.requestAuthorizationRenewal(message: message, retryAt: retryTime)
         }
@@ -430,7 +438,7 @@ final class StreamCoordinator {
         guard let selectedAudio else { return L10n.text("Sin audio") }
         switch audioOutputMode {
         case .losslessFLAC:
-            return L10n.text("Audio · conversión elegida de PCM a FLAC sin pérdida")
+            return L10n.text("Audio · conversión elegida a FLAC sin pérdida")
         case .original:
             return selectedAudio.canPassThrough
                 ? L10n.format(
@@ -442,6 +450,12 @@ final class StreamCoordinator {
         case .stereo:
             return L10n.text("Audio · conversión elegida a AAC estéreo")
         }
+    }
+
+    var canOfferLosslessAudioConversion: Bool {
+        var settings = trackSettings
+        settings.audioOutputMode = .losslessFLAC
+        return settings.hasSupportedAudioOutput(audio: selectedAudio, isHDR: probeInfo?.isHDR)
     }
 
     var subtitlePlan: String {
@@ -876,7 +890,7 @@ final class StreamCoordinator {
     }
 
     func start() {
-        start(at: currentTime)
+        start(at: moviePosition)
     }
 
     func start(at requestedTime: Double) {
@@ -978,7 +992,7 @@ final class StreamCoordinator {
             presentError(
                 title: "Conversión de audio no disponible",
                 detail:
-                    "La conversión PCM a FLAC necesita una pista con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio."
+                    "La conversión a FLAC necesita una pista compatible con precisión y canales conocidos y la ruta HLS. Elige otra salida de audio."
             )
             return
         }
@@ -990,7 +1004,11 @@ final class StreamCoordinator {
             conversionReason = L10n.format(
                 "La pista elegida usa %@, que Apple TV no admite en este HLS. AirCiller puede convertir solamente el audio a E-AC-3 y mantendrá el vídeo intacto.",
                 audio.codec.uppercased())
-            if audio.codec.lowercased().hasPrefix("pcm_") {
+            if canOfferLosslessAudioConversion {
+                conversionReason = L10n.text(
+                    "Esta pista necesita conversión para reproducirse. FLAC conserva las muestras y todos los canales; E-AC-3 añade pérdida y admite hasta 5.1 canales. Los objetos Atmos no se conservan. El vídeo y el archivo original no cambiarán."
+                )
+            } else if audio.codec.lowercased().hasPrefix("pcm_") {
                 conversionReason = L10n.text(
                     "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán."
                 )
@@ -1041,9 +1059,11 @@ final class StreamCoordinator {
         }
     }
 
-    func confirmAudioConversion() {
+    func confirmAudioConversion(to mode: AudioOutputMode = .compatible) {
+        guard mode == .compatible || (mode == .losslessFLAC && canOfferLosslessAudioConversion)
+        else { return }
         showConversionAlert = false
-        audioOutputMode = .compatible
+        audioOutputMode = mode
         continueStart(at: pendingStartTime)
     }
 
@@ -1059,7 +1079,7 @@ final class StreamCoordinator {
             return
         }
         if isStreaming || isPreparing {
-            let target = currentTime
+            let target = moviePosition
             status = "Aplicando pistas…"
             detail = "Se preparará de nuevo la película completa y continuará desde el mismo punto."
             start(at: target)
@@ -1106,14 +1126,14 @@ final class StreamCoordinator {
 
     func previousChapter() {
         guard commandAvailability.canChangeChapter else { return }
-        let target = chapters.last(where: { $0.start < currentTime - 3 })?.start ?? 0
-        seek(to: target)
+        let target = chapters.last(where: { $0.start < moviePosition - 3 })?.start ?? 0
+        seek(to: presentationPosition(forMovie: target))
     }
 
     func nextChapter() {
         guard commandAvailability.canChangeChapter else { return }
-        guard let target = chapters.first(where: { $0.start > currentTime + 1 })?.start else { return }
-        seek(to: target)
+        guard let target = chapters.first(where: { $0.start > moviePosition + 1 })?.start else { return }
+        seek(to: presentationPosition(forMovie: target))
     }
 
     func stop(resetStatus: Bool = true) {
@@ -1790,7 +1810,14 @@ final class StreamCoordinator {
                 }
                 self.observe(item: item)
                 self.player.replaceCurrentItem(with: item)
-                let playableStartTime = min(startTime, max(0, packagedDuration - 0.5))
+                let timelineInfo = try HLSAudioTimelineInfo.load(directory: directory)
+                self.activeMovieTimeline = timelineInfo.map {
+                    MoviePlaybackTimeline(
+                        sourceDuration: $0.sourceDuration, presentationDuration: $0.presentationDuration,
+                        videoContentOffset: $0.videoContentOffset)
+                }
+                let playableStartTime = min(
+                    self.presentationPosition(forMovie: startTime), max(0, packagedDuration - 0.5))
                 self.currentTime = playableStartTime
                 if playableStartTime > 0.05 {
                     await self.seekPlayer(to: playableStartTime)
@@ -2091,18 +2118,20 @@ final class StreamCoordinator {
         guard let selectedURL, duration > 0 else { return }
         if !force, Date().timeIntervalSince(lastHistorySave) < 5 { return }
         lastHistorySave = Date()
-        let storedPosition = currentTime >= duration - 30 ? 0 : currentTime
+        let position = moviePosition
+        let originalDuration = movieDuration
+        let storedPosition = position >= originalDuration - 30 ? 0 : position
         if let index = queueItems.firstIndex(where: { $0.path == selectedURL.path }) {
-            queueItems[index].lastPosition = currentTime
-            queueItems[index].duration = duration
+            queueItems[index].lastPosition = position
+            queueItems[index].duration = originalDuration
             HistoryStore.saveQueue(queueItems)
         }
         if let index = recentItems.firstIndex(where: { $0.path == selectedURL.path }) {
             recentItems[index].lastPosition = storedPosition
-            recentItems[index].duration = duration
+            recentItems[index].duration = originalDuration
             recentItems[index].lastOpened = Date()
         } else {
-            touchRecent(url: selectedURL, duration: duration, position: storedPosition)
+            touchRecent(url: selectedURL, duration: originalDuration, position: storedPosition)
             return
         }
         HistoryStore.saveRecent(recentItems)
@@ -2205,6 +2234,11 @@ final class StreamCoordinator {
     }
 
     private func cleanupRuntime() {
+        if let activeMovieTimeline {
+            currentTime = activeMovieTimeline.sourcePosition(forPresentation: currentTime)
+            duration = activeMovieTimeline.sourceDuration
+            self.activeMovieTimeline = nil
+        }
         if let activeSessionID { startupTrace?.finish(.cancelled, sessionID: activeSessionID) }
         activeSessionID = nil
         airPlay.stop(silently: true)

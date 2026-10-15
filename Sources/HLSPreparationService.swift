@@ -29,16 +29,25 @@ enum HLSPreparationService {
         observer: @escaping Observer = { _ in }
     ) async throws -> HLSPreparationResult {
         try Task.checkCancellation()
+        guard audioDelay.isFinite, abs(audioDelay) <= 5 else {
+            throw AirCillerError.invalidVODPackage(
+                L10n.text("La sincronización de audio debe estar entre −5 y +5 segundos."))
+        }
         guard outputMode.isAvailable(audio: audio, isDirectMP4: probe.isHDR && subtitle != nil),
             outputMode != .losslessFLAC || (audioDelay.isFinite && abs(audioDelay) < 0.001)
         else {
-            throw AirCillerError.probeFailed(L10n.text("Esta pista no admite conversión PCM a FLAC sin pérdida."))
+            throw AirCillerError.probeFailed(L10n.text("Esta pista no admite conversión a FLAC sin pérdida."))
         }
         let multiplexed = probe.isHDR
         let key = try? PreparedMediaCache.makeKey(
             source: input, probe: probe, audio: audio, outputMode: outputMode,
             audioDelay: audioDelay, multiplexed: multiplexed,
-            engineVersion: outputMode == .losslessFLAC ? "hls-pcm-source-clock-v2" : "hls-base-v1",
+            engineVersion: !probe.isHDR && audio != nil && abs(audioDelay) >= 0.001
+                ? "hls-adjusted-clock-v1"
+                : (outputMode == .losslessFLAC
+                    ? (audio?.codec.lowercased() == "truehd"
+                        ? "hls-truehd-standard-blocks-v3" : "hls-pcm-source-clock-v2")
+                    : "hls-base-v1"),
             engineURL: ffmpegURL
         )
 
@@ -190,7 +199,7 @@ enum HLSPreparationService {
             }
         }
         await observer(.began(.packaging))
-        let build = makeBuild(
+        let build = try makeBuild(
             input: input, directory: directory, ffmpegURL: ffmpegURL,
             probe: probe, audio: audio, outputMode: outputMode, audioDelay: audioDelay
         )
@@ -218,6 +227,9 @@ enum HLSPreparationService {
         _ = try? await reporter.value
         await observer(.process(nil))
         try Task.checkCancellation()
+        guard build.finishStrictDecoding() else {
+            throw AirCillerError.ffmpegStopped(build.log.snapshot)
+        }
         guard status == 0 else { throw AirCillerError.ffmpegStopped(build.log.snapshot) }
         if probe.isHDR {
             let initialization = directory.appendingPathComponent("video-init.mp4")
@@ -229,6 +241,11 @@ enum HLSPreparationService {
                     firstMediaSegment: directory.appendingPathComponent("video-00000000.m4s")
                 )
             }
+        }
+        if !probe.isHDR, audio != nil, abs(audioDelay) >= 0.001 {
+            _ = try await HLSAudioTimeline.prepare(
+                directory: directory, sourceDuration: probe.duration, audioDelay: audioDelay,
+                ffprobeURL: ffmpegURL.deletingLastPathComponent().appendingPathComponent("ffprobe"))
         }
         try SubtitleService.alignRenditionPlaylists(outputDirectory: directory, expectedDuration: probe.duration)
         _ = try validateBase(directory, probe: probe, audio: audio)
@@ -256,7 +273,7 @@ enum HLSPreparationService {
     private static func makeBuild(
         input: URL, directory: URL, ffmpegURL: URL, probe: MediaProbe,
         audio: AudioTrack?, outputMode: AudioOutputMode, audioDelay: Double
-    ) -> VODBuildProcess {
+    ) throws -> VODBuildProcess {
         let process = Process()
         process.executableURL = ffmpegURL
         process.arguments =
@@ -271,14 +288,22 @@ enum HLSPreparationService {
         let output = Pipe()
         let log = ProcessLogBuffer()
         let progress = ProcessProgressBuffer()
-        errors.fileHandleForReading.readabilityHandler = { handle in
-            if let text = String(data: handle.availableData, encoding: .utf8) { log.append(text) }
+        let strictDiagnostics: StrictDecoderDiagnostics?
+        if outputMode == .losslessFLAC, audio?.codec.lowercased() == "truehd" {
+            strictDiagnostics = try StrictDecoderDiagnostics(handle: errors.fileHandleForReading, log: log)
+        } else {
+            strictDiagnostics = nil
+            errors.fileHandleForReading.readabilityHandler = { handle in
+                if let text = String(data: handle.availableData, encoding: .utf8) { log.append(text) }
+            }
         }
         output.fileHandleForReading.readabilityHandler = { handle in
             if let text = String(data: handle.availableData, encoding: .utf8) { progress.append(text) }
         }
         process.standardError = errors
         process.standardOutput = output
-        return VODBuildProcess(process: process, log: log, progress: progress, errorPipe: errors, progressPipe: output)
+        return VODBuildProcess(
+            process: process, log: log, progress: progress, errorPipe: errors, progressPipe: output,
+            strictDiagnostics: strictDiagnostics)
     }
 }

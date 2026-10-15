@@ -45,6 +45,14 @@ struct CaptureFrameAnalysis {
             let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
             let flags = CapturePolicy.cueFlags(lines, token: tokens[0])
             let recognizedTokens = tokens.filter { CapturePolicy.cueFlags(lines, token: $0).expected }
+            let clockRequest = VNRecognizeTextRequest()
+            clockRequest.recognitionLevel = .accurate
+            clockRequest.recognitionLanguages = ["en-US"]
+            clockRequest.usesLanguageCorrection = false
+            clockRequest.regionOfInterest = CGRect(x: 0, y: 0.5, width: 1, height: 0.5)
+            try VNImageRequestHandler(url: frame).perform([clockRequest])
+            let clock = CapturePolicy.fixtureClock(
+                (clockRequest.results ?? []).compactMap { $0.topCandidates(1).first?.string })
             let small = image.transformed(
                 by: CGAffineTransform(scaleX: 64 / image.extent.width, y: 36 / image.extent.height))
             var pixels = [UInt8](repeating: 0, count: 64 * 36 * 4)
@@ -69,11 +77,16 @@ struct CaptureFrameAnalysis {
                 let offset = (27 * 64 + x) * 4
                 return (Double(pixels[offset]), Double(pixels[offset + 1]), Double(pixels[offset + 2]))
             }
-            rows.append([
+            var row: [String: Any] = [
                 "frame": frame.lastPathComponent, "anyCue": flags.any, "expectedCue": flags.expected,
                 "centralDifference": difference, "testPattern": CapturePolicy.hasTestPattern(colors),
                 "cueTokens": recognizedTokens,
-            ])
+            ]
+            if let clock { row["fixtureTimeSeconds"] = clock }
+            if let cueIndex = CapturePolicy.fixtureCueIndex(lines, token: tokens[0]) {
+                row["fixtureCueIndex"] = cueIndex
+            }
+            rows.append(row)
         }
         // Do not print arbitrary recognized text, movie names or source paths.
         print(String(decoding: try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]), as: UTF8.self))
