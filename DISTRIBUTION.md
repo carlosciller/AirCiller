@@ -8,14 +8,9 @@ This has one visible consequence. A Mac that downloads AirCiller for the first t
 
 Developer ID and notarization remain a future distribution improvement. Their absence must never be reported as a successful notarized build.
 
-### 0.14.1 and deferred Shortcuts
+### Deferred Shortcuts integration
 
-The maintainer chose to keep the existing public signing policy for 0.14.1 and
-exclude the unreleased Shortcuts integration. Its development-signed candidate
-worked on the test Mac, but the public ad hoc package failed native registration.
-The implementation and evidence are [preserved separately](Docs/SHORTCUTS.md).
-Do not substitute that development candidate for the maintenance release or
-change the existing credential service during publication.
+Shortcuts remains excluded from the public package under the current signing policy. During the 0.14.1 work, a development-signed candidate registered on the test Mac, but the public ad hoc package failed native registration. The implementation and dated evidence are [preserved separately](Docs/SHORTCUTS.md). That development candidate is not a public-release substitute. Publication must not change the established credential service.
 
 ## Stable local signing
 
@@ -34,7 +29,7 @@ Both ordinary and playback-check builds use that identity, with distinct applica
 
 If configuration exists but the signing key is unavailable, the build fails without falling back to ad hoc signing. Preserve the identity across local rebuilds; removing `.build` does not remove it. An encrypted offline backup can be made separately through Keychain Access. Losing the private key requires a new identity and fresh approvals.
 
-Public release builds keep the existing signing policy. Explicitly set `AIRCILLER_SIGNING_IDENTITY=-` when building a release on a configured development machine. A certificate fingerprint can also be supplied through that variable. Local signing is not Developer ID, notarization or a replacement for Sparkle's separate EdDSA update key. See Apple's [code-signing guidance](https://developer.apple.com/library/archive/technotes/tn2206/_index.html).
+Public release builds keep the existing signing policy. Explicitly set `AIRCILLER_SIGNING_IDENTITY=-` for the release check, which also builds the app. A certificate fingerprint can also be supplied through that variable for other authorized builds. Local signing is not Developer ID, notarization or a replacement for Sparkle's separate EdDSA update key. See Apple's [code-signing guidance](https://developer.apple.com/library/archive/technotes/tn2206/_index.html).
 
 ## Sparkle integration
 
@@ -47,15 +42,7 @@ AirCiller uses the official Sparkle 2.9.6 binary distribution.
 | SHA-256 | `52bf9e88cdd972fc0c81501377a880e90d47031bd8ca5462488f843e2609e192` |
 | Source | `https://github.com/sparkle-project/Sparkle/releases/tag/2.9.6` |
 
-The project has no Xcode project or Swift Package Manager application target. `build.sh` compiles the Swift sources directly and assembles the app bundle itself. A package declaration would resolve Sparkle source code, but it would not take care of embedding its framework and helper tools in this custom bundle. The build therefore downloads the official binary archive, verifies its digest, preserves its symlinks, links it, and copies it into `Contents/Frameworks`.
-
-Run this once on a new checkout:
-
-```sh
-./Scripts/bootstrap_sparkle.sh
-```
-
-The dependency lives under `.build/dependencies` and is not committed. CI performs the same verified download.
+The project has no Xcode project or Swift Package Manager application target. `build.sh` compiles the Swift sources directly and assembles the app bundle itself. `Scripts/bootstrap_sparkle.sh` downloads and verifies the official binary archive; the build embeds its framework and helpers while preserving their symlinks and signatures. The dependency lives under `.build/dependencies` and is not committed. CI uses the same bootstrap script. See [checkout preparation](CONTRIBUTING.md#prepare-a-checkout) for all required dependencies.
 
 ## Update policy
 
@@ -71,21 +58,19 @@ The dependency lives under `.build/dependencies` and is not committed. CI perfor
 
 ## Bundled playback engine
 
-### Bundle size
-
-Every build measures the signed app before replacing its previous build output. `Scripts/check_bundle_size.py` reports logical file bytes by component and fails above 165,000,000 bytes. Framework symlinks are counted once without following their targets. This measures the app, not download compression, filesystem allocation or prepared-media caches.
-
-The 0.12.3 local baseline is 153,923,546 bytes. FLAC support reuses the bundled engine. A dependency or asset change that exceeds the budget needs an explicit size review; do not raise the limit automatically or remove runtime files merely to pass it.
-
 AirCiller releases include fixed FFmpeg and CPython builds. End users update them only by installing a tested AirCiller release. Settings does not offer separate engine updates.
 
 `Scripts/bootstrap_engine.sh` downloads the pinned archives used for the build, verifies their SHA-256 digests, checks their executable versions, and stages them under `.build/dependencies`. `build.sh` copies the complete engine into the app. The runtime is therefore available on first launch and without internet access.
 
-The current reference archives were built by AirCiller from the sources and checksums recorded in `Scripts/build_managed_components.sh`. The older signed component catalogue remains in the repository so releases 0.10.3 through 0.10.5 can be reproduced and audited. Current builds do not read it.
+The current reference archives were built by AirCiller from the sources and checksums recorded in `Scripts/build_managed_components.sh`. They are still downloaded from the `v0.10.3` GitHub Release: `ffmpeg-9.0.1-macos-arm64.zip` and `airplay-python-3.13.15-macos-arm64.zip`. Their older hosting tag does not make them obsolete; retain those pinned assets. The older signed component catalogue remains in the repository so releases 0.10.3 through 0.10.5 can be reproduced and audited. Current builds do not read that catalogue.
 
-An engine upgrade is treated as an application change. It requires locked versions, local checks, direct MP4 and HLS/fMP4 validation, and a physical Apple TV test before release. A new upstream version alone is not a reason to update.
+An engine upgrade is treated as an application change. It requires locked versions, local checks, direct MP4 and HLS/fMP4 validation, and an Apple TV playback test before release. A new upstream version alone is not a reason to update. Record whether output was digitally captured or physically observed, separately from receiver state.
 
-The stable appcast URL is `https://github.com/carlosciller/AirCiller/releases/latest/download/appcast.xml`. It resolves to the signed feed attached to the latest GitHub Release. AirCiller validates that this URL uses HTTPS and that its public key decodes to the expected EdDSA length before starting Sparkle.
+### Bundle size
+
+Every build measures the signed app before replacing its previous build output. `Scripts/check_bundle_size.py` reports logical file bytes by component and fails above 165,000,000 bytes. Framework symlinks are counted once without following their targets. This measures the app, not download compression, filesystem allocation or prepared-media caches.
+
+Record the current candidate's size report. The 153,923,546-byte measurement from 0.12.3 is a historical baseline, not the current app size. FLAC support reuses the bundled engine. A dependency or asset change that exceeds the budget needs an explicit size review; do not raise the limit automatically or remove runtime files merely to pass it.
 
 ## One-time key setup
 
@@ -99,30 +84,37 @@ The command stores the private key in the login Keychain and prints the public k
 
 ## Appcast setup
 
+The stable appcast URL is `https://github.com/carlosciller/AirCiller/releases/latest/download/appcast.xml`. It resolves to the signed feed attached to the latest GitHub Release. AirCiller validates that this URL uses HTTPS and that its public key decodes to the expected EdDSA length before starting Sparkle.
+
 `Distribution/appcast.xml.example` documents the fields. The generated and signed `appcast.xml` is attached to each GitHub Release.
 
 Sparkle's `generate_appcast` tool should create the published XML. It signs the archives and, with AirCiller's current settings, signs the feed too. Do not hand-edit a generated signed feed.
 
 ## Release procedure
 
-Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidate and complete the applicable physical matrix in [TESTING.md](TESTING.md). Shared session or server changes affect both playback paths. Record failures and untested cases explicitly; a successful build alone does not pass this gate.
+Publication and installation require authorization in the conversation. Prepare dependencies using [CONTRIBUTING.md](CONTRIBUTING.md#prepare-a-checkout). Keep release evidence tied to the candidate: source commit, version/build, signing configuration, executable and ZIP SHA-256 hashes, size report, applicable playback results, and CI run URLs and commits.
 
-1. Increase `CFBundleShortVersionString` and the numeric `CFBundleVersion`.
-2. Update `CHANGELOG.md` and write user-facing notes in `Distribution/ReleaseNotes/<version>.md`. Complete the editorial checklist in [TEMPLATE.md](Distribution/ReleaseNotes/TEMPLATE.md): reconcile the release diff, explain usage and compatibility limits, and link the supporting record. Concise notes must still explain the feature; implementation details belong in that record. Update compatibility and roadmap status where affected.
-3. Prepare the pinned engine, build AirCiller, and verify its ad hoc signature:
+1. Finish the intended changes and increase `CFBundleShortVersionString` and the numeric `CFBundleVersion`.
+2. Update `CHANGELOG.md` and write user-facing notes in `Distribution/ReleaseNotes/<version>.md`. Complete the editorial checklist in [TEMPLATE.md](Distribution/ReleaseNotes/TEMPLATE.md): reconcile the release diff, explain usage and compatibility limits, and link the supporting record. Update compatibility and roadmap status where affected. Documentation-only corrections do not require a binary version bump.
+3. Review the final diff and identify the clean source revision to be released. Run the full local gate after versioning and release documentation are ready:
 
    ```sh
-   ./Scripts/bootstrap_engine.sh
-   AIRCILLER_SIGNING_IDENTITY=- ./build.sh
+   AIRCILLER_SIGNING_IDENTITY=- ./Scripts/check.sh
    ```
-4. Package the app:
+
+   This command includes the strict Swift 6 build, warnings-as-errors, signature-structure verification and bundle-size gate. Package its accepted `.build/AirCiller.app`; do not run a second identical build. Inspect the distribution diagnostics described below. If later changes affect executable inputs, signing or packaging, repeat the affected gates and identify the new artifact. Documentation-only follow-ups require diff/reference checks, not an unchanged binary rebuild.
+
+4. Complete the applicable Apple TV matrix in [TESTING.md](TESTING.md) before publication. Shared session or server changes affect both playback paths. Record failures and untested cases explicitly. When carrying earlier candidate results forward, compare the affected source, pinned runtimes and relevant build configuration; metadata-only changes do not constitute a new device test.
+5. Verify CI for the reviewed candidate. After the authorized merge and tag, verify both the exact merged `main` commit and its separate tag-triggered CI run before publication. Those runs may proceed in parallel. Record the commit each run actually tested; a green PR run, previous SHA or main run does not establish that the tag run passed. If merging changes candidate contents, reconcile the diff and rerun affected gates. The released-OS runner configured in `.github/workflows/ci.yml` is the release gate; a manual preview run is diagnostic. Inspect failures and preserve failed attempts when recording reruns. Required pending or failed CI blocks completion.
+6. Package the accepted app:
 
    ```sh
    ./Scripts/package_update.sh
    ```
 
-5. Confirm that `package_update.sh` copied the versioned release notes beside the ZIP with the same base filename.
-6. Generate and sign the appcast using the real release asset prefix and project link:
+   Confirm the version/build and that the script copied the reviewed versioned release notes beside the ZIP with the same base filename. Record the archive SHA-256 before upload.
+
+7. Generate and sign the appcast using the real release asset prefix and project link:
 
    ```sh
    ./.build/dependencies/Sparkle-2.9.6/bin/generate_appcast \
@@ -137,7 +129,7 @@ Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidat
 
    Each GitHub Release has its own asset prefix, so the published feed contains the latest full update and its deltas only. Older full archives remain available under their original release tags.
 
-7. Verify the signed feed:
+8. Verify the signed feed:
 
    ```sh
    ./.build/dependencies/Sparkle-2.9.6/bin/sign_update \
@@ -146,20 +138,23 @@ Before tagging or uploading a new binary, run `Scripts/check.sh` on the candidat
      .build/releases/appcast.xml
    ```
 
-8. Upload the ZIP, release notes, and appcast to their final HTTPS locations. Set the GitHub Release body from the reviewed versioned notes and verify that its content and links agree with the changelog and packaged update notes. Historical prose corrections must be identified separately; do not replace an already-published signed feed or archive just to edit wording.
-9. Confirm that every URL in the appcast returns the expected file without authentication or redirects to an untrusted host. Wait for the CI run triggered by the pushed release tag and verify its exact commit and final result. A green pull request or main-branch run does not establish that this later run passed. Inspect failed jobs before reporting completion; preserve the failed attempt when recording a diagnostic rerun. Do not close a release while its required checks are pending or failing.
-10. Use an older AirCiller build to run **Check for Updates…**, download the new archive, install it, relaunch, and confirm the new version.
-11. Replace the daily-use copy only after the candidate is accepted and installation is authorized. Keep a rollback copy. The physical matrix must already be complete before publication.
+9. Upload the ZIP, release notes and appcast to their final HTTPS locations. Set the GitHub Release body from the reviewed versioned notes and verify its content and links against the changelog and packaged update notes. Historical prose corrections must be identified separately; do not replace an already-published signed feed or archive just to edit wording.
+10. Verify the published downloads. Every appcast URL must return the intended file without authentication or redirects to an untrusted host. Compare the downloaded ZIP's SHA-256 with the reviewed local archive; verify the downloaded feed and archive signatures with the pinned Sparkle tools and the public key embedded in the accepted app. Verify the extracted app's code-signature structure and preserved nested signatures. URL availability alone does not establish artifact identity or update acceptance.
+11. With installation authorized, preserve a rollback copy and use an older AirCiller build to run **Check for Updates…**, download, install through Sparkle and relaunch. This may use an isolated older copy or the authorized daily-use copy; two installations are not required. Confirm the running app's path, installed version/build, library and preferences. Preserve the update result or relevant logs. Copying the new bundle into place is not a native updater test. If the isolated-copy option is used, replacing the daily-use copy still requires authorization and rollback.
 
-The placeholder values above are documentation markers. They are not valid publication URLs.
+The placeholder values above are documentation markers. They are not valid publication URLs. Report packaged, published and installed as separate outcomes; do not report installation when only the feed, download or update offer has been checked.
 
-## Local checks
+## Distribution diagnostics
+
+The release check above verifies signature structure. For the distribution report, inspect the actual signing information and run:
 
 ```sh
-./Scripts/check.sh
+codesign -d --verbose=4 .build/AirCiller.app
 ./Scripts/audit_distribution.sh .build/AirCiller.app
 ```
 
-The first command must pass. The distribution audit is expected to report the missing Developer ID, Hardened Runtime, notarization, and Gatekeeper acceptance until those facilities are available.
+Under the public ad hoc policy, absent Developer ID, Hardened Runtime, notarization and Gatekeeper acceptance are known distribution limitations. They must be reported, not represented as successful checks. They do not excuse a broken code signature, missing runtime or missing FFmpeg tools; inspect each finding. Do not assume that every nonzero audit result is expected.
+
+The audit script currently labels any non-ad-hoc signature as “Developer ID signature: present”, including a local development certificate. That label is not evidence of Developer ID signing. Inspect the `codesign -d --verbose=4` authority chain and team information to identify the actual signer, and retain the separate structural verification result from `codesign --verify --deep --strict`. Ad hoc signing, a local certificate and Developer ID are distinct; notarization and Gatekeeper acceptance require their own results.
 
 Sparkle's setup and publishing requirements are documented in its [official integration guide](https://sparkle-project.org/documentation/) and [publishing guide](https://sparkle-project.org/documentation/publishing/).
