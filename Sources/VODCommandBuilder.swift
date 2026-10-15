@@ -10,6 +10,7 @@ enum VODCommandBuilder {
         audioDelay: Double,
         durationLimit: Double? = nil
     ) -> [String] {
+        let strictTrueHD = outputMode == .losslessFLAC && audio?.codec.lowercased() == "truehd"
         var arguments = [
             "-hide_banner", "-nostdin", "-loglevel", "warning",
             "-stats_period", "0.25", "-progress", "pipe:1",
@@ -17,17 +18,30 @@ enum VODCommandBuilder {
         ]
 
         var audioInputIndex = 0
+        let adjustedSDR = !probe.isHDR && audio != nil && abs(audioDelay) >= 0.001
+        if adjustedSDR {
+            arguments.insert(contentsOf: ["-copyts", "-start_at_zero"], at: 0)
+        }
         if outputMode == .losslessFLAC {
             // A conversion advertised as lossless must not conceal decoder errors.
-            arguments.insert(contentsOf: ["-xerror", "-err_detect", "explode"], at: 1)
+            arguments.insert(
+                contentsOf: ["-xerror", "-err_detect", strictTrueHD ? "crccheck+explode" : "explode"], at: 1)
         }
         if audio != nil, abs(audioDelay) >= 0.001 {
+            if adjustedSDR { arguments += ["-isync", "0"] }
             arguments += ["-itsoffset", String(format: "%.3f", audioDelay)]
             arguments += ["-fflags", "+genpts", "-i", input.path]
             audioInputIndex = 1
         }
 
         arguments += ["-map", "0:\(probe.videoStreamIndex)", "-an", "-sn", "-dn", "-c:v", "copy"]
+        if adjustedSDR && audioDelay < 0 {
+            let padding = String(format: "%.3f", locale: Locale(identifier: "en_US_POSIX"), -audioDelay)
+            arguments += [
+                "-bsf:v",
+                "setts=pts=PTS-if(eq(N\\,0)\\,\(padding)/TB\\,0):dts=DTS-if(eq(N\\,0)\\,\(padding)/TB\\,0):duration=DURATION+if(eq(N\\,0)\\,\(padding)/TB\\,0)",
+            ]
+        }
 
         if probe.videoCodec.lowercased() == "hevc" {
             let compatibilityID = probe.dolbyVisionCompatibilityID
@@ -47,7 +61,8 @@ enum VODCommandBuilder {
             initializationFile: "video-init.mp4",
             playlistPath: outputDirectory.appendingPathComponent("video.m3u8").path,
             independentSegments: true,
-            preserveSourceTimestamps: outputMode == .losslessFLAC
+            preserveSourceTimestamps: outputMode == .losslessFLAC || adjustedSDR,
+            adjustedSDR: adjustedSDR
         )
 
         if let audio {
@@ -55,6 +70,11 @@ enum VODCommandBuilder {
             switch outputMode {
             case .losslessFLAC:
                 arguments += ["-c:a", "flac"]
+                if strictTrueHD {
+                    // Do not inherit TrueHD's 40/80/160-sample access units.
+                    // Standard FLAC blocks retain samples and work in CoreMedia.
+                    arguments += ["-frame_size:a", "4608"]
+                }
             case .original:
                 arguments += ["-c:a", "copy"]
                 if audio.codec.lowercased() == "aac" {
@@ -76,7 +96,8 @@ enum VODCommandBuilder {
                 initializationFile: "audio-init.mp4",
                 playlistPath: outputDirectory.appendingPathComponent("audio.m3u8").path,
                 independentSegments: false,
-                preserveSourceTimestamps: outputMode == .losslessFLAC
+                preserveSourceTimestamps: outputMode == .losslessFLAC || adjustedSDR,
+                adjustedSDR: adjustedSDR
             )
         }
         return arguments
@@ -94,6 +115,7 @@ enum VODCommandBuilder {
         audioDelay: Double,
         durationLimit: Double? = nil
     ) -> [String] {
+        let strictTrueHD = outputMode == .losslessFLAC && audio?.codec.lowercased() == "truehd"
         var arguments = [
             "-hide_banner", "-nostdin", "-loglevel", "warning",
             "-stats_period", "0.25", "-progress", "pipe:1",
@@ -102,7 +124,8 @@ enum VODCommandBuilder {
 
         var audioInputIndex = 0
         if outputMode == .losslessFLAC {
-            arguments.insert(contentsOf: ["-xerror", "-err_detect", "explode"], at: 1)
+            arguments.insert(
+                contentsOf: ["-xerror", "-err_detect", strictTrueHD ? "crccheck+explode" : "explode"], at: 1)
         }
         if audio != nil, abs(audioDelay) >= 0.001 {
             arguments += ["-itsoffset", String(format: "%.3f", audioDelay)]
@@ -131,6 +154,7 @@ enum VODCommandBuilder {
             switch outputMode {
             case .losslessFLAC:
                 arguments += ["-c:a", "flac"]
+                if strictTrueHD { arguments += ["-frame_size:a", "4608"] }
             case .original:
                 arguments += ["-c:a", "copy"]
                 if audio.codec.lowercased() == "aac" {
@@ -160,11 +184,18 @@ enum VODCommandBuilder {
         initializationFile: String,
         playlistPath: String,
         independentSegments: Bool,
-        preserveSourceTimestamps: Bool = false
+        preserveSourceTimestamps: Bool = false,
+        adjustedSDR: Bool = false
     ) -> [String] {
         var flags = "temp_file"
         if independentSegments { flags += "+independent_segments" }
-        return [
+        let timeline =
+            adjustedSDR
+            ? [
+                "-output_ts_offset", "10", "-hls_segment_options",
+                "movflags=+frag_discont:use_editlist=0:avoid_negative_ts=disabled",
+            ] : []
+        return timeline + [
             "-avoid_negative_ts", preserveSourceTimestamps ? "disabled" : "make_zero",
             "-max_muxing_queue_size", "4096",
             "-f", "hls",

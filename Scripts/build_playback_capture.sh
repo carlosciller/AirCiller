@@ -10,4 +10,6 @@ xcrun swiftc "${arguments[@]}" Tests/PlaybackCapture/CapturePolicy.swift \
   Tests/PlaybackCapture/TVSampleCapture.swift -o "$output_dir/capture-samples"
 xcrun swiftc "${arguments[@]}" Tests/PlaybackCapture/CapturePolicy.swift \
   Tests/PlaybackCapture/CaptureFrameAnalysis.swift -o "$output_dir/analyze-frames"
+xcrun swiftc "${arguments[@]}" Tests/PlaybackCapture/SyntheticClockFrames.swift \
+  -o "$output_dir/synthetic-clock-frames"
 echo "Capture tools compiled. No device was opened."

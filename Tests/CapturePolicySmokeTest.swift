@@ -31,6 +31,35 @@ struct CapturePolicySmokeTest {
         let stale = CapturePolicy.cueFlags(["AirCiller subtitle check: 654321-1"], token: "123456")
         try expect(stale.any && !stale.expected, "A stale cue is not a pass")
         try expect(!CapturePolicy.cueFlags(["Player 00:15"], token: "123456").any, "Controls are not subtitles")
+        try expect(CapturePolicy.fixtureClock(["AC TIME 5.125000"]) == 5.125, "Synthetic source clock")
+        try expect(CapturePolicy.fixtureClock(["AC TIME 0,005"]) == 0.005, "Clock decimal separator")
+        try expect(
+            CapturePolicy.fixtureCueIndex(["AirCiller subtitle check: 123456-2"], token: "123456") == 2,
+            "Synthetic cue index")
+        try expect(
+            CapturePolicy.fixtureCueIndex(["AirCiller subtitle check: 123456-21"], token: "123456") == nil,
+            "Long cue index rejected")
+        try expect(
+            CapturePolicy.fixtureCueIndex(
+                ["AirCiller subtitle check: 123456-3", "00:27", "-00:38"], token: "123456") == 3,
+            "Transport times on separate OCR lines must not extend the cue index")
+        try expect(
+            CapturePolicy.fixtureCueIndex(
+                ["00:27", "AirCiller subtitle check: 123456-4", "-00:38"], token: "123456") == 4,
+            "Transport times before and after the cue remain separate")
+        try expect(
+            CapturePolicy.fixtureCueIndex(
+                ["AirCiller subtitle check: 123456-3", "AirCiller subtitle check: 123456-4"], token: "123456") == nil,
+            "Multiple cue indices are ambiguous")
+        try expect(
+            CapturePolicy.fixtureCueIndex(["AirCiller subtitle check: 654321-3"], token: "123456") == nil,
+            "A stale cue cannot establish the current subtitle clock")
+        for lines in [
+            ["05:12"], ["AC TIME 181.000"], ["AC TIME nan"], ["AC TIME -1.000"],
+            ["AC TIME 5.000", "AC TIME 6.000"], ["Other AC TIME 5.000"],
+        ] {
+            try expect(CapturePolicy.fixtureClock(lines) == nil, "Only one bounded fixture clock")
+        }
         let pattern = [
             (200.0, 0.0, 0.0), (0.0, 180.0, 0.0), (180.0, 190.0, 0.0),
             (0.0, 0.0, 180.0), (170.0, 0.0, 180.0), (0.0, 170.0, 180.0),

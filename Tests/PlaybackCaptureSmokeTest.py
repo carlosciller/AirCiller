@@ -16,6 +16,53 @@ import playback_capture as capture
 
 
 class CaptureWorkflowTests(unittest.TestCase):
+    def test_lossless_scenario_writes_explicit_mode_to_real_plan(self):
+        import playback_scenarios
+        class NoDeviceLaunch(Exception):
+            pass
+        for index, key in enumerate(('losslessPCMCases', 'losslessAudioCases')):
+            config = dict(self.config, cases=['hlsTrackChanges'],
+                          fixtureOverrides={'hlsTrackChanges': str(self.fixture)},
+                          **{key: ['hlsTrackChanges']})
+            directory = self.root / f'scenario-{index}'
+            with mock.patch.object(playback_scenarios, 'supervise_case', side_effect=NoDeviceLaunch):
+                with self.assertRaises(NoDeviceLaunch):
+                    playback_scenarios.run_scenario(
+                        'hlsTrackChanges', config,
+                        {'hlsTrackChanges': (self.fixture, {'sha256': 'fixture'})},
+                        self.root, directory, 'candidate')
+            plan = json.loads((directory / 'plan.json').read_text())
+            self.assertEqual(plan['clips'][0]['audioOutput'], 'losslessFLAC')
+
+    def test_generic_lossless_override_remains_explicit_and_cannot_be_duplicated(self):
+        config = dict(self.config, cases=['hlsNoSubtitles'],
+                      fixtureOverrides={'hlsNoSubtitles': str(self.fixture)},
+                      losslessAudioCases=['hlsNoSubtitles'])
+        self.assertEqual(capture.validate_config(config), ['hlsNoSubtitles'])
+        self.assertEqual(capture.lossless_audio_cases(config), ['hlsNoSubtitles'])
+        for changes in ({'losslessAudioCases': 'hlsNoSubtitles'},
+                        {'losslessPCMCases': ['hlsNoSubtitles']},
+                        {'losslessAudioCases': ['directHDR']}):
+            with self.assertRaises(capture.CaptureError):
+                capture.validate_config(dict(config, **changes))
+
+    def test_truehd_fixture_requires_verified_precision_rate_and_layout(self):
+        def probe(audio):
+            metadata = {'format': {'duration': '60', 'format_name': 'matroska'}, 'streams': [
+                {'codec_type': 'video', 'codec_name': 'h264', 'index': 0}, audio]}
+            audible = capture.array.array('f', [0.2] * 8).tobytes()
+            with mock.patch.object(capture, 'bounded_command', side_effect=[
+                    json.dumps(metadata).encode(), audible, audible]):
+                return capture.probe_fixture(self.fixture, 'unused', 'unused', False, lossless_pcm=True)
+        audio = {'codec_type': 'audio', 'codec_name': 'truehd', 'index': 1,
+                 'bits_per_raw_sample': '24', 'sample_rate': '48000',
+                 'channels': 2, 'channel_layout': 'stereo'}
+        self.assertEqual(probe(audio)['audioCodec'], 'truehd')
+        for changes in ({'bits_per_raw_sample': None}, {'bits_per_raw_sample': '16'},
+                        {'sample_rate': '32000'}, {'channels': 6, 'channel_layout': '5.1'}):
+            with self.assertRaises(capture.CaptureError):
+                probe(dict(audio, **changes))
+
     def test_pcm_scenario_override_requires_explicit_conversion(self):
         config = dict(self.config, cases=['hlsTrackChanges'],
                       fixtureOverrides={'hlsTrackChanges': str(self.fixture)},

@@ -24,6 +24,8 @@ CASE_INFO = {
     "directLongPause": ("longPause", "directHDR"), "hlsLongPause": ("longPause", "hls"),
     "hlsHDRNoSubtitles": ("controls", "hlsHDR"),
     "hlsCacheReuse": ("hlsCacheReuse", "hls"),
+    "hlsAudioDelayTail": ("hlsAudioDelayTail", "hls"),
+    "hlsAudioAdvanceTail": ("hlsAudioAdvanceTail", "hls"),
 }
 CASES = tuple(CASE_INFO)
 CONTROL_PASS = "automated_checks_passed_output_unverified"
@@ -71,8 +73,12 @@ def fingerprint(path):
     return digest.hexdigest()
 
 
+def lossless_audio_cases(config):
+    return config.get("losslessPCMCases", []) + config.get("losslessAudioCases", [])
+
+
 def validate_config(config):
-    allowed = {"version", "deviceID", "captureSource", "hdrFixture", "fixtureEncoder", "cases", "fixtureOverrides", "losslessPCMCases"}
+    allowed = {"version", "deviceID", "captureSource", "hdrFixture", "fixtureEncoder", "cases", "fixtureOverrides", "losslessPCMCases", "losslessAudioCases"}
     if not isinstance(config, dict) or set(config) - allowed or type(config.get("version")) is not int or config["version"] != 1:
         raise CaptureError("invalidCaptureConfiguration")
     source = config.get("captureSource")
@@ -92,7 +98,10 @@ def validate_config(config):
         raise CaptureError("invalidFixtureOverrides")
     for value in overrides.values():
         validate_movie_path(value)
-    pcm_cases = config.get("losslessPCMCases", [])
+    for key in ("losslessPCMCases", "losslessAudioCases"):
+        if not isinstance(config.get(key, []), list):
+            raise CaptureError("invalidPCMConversionCases")
+    pcm_cases = lossless_audio_cases(config)
     if (not isinstance(pcm_cases, list) or any(not isinstance(c, str) for c in pcm_cases)
             or len(set(pcm_cases)) != len(pcm_cases)
             or any(c not in {"hlsSubtitles", "hlsNoSubtitles", "hlsHDRNoSubtitles", *pcm_scenarios}
@@ -241,6 +250,9 @@ def probe_fixture(path, ffmpeg, ffprobe, hdr, lossless_pcm=False):
         eligible = selected.get("codec_name") in {"aac", "ac3", "eac3", "flac"}
         if lossless_pcm:
             eligible = selected.get("codec_name") in {"pcm_s16le", "pcm_s16be", "pcm_s24le", "pcm_s24be", "pcm_bluray"}
+            if selected.get("codec_name") == "truehd":
+                eligible = str(selected.get("bits_per_raw_sample")) == "24" and str(
+                    selected.get("sample_rate")) in {"44100", "48000", "88200", "96000", "176400", "192000"}
             layouts = {1: "mono", 2: "stereo", 6: "5.1(side)", 8: "7.1"}
             eligible = eligible and layouts.get(selected.get("channels")) == selected.get("channel_layout")
         if not eligible or selected.get("channels", 0) < (1 if lossless_pcm else 2):
@@ -269,7 +281,7 @@ def prepare_fixtures(config, cases, project, directory):
     for name, value in overrides.items():
         path = Path(value).resolve()
         fixtures[name] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=CASE_INFO[name][1] != "hls",
-                                             lossless_pcm=name in config.get("losslessPCMCases", [])))
+                                             lossless_pcm=name in lossless_audio_cases(config)))
     if needs_hdr(cases):
         path = Path(config["hdrFixture"]).resolve()
         fixtures["directHDR"] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=True))
@@ -291,6 +303,23 @@ def prepare_fixtures(config, cases, project, directory):
                          "-metadata:s:a:0", "language=eng", *extra_metadata, "-fs", "100000000", path], timeout=90)
         fixtures["hls"] = (path, probe_fixture(path, ffmpeg, ffprobe, hdr=False))
         fixtures["hls"][1]["generatorSHA256"] = fingerprint(encoder)
+        timing_cases = [name for name in cases if name in {"hlsAudioDelayTail", "hlsAudioAdvanceTail"}]
+        if timing_cases:
+            timing_path = directory / "synthetic-timing.mkv"
+            tone = r"aevalsrc=0.125*sin(2*PI*t*if(lt(mod(floor(t/2)*7+3\,11)\,5)\,880\,440)):s=48000"
+            clock_directory = directory / "synthetic-clock"
+            bounded_command([project / ".build/playback-capture-tools/synthetic-clock-frames", clock_directory], timeout=45)
+            bounded_command([encoder, "-v", "error", "-n", "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=24",
+                             "-f", "lavfi", "-i", tone, "-framerate", "10", "-i", clock_directory / "clock-%04d.png",
+                             "-t", "60", "-filter_complex", "[0:v][2:v]overlay=x=80:y=60:shortest=1[v]",
+                             "-map", "[v]", "-map", "1:a:0",
+                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "22", "-g", "48",
+                             "-pix_fmt", "yuv420p", "-c:a", "eac3", "-b:a", "192k", "-ac", "2",
+                             "-metadata:s:a:0", "language=eng", "-fs", "100000000", timing_path], timeout=90)
+            timing = (timing_path, probe_fixture(timing_path, ffmpeg, ffprobe, hdr=False))
+            timing[1]["generatorSHA256"] = fingerprint(encoder)
+            for name in timing_cases:
+                fixtures[name] = timing
     return fixtures
 
 
@@ -481,7 +510,7 @@ def run_case(name, config, fixture, project, directory, candidate_hash):
     ready, stop = directory / "capture.ready", directory / "capture.stop"
     token = f"{secrets.randbelow(1_000_000):06d}"
     clip = {"path": str(fixture[0]), "route": CASE_INFO[name][1]}
-    if name in config.get("losslessPCMCases", []):
+    if name in lossless_audio_cases(config):
         clip["audioOutput"] = "losslessFLAC"
     if name not in {"hlsNoSubtitles", "hlsHDRNoSubtitles"}:
         subtitle = directory / "cue.eng.srt"

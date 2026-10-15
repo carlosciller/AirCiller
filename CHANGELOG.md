@@ -2,6 +2,33 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.17.0 (15 October 2026)
+
+This release fixes manual audio synchronization for SDR movies and adds a
+lossless conversion option for supported TrueHD soundtracks.
+
+- In **Audio & Subtitles > Synchronization**, advance or delay SDR audio by up
+  to five seconds. AirCiller retains the complete beginning and end: advancing
+  audio briefly holds the opening image, while delaying it lets the audio finish
+  after the last image. The displayed stream duration includes that extra time.
+- Saved movie positions and chapter jumps account for the adjustment. Stopping,
+  resuming or changing the delay keeps the corresponding point in the movie.
+- Choose **Convert to lossless FLAC** for TrueHD with known 24-bit precision,
+  a supported native sample rate and mono, stereo, side-channel 5.1 or 7.1 audio.
+  The conversion retains the channel-based samples and does not encode video.
+- When a supported PCM or TrueHD track needs conversion, the playback alert now
+  offers FLAC alongside E-AC-3 and explains the difference. **Keep Original**
+  remains the default; conversion never starts without your choice.
+- The open tracks panel follows an audio choice made in that alert, while
+  keeping any edits you already have in progress.
+
+Lossless FLAC conversion requires HLS and zero manual audio adjustment. It is
+unavailable with HDR and selected subtitles, which use direct MP4. Atmos objects
+are not retained. DTS-HD MA lossless conversion remains unavailable.
+
+The bundled engines are unchanged. See the [audio scope and validation](Docs/AUDIO_EXPANSION.md)
+and [synchronization record](Docs/HLS_AUDIO_TIMING.md) for tested cases and remaining limits.
+
 ## 0.16.0 (14 October 2026)
 
 - Audio and subtitles open in the sidebar inspector by default. Hide or show

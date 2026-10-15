@@ -15,12 +15,19 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
     /// Packaging eligibility, not receiver acceptance. Unknown precision or
     /// speaker labels must not authorize an advertised lossless conversion.
     var canPrepareLosslessFLAC: Bool {
-        let codecs = ["pcm_s16le", "pcm_s16be", "pcm_s24le", "pcm_s24be", "pcm_bluray"]
+        let codecs = ["pcm_s16le", "pcm_s16be", "pcm_s24le", "pcm_s24be", "pcm_bluray", "truehd"]
         guard codecs.contains(codec.lowercased()),
             let sampleRate, sampleRate > 0,
             let bitsPerSample, [16, 24].contains(bitsPerSample),
             let channels, let channelLayout
         else { return false }
+        if codec.lowercased() == "truehd" {
+            // Independently checked 24-bit channel presentations; no precision
+            // inference, object-audio preservation or lossy DTS-core fallback.
+            guard bitsPerSample == 24,
+                [44_100, 48_000, 88_200, 96_000, 176_400, 192_000].contains(sampleRate)
+            else { return false }
+        }
         let expectedPrecision: Int?
         switch codec.lowercased() {
         case "pcm_s16le", "pcm_s16be": expectedPrecision = 16
@@ -250,7 +257,7 @@ enum AudioOutputMode: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .original: return L10n.text("Conservar original")
-        case .losslessFLAC: return L10n.text("Convertir PCM a FLAC sin pérdida")
+        case .losslessFLAC: return L10n.text("Convertir a FLAC sin pérdida")
         case .compatible: return L10n.text("Convertir a E-AC-3 (hasta 5.1)")
         case .stereo: return L10n.text("Convertir a AAC (estéreo)")
         }
@@ -260,7 +267,7 @@ enum AudioOutputMode: String, CaseIterable, Identifiable {
         switch self {
         case .losslessFLAC:
             return L10n.text(
-                "Convierte PCM a FLAC conservando las muestras, la frecuencia y los canales. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero."
+                "Convierte una pista PCM o TrueHD compatible a FLAC conservando las muestras, la frecuencia y los canales. No conserva los objetos Atmos. Cambia el códec; no es audio original. Disponible solo en HLS, con el ajuste manual de audio a cero."
             )
         case .original:
             return L10n.text(

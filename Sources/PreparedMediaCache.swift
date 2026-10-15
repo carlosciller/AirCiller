@@ -413,13 +413,22 @@ actor PreparedMediaCache {
     }
 
     private func baseNames(in directory: URL, separateAudio: Bool) throws -> Set<String> {
-        var names = try playlistNames(in: directory, rendition: "video")
-        if separateAudio { names.formUnion(try playlistNames(in: directory, rendition: "audio")) }
+        let timelineURL = directory.appendingPathComponent(HLSAudioTimelineInfo.fileName)
+        let adjusted = Self.itemExists(timelineURL)
+        if adjusted {
+            _ = try Self.regularFile(timelineURL)
+            guard separateAudio, try HLSAudioTimelineInfo.load(directory: directory) != nil else {
+                throw CacheError.invalidPlaylist
+            }
+        }
+        var names = try playlistNames(in: directory, rendition: "video", adjusted: adjusted)
+        if separateAudio { names.formUnion(try playlistNames(in: directory, rendition: "audio", adjusted: adjusted)) }
+        if adjusted { names.insert(HLSAudioTimelineInfo.fileName) }
         guard names.count <= Self.maximumFiles else { throw CacheError.invalidManifest }
         return names
     }
 
-    private func playlistNames(in directory: URL, rendition: String) throws -> Set<String> {
+    private func playlistNames(in directory: URL, rendition: String, adjusted: Bool) throws -> Set<String> {
         let name = "\(rendition).m3u8"
         let data = try Self.readPlaylist(directory.appendingPathComponent(name))
         guard let text = String(data: data, encoding: .utf8) else { throw CacheError.invalidPlaylist }
@@ -428,12 +437,23 @@ actor PreparedMediaCache {
             lines.contains("#EXT-X-PLAYLIST-TYPE:VOD"),
             lines.contains("#EXT-X-MAP:URI=\"\(rendition)-init.mp4\"")
         else { throw CacheError.invalidPlaylist }
+        if adjusted {
+            guard lines.contains("#EXT-X-VERSION:8"),
+                lines.filter({ $0 == "#EXT-X-PROGRAM-DATE-TIME:2000-01-01T00:00:00.000Z" }).count == 1
+            else { throw CacheError.invalidPlaylist }
+        }
         var names: Set<String> = [name, "\(rendition)-init.mp4"]
         var expectsSegment = false
         var segmentCount = 0
+        var gap = false
+        var seenGaps: Set<String> = []
+        var trailingGap = false
         for line in lines {
             try Task.checkCancellation()
-            if line.hasPrefix("#EXTINF:") {
+            if line == "#EXT-X-GAP" {
+                guard adjusted, !gap, !expectsSegment, !trailingGap else { throw CacheError.invalidPlaylist }
+                gap = true
+            } else if line.hasPrefix("#EXTINF:") {
                 guard !expectsSegment,
                     let value = line.dropFirst(8).split(separator: ",", omittingEmptySubsequences: false).first,
                     let duration = Double(value),
@@ -441,12 +461,24 @@ actor PreparedMediaCache {
                 else { throw CacheError.invalidPlaylist }
                 expectsSegment = true
             } else if !line.hasPrefix("#") {
-                guard expectsSegment, Self.isSegment(line, rendition: rendition), names.insert(line).inserted else {
-                    throw CacheError.invalidPlaylist
+                guard expectsSegment, !trailingGap else { throw CacheError.invalidPlaylist }
+                if gap {
+                    guard seenGaps.insert(line).inserted,
+                        (line == "\(rendition)-leading-gap.m4s" && segmentCount == 0)
+                            || (line == "\(rendition)-trailing-gap.m4s" && segmentCount > 0)
+                    else { throw CacheError.invalidPlaylist }
+                    trailingGap = line == "\(rendition)-trailing-gap.m4s"
+                    gap = false
+                } else {
+                    guard Self.isSegment(line, rendition: rendition), names.insert(line).inserted else {
+                        throw CacheError.invalidPlaylist
+                    }
+                    segmentCount += 1
                 }
-                segmentCount += 1
                 guard names.count <= Self.maximumFiles else { throw CacheError.invalidManifest }
                 expectsSegment = false
+            } else if adjusted && line == "#EXT-X-PROGRAM-DATE-TIME:2000-01-01T00:00:00.000Z" {
+                continue
             } else if line == "#EXTM3U" || line == "#EXT-X-ENDLIST"
                 || line == "#EXT-X-PLAYLIST-TYPE:VOD" || line == "#EXT-X-INDEPENDENT-SEGMENTS"
                 || line == "#EXT-X-MAP:URI=\"\(rendition)-init.mp4\""
@@ -459,7 +491,7 @@ actor PreparedMediaCache {
                 throw CacheError.invalidPlaylist
             }
         }
-        guard !expectsSegment, segmentCount > 0 else { throw CacheError.invalidPlaylist }
+        guard !expectsSegment, !gap, segmentCount > 0 else { throw CacheError.invalidPlaylist }
         return names
     }
 
@@ -517,7 +549,7 @@ actor PreparedMediaCache {
     }
 
     private nonisolated static func isPlaylist(_ name: String) -> Bool {
-        name == "video.m3u8" || name == "audio.m3u8"
+        name == "video.m3u8" || name == "audio.m3u8" || name == "audio-timeline.json"
     }
 
     private nonisolated static func isBaseName(_ name: String) -> Bool {

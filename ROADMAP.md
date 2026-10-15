@@ -4,28 +4,49 @@ AirCiller should stay quick to open and dependable through a whole movie. This i
 the order of work, not a release schedule. Completed changes are in the
 [release notes](CHANGELOG.md); detailed evidence belongs in [Testing](TESTING.md).
 
-## 0.15.0: library and seasons
+## 0.17.0 scope
+
+Implemented and validated within the linked records' observation limits:
+
+- **SDR manual audio synchronization.** Local conservation/cache matrices and
+  receiver-control checks pass, including corrected Stop handling, saved source
+  position, replay and track changes. Captured output covers +5/-5 seconds and
+  switching between them; offline reassessments and fresh runs are identified
+  separately. [Timing investigation](Docs/HLS_AUDIO_TIMING.md).
+- **Explicit TrueHD-to-FLAC preparation.** HLS only, with manual audio timing at
+  zero, declared 24-bit precision, matching mono/stereo/5.1(side)/7.1 labels and
+  native 44.1/48/88.2/96/176.4/192 kHz rates. Local sample, internal-clock, HLS,
+  cache and damaged-input checks pass. Sampled receiver output covers stereo and
+  5.1(side) SDR and stereo HDR-source playback; native conversion-choice and
+  inspector checks are recorded. Atmos objects are not retained. Physical
+  speaker routing and playback-length 7.1 receiver output are not established.
+  [Audio validation](Docs/AUDIO_EXPANSION.md).
+
+DTS-HD MA lossless preparation is excluded from this delivery; its blocker is
+recorded below. Release, CI, signed-download and native-update evidence is
+separate from playback acceptance and follows [Distribution](DISTRIBUTION.md).
+
+## Released scope
+
+0.16.0 adds explicitly selected PCM/LPCM-to-FLAC lossless preparation on HLS
+for the validated precision/layout cases, and opens Audio & Subtitles by default.
+Publication, signed downloads, CI and the native Sparkle update were verified.
+The [audio record](Docs/AUDIO_EXPANSION.md) retains the bounded playback evidence.
 
 0.15.0 adds season folders, natural episode order, watched status, saved progress
 and native reordering. Movies enter Playlist before analysis; adding files keeps
 an active session running. Imports are cancellable and report rejected inputs.
 
 The [library record](Docs/LIBRARY_SEASONS.md) identifies tested behavior and limits.
-Both video packagers and bundled engines are unchanged. Release and update steps
-follow [Distribution](DISTRIBUTION.md).
+Release and update steps follow [Distribution](DISTRIBUTION.md).
 
 ## Next repairs
 
-1. **SDR HLS audio timing.** Manual audio offsets can be discarded during
-   preparation. Establish a shared presentation clock without skipping the
-   opening video. Test positive and negative offsets, seeks, final audio and
-   subtitle timing with the pinned engine, then verify Apple TV output.
-   [Investigation](Docs/HLS_AUDIO_TIMING.md).
-2. **Subtitles after seeking.** Investigate the brief HLS visibility gap using
+1. **Subtitles after seeking.** Investigate the brief HLS visibility gap using
    known cues, separating individual seeks, rapid commands and receiver controls.
    Repeat earlier segment experiments only with a new cause to test.
    [Playback checks](Docs/PLAYBACK_CHECKS.md).
-3. **Focus and editing.** Check independent text-field Undo, focus after applying
+2. **Focus and editing.** Check independent text-field Undo, focus after applying
    tracks, operation-specific Undo wording and long inspector content at minimum
    window size. [Interface record](Docs/NATIVE_UI_INTEGRATION.md).
 
@@ -51,12 +72,12 @@ effort. Keep implementation/preparation and final tests/publication separate.
 
 ## Compatibility research
 
-- **PCM/LPCM:** the 0.16.0 HLS candidate offers explicit lossless FLAC
-  conversion for known integer precision and native layouts. Local media, UI,
-  receiver controls and selected digital-output checks passed. SDR preserves
-  the source clock with separate audio; HDR without subtitles stays multiplexed.
-  Publication/installation are a separate phase. Direct HDR/subtitle MP4 remains
-  outside this first expansion.
+- **Lossless audio coverage:** widen PCM/LPCM precision, rates or layouts only
+  with their own preservation and receiver checks. TrueHD needs a valid,
+  playback-length 7.1 source for receiver coverage; 16-bit TrueHD remains
+  unverified. Do not loop encoded TrueHD fragments to manufacture that evidence.
+  Direct HDR/subtitle MP4 and nonzero manual audio timing remain outside the
+  lossless-conversion route.
   [Investigation and matrix](Docs/AUDIO_EXPANSION.md).
 
 - **FLAC layouts:** retain channel-mask overrides that fMP4 currently changes.
@@ -64,8 +85,9 @@ effort. Keep implementation/preparation and final tests/publication separate.
   Do not relabel speakers. [Current support](Docs/FLAC_AUDIO.md).
 - **Subtitles:** assess additional text formats individually, including TTML/IMSC1;
   investigate DVB and XSUB OCR with suitable samples. Keep OCR local and selectable.
-- **AV1 passthrough:** research only. A device decoder does not establish support
-  in its AirPlay receiver. There is no promised video transcoder.
+- **AV1/VP9:** parked for the maintainer's third-generation Apple TV 4K workflow.
+  Revisit only for a concrete collection/device need and actual AirPlay evidence.
+  There is no promised video transcoder; MPEG-2 and DCP remain outside this work.
 
 TS/MTS/M2TS, supported FLAC soundtracks, PGS and VobSub are already available.
 Their limits are in [Compatibility](COMPATIBILITY.md), with separate
@@ -74,6 +96,12 @@ Their limits are in [Compatibility](COMPATIBILITY.md), with separate
 
 ## Deferred and blocked
 
+- **DTS-HD MA lossless preparation:** damaged lossless extensions can return
+  success under strict decoder flags while changing samples. Diagnostic guards
+  do not cover every observed failure. Resume only with a decoder guarantee or
+  full bitstream qualification, representative extension-bearing inputs and an
+  independent lossless reference. A DTS-core fallback is not acceptable, and
+  DTS:X object preservation is not promised. [Investigation](Docs/AUDIO_EXPANSION.md).
 - **Apple Shortcuts:** implementation is preserved, but public ad hoc registration
   failed on the tested Mac. Resume with the signing/distribution decision and the
   remaining handoff checks. Finder Quick Actions and Services are outside that

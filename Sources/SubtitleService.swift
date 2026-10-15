@@ -6,6 +6,7 @@ struct HLSSegment: Hashable, Sendable {
     let duration: Double
     let startTime: Double
     let fileName: String
+    var isGap: Bool = false
 }
 
 /// Subtitle content independent of HLS segment boundaries. Bitmap conversion
@@ -19,6 +20,24 @@ struct HLSSubtitleContent: Sendable {
 
 enum SubtitleService {
     static func alignRenditionPlaylists(outputDirectory: URL, expectedDuration: Double) throws {
+        if try HLSAudioTimelineInfo.load(directory: outputDirectory) != nil {
+            let video = try String(contentsOf: outputDirectory.appendingPathComponent("video.m3u8"), encoding: .utf8)
+            let subtitleURL = outputDirectory.appendingPathComponent("subtitles.m3u8")
+            if FileManager.default.fileExists(atPath: subtitleURL.path),
+                let target = video.components(separatedBy: .newlines).first(where: {
+                    $0.hasPrefix("#EXT-X-TARGETDURATION:")
+                })
+            {
+                var subtitle = try String(contentsOf: subtitleURL, encoding: .utf8)
+                if let old = subtitle.components(separatedBy: .newlines).first(where: {
+                    $0.hasPrefix("#EXT-X-TARGETDURATION:")
+                }) {
+                    subtitle = subtitle.replacingOccurrences(of: old, with: target)
+                    try subtitle.write(to: subtitleURL, atomically: true, encoding: .utf8)
+                }
+            }
+            return
+        }
         let videoURL = outputDirectory.appendingPathComponent("video.m3u8")
         let audioURL = outputDirectory.appendingPathComponent("audio.m3u8")
         var videoText = try String(contentsOf: videoURL, encoding: .utf8)
@@ -124,7 +143,8 @@ enum SubtitleService {
         let content = try await materializeHLSContent(
             track: track,
             videoURL: videoURL,
-            videoDuration: segments.reduce(0) { $0 + $1.duration },
+            videoDuration: try HLSAudioTimelineInfo.load(directory: outputDirectory)?.sourceDuration
+                ?? segments.reduce(0) { $0 + $1.duration },
             outputDirectory: outputDirectory,
             maximumOCRFrames: maximumOCRFrames,
             ocrProgress: ocrProgress
@@ -206,15 +226,18 @@ enum SubtitleService {
         else {
             throw AirCillerError.invalidVODPackage("La película no contiene segmentos de vídeo.")
         }
+        let timeline = try HLSAudioTimelineInfo.load(directory: outputDirectory)
         if let bitmapDuration = content.bitmapDuration,
-            bitmapDuration != segments.reduce(0, { $0 + $1.duration })
+            bitmapDuration != (timeline?.sourceDuration ?? segments.reduce(0, { $0 + $1.duration }))
         {
             throw AirCillerError.invalidVODPackage("Los subtítulos no están alineados con el vídeo.")
         }
-        let cues = parseCues(content.webVTT, delay: delay)
+        let cues = parseCues(content.webVTT, delay: delay + (timeline?.videoContentOffset ?? 0))
         for segment in segments {
             try Task.checkCancellation()
-            try writeWebVTTSegment(segment, cues: cues, outputDirectory: outputDirectory)
+            try writeWebVTTSegment(
+                segment, cues: cues, outputDirectory: outputDirectory,
+                timestampOrigin: timeline?.timestampOrigin ?? 0)
         }
         try Task.checkCancellation()
         try writeSubtitlePlaylist(segments: segments, outputDirectory: outputDirectory)
@@ -316,12 +339,14 @@ enum SubtitleService {
         let range = videoRange(probe)
         // fMP4, Dolby Vision compatibility metadata and I-frame renditions are
         // described using Apple's current multivariant-playlist vocabulary.
-        let playlistVersion = 7
+        let adjustedTimeline = try HLSAudioTimelineInfo.load(directory: outputDirectory) != nil
+        let playlistVersion = adjustedTimeline ? 8 : 7
         var lines = [
             "#EXTM3U",
             "#EXT-X-VERSION:\(playlistVersion)",
             "#EXT-X-INDEPENDENT-SEGMENTS",
         ]
+        if adjustedTimeline { lines.append("#EXT-X-START:TIME-OFFSET=0,PRECISE=YES") }
         if let audio {
             let name = quoted(audio.displayName)
             let language = quoted((audio.language ?? "und").replacingOccurrences(of: "_", with: "-"))
@@ -390,6 +415,13 @@ enum SubtitleService {
 
         let videoSegments = try parseVODPlaylist(at: videoPlaylistURL)
         let packagedDuration = videoSegments.reduce(0) { $0 + $1.duration }
+        let timeline = try HLSAudioTimelineInfo.load(directory: outputDirectory)
+        if videoSegments.contains(where: \.isGap) || timeline != nil {
+            guard let timeline, videoText.contains("#EXT-X-VERSION:8"),
+                abs(timeline.presentationDuration - packagedDuration) < 0.002,
+                abs(timeline.sourceDuration - expectedDuration) < 0.002
+            else { throw AirCillerError.invalidVODPackage("El mapa temporal del audio no es válido.") }
+        }
         // En algunos MKV la duración del contenedor la alarga una pista de
         // subtítulos varios segundos después del último paquete audiovisual.
         let allowedDifference = max(15, (videoSegments.map(\.duration).max() ?? 0) * 1.5)
@@ -409,6 +441,7 @@ enum SubtitleService {
             }
         }
         for segment in videoSegments {
+            if segment.isGap { continue }
             guard
                 FileManager.default.fileExists(
                     atPath: outputDirectory.appendingPathComponent(segment.fileName).path
@@ -444,6 +477,9 @@ enum SubtitleService {
                 throw AirCillerError.invalidVODPackage("La lista de audio no está cerrada como VOD.")
             }
             let audioSegments = try parseVODPlaylist(at: audioPlaylistURL)
+            if audioSegments.contains(where: \.isGap) && timeline == nil {
+                throw AirCillerError.invalidVODPackage("El mapa temporal del audio no es válido.")
+            }
             let audioDuration = audioSegments.reduce(0) { $0 + $1.duration }
             let audioTolerance = max(15, (audioSegments.map(\.duration).max() ?? 0) * 1.5)
             guard !audioSegments.isEmpty, abs(audioDuration - expectedDuration) <= audioTolerance else {
@@ -463,6 +499,7 @@ enum SubtitleService {
                 }
             }
             for segment in audioSegments {
+                if segment.isGap { continue }
                 guard
                     FileManager.default.fileExists(
                         atPath: outputDirectory.appendingPathComponent(segment.fileName).path
@@ -522,6 +559,8 @@ enum SubtitleService {
         var totalDuration: Double = 0
         var peak = 0.0
         for segment in segments {
+            totalDuration += segment.duration
+            if segment.isGap { continue }
             let url = outputDirectory.appendingPathComponent(segment.fileName)
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             guard let number = attributes[.size] as? NSNumber, segment.duration > 0 else {
@@ -531,7 +570,6 @@ enum SubtitleService {
             }
             let bytes = number.doubleValue
             totalBytes += bytes
-            totalDuration += segment.duration
             peak = max(peak, bytes * 8 / segment.duration)
         }
         guard totalDuration > 0 else {
@@ -555,25 +593,41 @@ enum SubtitleService {
             .components(separatedBy: "\n")
         var segments: [HLSSegment] = []
         var pendingDuration: Double?
+        var pendingGap = false
         var startTime = 0.0
 
         for rawLine in lines {
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line == "#EXT-X-GAP" {
+                pendingGap = true
+                continue
+            }
             if line.hasPrefix("#EXTINF:") {
                 let value = line.dropFirst("#EXTINF:".count).split(separator: ",", maxSplits: 1).first
                 pendingDuration = value.flatMap { Double($0) }
                 continue
             }
             guard !line.isEmpty, !line.hasPrefix("#"), let duration = pendingDuration else { continue }
+            if pendingGap {
+                guard
+                    [
+                        "video-leading-gap.m4s", "video-trailing-gap.m4s", "audio-leading-gap.m4s",
+                        "audio-trailing-gap.m4s",
+                    ].contains(line),
+                    duration.isFinite, duration > 0
+                else { throw AirCillerError.invalidVODPackage("El intervalo sin medios no es válido.") }
+            }
             let segment = HLSSegment(
                 index: segments.count,
                 duration: duration,
                 startTime: startTime,
-                fileName: line
+                fileName: line,
+                isGap: pendingGap
             )
             segments.append(segment)
             startTime += duration
             pendingDuration = nil
+            pendingGap = false
         }
         return segments
     }
@@ -670,13 +724,15 @@ enum SubtitleService {
     private static func writeWebVTTSegment(
         _ segment: HLSSegment,
         cues: [WebVTTCue],
-        outputDirectory: URL
+        outputDirectory: URL,
+        timestampOrigin: Double = 0
     ) throws {
         let endTime = segment.startTime + segment.duration
         let overlapping = cues.filter { cue in
             cue.end > segment.startTime && cue.start < endTime
         }
-        var blocks = ["WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0"]
+        let timestamp = Int64((timestampOrigin * 90_000).rounded())
+        var blocks = ["WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:\(timestamp)"]
 
         for cue in overlapping {
             // RFC 8216 exige conservar el intervalo total del cue aunque cruce

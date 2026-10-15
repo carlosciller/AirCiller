@@ -77,6 +77,22 @@ compile_and_run seek-reconciliation \
 compile_and_run seek-coalescer \
   "$project_dir/Sources/AirPlaySeekCoalescer.swift" \
   "$project_dir/Tests/AirPlaySeekCoalescerSmokeTest.swift"
+compile_and_run airplay-controller-stop \
+  -D AIRCILLER_CONTROLLER_TESTS -framework Security \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Sources/ProcessDataBuffer.swift" \
+  "$project_dir/Sources/CancellableProcess.swift" \
+  "$project_dir/Sources/CapturedProcess.swift" \
+  "$project_dir/Sources/CredentialServiceClient.swift" \
+  "$project_dir/Sources/AirPlayCredentialStore.swift" \
+  "$project_dir/Sources/AirPlayPairingIntent.swift" \
+  "$project_dir/Sources/AirPlayPairingLifecycle.swift" \
+  "$project_dir/Sources/AirPlaySeekReconciliation.swift" \
+  "$project_dir/Sources/AirPlaySeekCoalescer.swift" \
+  "$project_dir/Sources/HelperCommandWriter.swift" \
+  "$project_dir/Sources/AirPlayController.swift" \
+  "$project_dir/Tests/AirPlayControllerStopSmokeTest.swift"
 compile_and_run helper-command-writer \
   "$project_dir/Sources/HelperCommandWriter.swift" \
   "$project_dir/Tests/HelperCommandWriterSmokeTest.swift"
@@ -89,6 +105,20 @@ compile_and_run playback-command-availability \
 compile_and_run session-presentation \
   "$project_dir/Sources/SessionPresentation.swift" \
   "$project_dir/Tests/SessionPresentationSmokeTest.swift"
+compile_and_run movie-playback-timeline \
+  "$project_dir/Sources/MoviePlaybackTimeline.swift" \
+  "$project_dir/Tests/MoviePlaybackTimelineSmokeTest.swift"
+compile_and_run lossless-decoder-guard \
+  "$project_dir/Tests/LosslessValidation/LosslessDecoderGuard.swift" \
+  "$project_dir/Tests/LosslessDecoderGuardSmokeTest.swift"
+compile_and_run lossless-decoder-pipe \
+  "$project_dir/Sources/VODBuildProcess.swift" \
+  "$project_dir/Tests/LosslessValidation/LosslessDecoderGuard.swift" \
+  "$project_dir/Tests/LosslessValidation/LosslessDecoderPipe.swift" \
+  "$project_dir/Tests/LosslessDecoderPipeSmokeTest.swift"
+compile_and_run strict-decoder-diagnostics \
+  "$project_dir/Sources/VODBuildProcess.swift" \
+  "$project_dir/Tests/StrictDecoderDiagnosticsSmokeTest.swift"
 compile_and_run error-recovery \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
@@ -118,6 +148,9 @@ compile_and_run media-file-types \
 compile_and_run capture-policy \
   "$project_dir/Tests/PlaybackCapture/CapturePolicy.swift" \
   "$project_dir/Tests/CapturePolicySmokeTest.swift"
+compile_and_run capture-tone-frequency \
+  "$project_dir/Tests/PlaybackCapture/CapturePolicy.swift" \
+  "$project_dir/Tests/CaptureToneFrequencySmokeTest.swift"
 compile_and_run update-configuration \
   "$project_dir/Sources/UpdateConfiguration.swift" \
   "$project_dir/Tests/UpdateConfigurationSmokeTest.swift"
@@ -282,6 +315,7 @@ compile_and_run stream-diagnostics \
   "$project_dir/Sources/ExternalVobSub.swift" \
   "$project_dir/Sources/VODBuildProcess.swift" \
   "$project_dir/Sources/StreamDiagnostics.swift" \
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Sources/PGSSubtitleConverter.swift" \
@@ -307,6 +341,7 @@ compile_and_run bitmap-timeline \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
   "$project_dir/Sources/ExternalVobSub.swift" \
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Sources/PGSSubtitleConverter.swift" \
@@ -320,6 +355,8 @@ compile_and_run startup-trace \
   "$project_dir/Tests/PlaybackStartupTraceSmokeTest.swift"
 compile_and_run prepared-media-cache \
   "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/PreparedMediaCache.swift" \
   "$project_dir/Tests/PreparedMediaCacheSmokeTest.swift"
@@ -333,6 +370,7 @@ compile_and_run hls-subtitle-preparation \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
   "$project_dir/Sources/ExternalVobSub.swift" \
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Sources/PGSSubtitleConverter.swift" \
@@ -354,6 +392,7 @@ compile_and_run hls-preparation-service \
   "$project_dir/Sources/VODBuildProcess.swift" \
   "$project_dir/Sources/VODCommandBuilder.swift" \
   "$project_dir/Sources/StreamDiagnostics.swift" \
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Sources/PGSSubtitleConverter.swift" \
@@ -364,6 +403,8 @@ compile_and_run hls-preparation-service \
   "$project_dir/Sources/PreparedMediaCache.swift" \
   "$project_dir/Sources/PlaybackStartupTrace.swift" \
   "$project_dir/Sources/HLSPreparationService.swift" \
+  "$project_dir/Sources/HLSAudioTimeline.swift" \
+  "$project_dir/Sources/CapturedProcess.swift" \
   "$project_dir/Tests/HLSPreparationServiceSmokeTest.swift"
 
 
@@ -376,6 +417,7 @@ compile_and_run flac-manifest \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/MediaProbeService.swift" \
   "$project_dir/Sources/ExternalVobSub.swift" \
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift" \
   "$project_dir/Sources/SubtitleService.swift" \
   "$project_dir/Sources/ASSSubtitleConverter.swift" \
   "$project_dir/Sources/PGSSubtitleConverter.swift" \
@@ -397,6 +439,10 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/StreamCopySmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackScenariosSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/PlaybackAudioTimingSmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Scripts/validate_truehd_hls.py" --self-test
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackStartupSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
