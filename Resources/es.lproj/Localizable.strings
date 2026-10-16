@@ -17,6 +17,8 @@
 "La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller." = "La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller.";
 
 /* Main menu */
+"Acerca de AirCiller" = "Acerca de AirCiller";
+"Novedades" = "Novedades";
 "%@ (detectado localmente)" = "%@ (detectado localmente)";
 "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos." = "No se pudo determinar el inicio del vídeo para sincronizar los subtítulos.";
 "Abrir película…" = "Abrir película…";

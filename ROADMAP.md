@@ -52,12 +52,12 @@ Release and update steps follow [Distribution](DISTRIBUTION.md).
    tracks, operation-specific Undo wording and long inspector content at minimum
    window size. [Interface record](Docs/NATIVE_UI_INTEGRATION.md).
 
-## Next version: About links
+## Prepared for 0.17.1
 
-Add **What's New** and **GitHub** links to About AirCiller. What's New should open
-the release notes for the installed version; GitHub should open the project
-repository. Include this with the next planned release, not as a standalone
-update.
+About AirCiller includes **What's New** and **GitHub** links. What's New opens
+the release notes for the installed version. This release also includes the
+urllib3 2.8.0 security update. Playback, publication and native updating remain
+pending until their release checks pass.
 
 ## Faster playback startup
 

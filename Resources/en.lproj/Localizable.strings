@@ -17,6 +17,8 @@
 "La instalación de AirCiller está incompleta: falta ffprobe. Vuelve a descargar e instalar AirCiller." = "Your AirCiller installation is incomplete: ffprobe is missing. Download and install AirCiller again.";
 
 /* Main menu */
+"Acerca de AirCiller" = "About AirCiller";
+"Novedades" = "What's New";
 "Abrir película…" = "Open Movie…";
 "Añadir a la playlist…" = "Add to Playlist…";
 "Reproducción" = "Playback";
