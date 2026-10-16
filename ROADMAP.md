@@ -52,12 +52,12 @@ Release and update steps follow [Distribution](DISTRIBUTION.md).
    tracks, operation-specific Undo wording and long inspector content at minimum
    window size. [Interface record](Docs/NATIVE_UI_INTEGRATION.md).
 
-## Next version: About links
+## 0.17.1 maintenance
 
-Add **What's New** and **GitHub** links to About AirCiller. What's New should open
-the release notes for the installed version; GitHub should open the project
-repository. Include this with the next planned release, not as a standalone
-update.
+About AirCiller includes **What's New** and **GitHub** links. What's New opens
+the release notes for the installed version. This release also includes the
+urllib3 2.8.0 security update and excludes generated Python caches from the bundle.
+Media-format support is unchanged. See the [release notes](CHANGELOG.md).
 
 ## Faster playback startup
 
@@ -130,9 +130,9 @@ signatures and failed metadata reads. See
 [Distribution](DISTRIBUTION.md#distribution-diagnostics).
 
 Engines remain pinned and bundled. Dependency changes need a regenerated lock,
-runtime imports, packaging checks and applicable playback validation. The next
-candidate updates urllib3 to 2.8.0 for its upstream security fixes, with a
-regenerated lock; the published 0.17.0 package is unchanged.
+runtime imports, packaging checks and applicable playback validation. Version
+0.17.1 pins urllib3 2.8.0 for upstream security fixes with a regenerated lock;
+older published packages retain their original dependencies.
 
 Keep protobuf on 6.33.6 for now. pyatv's generated control messages target 6.31.1;
 a major runtime update needs a concrete benefit and separate serialization and

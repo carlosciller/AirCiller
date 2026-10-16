@@ -21,6 +21,11 @@ struct AirCillerApp: App {
         .defaultSize(width: 960, height: 650)
         .windowResizability(.contentMinSize)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("Acerca de AirCiller") {
+                    appDelegate.showAboutPanel()
+                }
+            }
             CommandGroup(after: .appInfo) {
                 Button("Buscar actualizaciones…") {
                     appDelegate.updateController.checkForUpdates()
@@ -86,6 +91,24 @@ final class AirCillerAppDelegate: NSObject, NSApplicationDelegate {
 
     private var pendingURLs: [URL] = []
     private var openHandler: (([URL]) -> Void)?
+
+    func showAboutPanel() {
+        let repository = URL(string: "https://github.com/carlosciller/AirCiller")!
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+        let releaseNotes =
+            version.map { repository.appendingPathComponent("releases/tag/v\($0)") }
+            ?? repository.appendingPathComponent("releases/latest")
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let credits = NSMutableAttributedString(
+            string: L10n.text("Novedades"), attributes: [.link: releaseNotes])
+        credits.append(NSAttributedString(string: "   ·   "))
+        credits.append(NSAttributedString(string: "GitHub", attributes: [.link: repository]))
+        credits.addAttributes(
+            [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize), .paragraphStyle: paragraph],
+            range: NSRange(location: 0, length: credits.length))
+        NSApplication.shared.orderFrontStandardAboutPanel(options: [.credits: credits])
+    }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
