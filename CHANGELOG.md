@@ -8,6 +8,8 @@ Changes you can see or use. The [testing record](TESTING.md) keeps engineering a
   and the GitHub repository.
 - Update the bundled urllib3 dependency to 2.8.0 for upstream HTTP and HTTPS
   proxy security fixes. FFmpeg, pyatv and the supported media formats are unchanged.
+- Exclude generated Python caches from the app bundle to keep local test runs
+  from increasing the download size.
 
 ## 0.17.0 (15 October 2026)
 

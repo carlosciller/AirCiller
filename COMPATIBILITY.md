@@ -1,6 +1,6 @@
 # Playback compatibility
 
-This table describes AirCiller 0.17.0, not every format the bundled FFmpeg build can read. The Apple TV, television, audio equipment and local network also affect playback.
+This table describes AirCiller 0.17.1, not every format the bundled FFmpeg build can read. The Apple TV, television, audio equipment and local network also affect playback.
 
 | Source | AirCiller behavior |
 | --- | --- |
