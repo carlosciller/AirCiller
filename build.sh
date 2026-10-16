@@ -174,6 +174,9 @@ find "$contents_path/Resources/VendorPython" -type d -name __pycache__ -prune -e
 mkdir -p "$contents_path/Resources/Engine"
 ditto "$engine_path/ffmpeg" "$contents_path/Resources/Engine/ffmpeg"
 ditto "$engine_path/airplay" "$contents_path/Resources/Engine/airplay"
+# Local verification can populate the cached interpreter with bytecode. Ship
+# its source files without inheriting that machine's generated caches.
+find "$contents_path/Resources/Engine/airplay" -type d -name __pycache__ -prune -exec rm -rf {} +
 printf '%s\n' "Engine/airplay/python/bin/python3" \
   > "$contents_path/Resources/VendorPython/.airciller-python-executable"
 
