@@ -155,6 +155,6 @@ codesign -d --verbose=4 .build/AirCiller.app
 
 Under the public ad hoc policy, absent Developer ID, Hardened Runtime, notarization and Gatekeeper acceptance are known distribution limitations. They must be reported, not represented as successful checks. They do not excuse a broken code signature, missing runtime or missing FFmpeg tools; inspect each finding. Do not assume that every nonzero audit result is expected.
 
-The audit script currently labels any non-ad-hoc signature as “Developer ID signature: present”, including a local development certificate. That label is not evidence of Developer ID signing. Inspect the `codesign -d --verbose=4` authority chain and team information to identify the actual signer, and retain the separate structural verification result from `codesign --verify --deep --strict`. Ad hoc signing, a local certificate and Developer ID are distinct; notarization and Gatekeeper acceptance require their own results.
+The audit verifies Apple's certificate chain and the Developer ID Application certificate extension. A local development certificate does not satisfy this check. Hardened Runtime is read from the CodeDirectory flags. Signature structure, notarization and Gatekeeper acceptance retain their own checks.
 
 Sparkle's setup and publishing requirements are documented in its [official integration guide](https://sparkle-project.org/documentation/) and [publishing guide](https://sparkle-project.org/documentation/publishing/).

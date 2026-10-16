@@ -5,7 +5,7 @@ AirCiller relies on independent projects that retain their own licenses:
 | Project | Use | License |
 | --- | --- | --- |
 | [pyatv](https://github.com/postlund/pyatv) | Discovery, authentication, and the foundation of AirPlay 2 transport | MIT |
-| [FFmpeg](https://ffmpeg.org/) | Local analysis and preparation of containers, audio, and subtitles | Depends on the installed build; usually LGPL or GPL |
+| [FFmpeg](https://ffmpeg.org/) | Local analysis and preparation of containers, audio, and subtitles | LGPL-2.1 for the bundled build |
 | [Sparkle](https://sparkle-project.org/) | Secure application updates | MIT and bundled third-party notices |
 | [python-build-standalone](https://github.com/astral-sh/python-build-standalone) | Redistributable CPython runtime included with AirCiller | MPL-2.0 build tooling; bundled CPython and library licenses remain applicable |
 
