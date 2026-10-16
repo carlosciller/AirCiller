@@ -447,6 +447,8 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackStartupSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/SigningIdentitySmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/DistributionAuditSmokeTest.py"
 
 # Typecheck the opt-in credential client without contacting XPC or Keychain.
 "$swiftc_path" "${common_swift_arguments[@]}" -typecheck \
