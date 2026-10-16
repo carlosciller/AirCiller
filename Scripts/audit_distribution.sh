@@ -21,15 +21,19 @@ else
   failures=$((failures + 1))
 fi
 
-signature_details="$(codesign -d --verbose=4 "$app_path" 2>&1)"
-if [[ "$signature_details" == *"Signature=adhoc"* ]]; then
-  echo "Developer ID signature: missing"
-  failures=$((failures + 1))
-else
+signature_details="$(codesign -d --verbose=4 "$app_path" 2>&1)" || signature_details=""
+# Verify Apple's certificate chain and Developer ID Application extension.
+# A local development certificate also produces a non-ad-hoc signature.
+if codesign --verify --strict \
+  -R='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists' \
+  "$app_path" 2>/dev/null; then
   echo "Developer ID signature: present"
+else
+  echo "Developer ID signature: missing or invalid"
+  failures=$((failures + 1))
 fi
 
-if [[ "$signature_details" == *"runtime"* ]]; then
+if print -r -- "$signature_details" | grep -Eq '^CodeDirectory .*flags=0x[[:xdigit:]]+\(([^)]*,)?runtime(,|\))'; then
   echo "Hardened Runtime: enabled"
 else
   echo "Hardened Runtime: missing"
