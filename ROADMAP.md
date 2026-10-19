@@ -44,9 +44,11 @@ Release and update steps follow [Distribution](DISTRIBUTION.md).
 
 ## Next repairs
 
-The intermittent native HTTP abandoned-range descriptor failure is tracked in
-[issue #32](https://github.com/carlosciller/AirCiller/issues/32). Its cause is not
-established; investigate it separately without weakening the cleanup assertion.
+The native HTTP abandoned-range descriptor failure is tracked in
+[issue #32](https://github.com/carlosciller/AirCiller/issues/32). The
+[cleanup repair](Docs/HTTP_SERVER_CLEANUP.md) explicitly cancels failed connections
+and retains the original resource limits. Publication and installed updating
+remain separate from its regression and receiver checks.
 
 1. **Subtitles after seeking.** Investigate the brief HLS visibility gap using
    known cues, separating individual seeks, rapid commands and receiver controls.
