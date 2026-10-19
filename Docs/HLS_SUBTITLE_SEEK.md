@@ -21,7 +21,7 @@ was not selected.
 
 Three new bounded comparisons used the same candidate and HLS video, with
 simultaneous top and bottom captions and isolated seeks to 15, 2 and 88 seconds.
-The original visible intervals were 0–90 seconds. Approved digital Apple TV
+The original visible intervals were 0 to 90 seconds. Approved digital Apple TV
 capture, receiver controls and cleanup completed; no camera or microphone was
 opened. The installed application was unchanged.
 
@@ -51,7 +51,7 @@ one second, retaining identical payload and positioning/settings. The complete
 displayed interval is unchanged, including fractional starts/ends, simultaneous
 captions and subtitle delay. Prepared cue starts remain ordered; ties retain
 source order. Each prepared interval is repeated in full in every overlapping
-HLS segment, rather than clipped at the segment boundary.
+HLS segment. It is not clipped at the segment boundary.
 
 Only overlaps for the current video segment are materialized. Cancellation is
 checked during renewal, and a nonadvancing interval is rejected. No fake text,
