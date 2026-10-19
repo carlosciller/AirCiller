@@ -219,6 +219,9 @@ compile_and_run history-store \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/HistoryStore.swift" \
   "$project_dir/Tests/HistoryStoreSmokeTest.swift"
+compile_and_run native-undo-commands \
+  "$project_dir/Sources/NativeUndoCommands.swift" \
+  "$project_dir/Tests/NativeUndoCommandsSmokeTest.swift"
 compile_and_run library-list-undo \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \
