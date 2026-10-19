@@ -42,24 +42,20 @@ an active session running. Imports are cancellable and report rejected inputs.
 The [library record](Docs/LIBRARY_SEASONS.md) identifies tested behavior and limits.
 Release and update steps follow [Distribution](DISTRIBUTION.md).
 
-## Next repairs
+## Released in 0.17.3
 
-The native HTTP abandoned-range descriptor failure is tracked in
-[issue #32](https://github.com/carlosciller/AirCiller/issues/32). The
-[cleanup repair](Docs/HTTP_SERVER_CLEANUP.md) explicitly cancels failed connections
-and retains the original resource limits. Publication and installed updating
-remain separate from its regression and receiver checks.
+- **Streaming connection cleanup:** failed HTTP connections are explicitly
+  cancelled before releasing ownership, retaining the original resource limits.
+  [Cleanup repair](Docs/HTTP_SERVER_CLEANUP.md).
+- **Subtitles after seeking:** HLS renews ordinary text cues without changing
+  their displayed coverage. Specialized in-cue WebVTT timestamps are preserved;
+  their seek behavior remains unverified. [Seek repair](Docs/HLS_SUBTITLE_SEEK.md).
+- **Focus and editing:** operation-specific Undo wording and focus after applying
+  tracks are fixed. Native checks cover independent text-field Undo and long
+  inspector content at minimum window size.
 
-1. **Subtitles after seeking.** The HLS writer now renews ordinary text cues
-   without changing their displayed coverage. Controlled comparisons and the
-   regression are in [the seek repair record](Docs/HLS_SUBTITLE_SEEK.md).
-   Receiver checks are recorded; publication remains separate. Specialized
-   in-cue WebVTT timestamps are preserved and remain unverified after seeking.
-2. **Focus and editing.** Native checks cover independent text-field Undo, focus
-   after applying tracks, operation-specific Undo wording and long inspector
-   content at minimum window size. The 0.17.3 candidate includes the fixes;
-   release and installation gates remain separate.
-   [Candidate record](Docs/RELEASE_0.17.3.md).
+Publication, signed downloads, exact-revision CI and the daily app's native
+Sparkle update are complete. [Release record](Docs/RELEASE_0.17.3.md).
 
 ## 0.17.1 maintenance
 
