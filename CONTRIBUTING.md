@@ -46,6 +46,34 @@ Add tests for meaningful changed behavior. Once required checks pass, repeat or 
 
 Changes produced with AI tools are acceptable, but they must be reviewed, understandable, and held to the same validation standard as any other change.
 
+## Generated test storage
+
+`benchmark_startup.sh`, `benchmark_performance.sh` and the `playback_checks.py`
+launcher automatically register their generated runs. After success or failure,
+the storage guard removes generated media, compiled Mach-O tools and disposable
+packages from those runs. Reports, hashes, source snapshots, subtitles and
+screenshots remain at their original paths, with a `.airciller-test-storage.json`
+record of removed payloads. Replaying an old run may require regenerating its
+synthetic media; retained measurements are not fresh playback acceptance.
+
+Before a guarded run or `check.sh`, completed registered runs are pruned. If
+`.build` still occupies 12 GiB or more, no new test starts. This is an admission
+limit, not a filesystem quota: one active test can temporarily exceed it.
+Reports are never deleted to satisfy the limit. Investigate the remaining usage
+instead of raising it. No timer, background service or device access is involved.
+
+The cleaner does not traverse symlinks or touch unregistered/active runs, current
+tools, release archives, credentials, installed apps, original media or rollback
+directories. Keep one known-good rollback outside the three managed run roots;
+the local `rollback-0.17.1-to-0.17.3` copy is currently retained. Hard interruption
+can leave an active run. Review it explicitly before pruning. Concurrent guarded
+runs are refused.
+
+Run `python3 Scripts/test_storage.py clean` for the same conservative cleanup.
+New experimental scripts must use the guard and register their generated runs
+inside an approved root; arbitrary `.build` folders are deliberately not erased.
+The earlier bulk-cleanup report archive remains outside these roots.
+
 ## Python dependency changes
 
 Edit `requirements.in`, then regenerate the lock with:

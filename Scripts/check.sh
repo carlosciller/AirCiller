@@ -2,6 +2,8 @@
 set -euo pipefail
 
 project_dir="${0:A:h:h}"
+PYTHONDONTWRITEBYTECODE=1 python3 "$project_dir/Tests/TestStorageTest.py"
+python3 "$project_dir/Scripts/test_storage.py" clean
 python3 "$project_dir/Tests/CIValidationTest.py"
 build_dir="$project_dir/.build"
 test_dir="$build_dir/tests"
