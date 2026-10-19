@@ -325,6 +325,7 @@ compile_and_run stream-diagnostics \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Tests/StreamDiagnosticsSmokeTest.swift"
 compile_and_run http-server \
+  -D AIRCILLER_HTTP_TESTS \
   -framework Network \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/HTTPServerTelemetry.swift" \

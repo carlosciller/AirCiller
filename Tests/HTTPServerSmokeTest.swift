@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import Network
 
 @main
 struct HTTPServerSmokeTest {
@@ -140,6 +141,10 @@ struct HTTPServerSmokeTest {
 
         mark("repeated abandoned large ranges")
         try await verifyAbandonedLargeRanges(baseURL: baseURL, fileSize: hugeFileSize)
+        #if AIRCILLER_HTTP_TESTS
+            mark("failed-state cancellation independent of connection lifetime")
+            try await verifyFailedConnectionCleanup(server: server, baseURL: baseURL)
+        #endif
 
         mark("transport stream")
         let (transportStream, transportResponse) = try await session.data(
@@ -331,6 +336,7 @@ struct HTTPServerSmokeTest {
 
         try await Task.sleep(for: .milliseconds(250))
         let baselineDescriptorCount = try openDescriptorCount()
+        let baselineDescriptorKinds = try openDescriptorKinds(serverPort: UInt16(port))
         let path = baseURL.appendingPathComponent("large.mp4").path
 
         for index in 0..<160 {
@@ -412,6 +418,10 @@ struct HTTPServerSmokeTest {
 
         try await Task.sleep(for: .seconds(1))
         let finalDescriptorCount = try openDescriptorCount()
+        let finalDescriptorKinds = try openDescriptorKinds(serverPort: UInt16(port))
+        mark(
+            "Abandoned-range descriptors: \(baselineDescriptorCount) -> \(finalDescriptorCount); kinds \(baselineDescriptorKinds) -> \(finalDescriptorKinds)"
+        )
         guard finalDescriptorCount <= baselineDescriptorCount + 12 else {
             throw NSError(
                 domain: "HTTPServerSmokeTest.AbandonedRangeLeak",
@@ -437,6 +447,88 @@ struct HTTPServerSmokeTest {
 
     private static func openDescriptorCount() throws -> Int {
         try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
+    }
+
+    #if AIRCILLER_HTTP_TESTS
+        private static func verifyFailedConnectionCleanup(server: LocalHTTPServer, baseURL: URL) async throws {
+            let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+            guard descriptor >= 0 else { throw POSIXError(.EMFILE) }
+            defer { Darwin.close(descriptor) }
+            var address = sockaddr_in()
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_port = UInt16(baseURL.port!).bigEndian
+            guard inet_pton(AF_INET, baseURL.host!, &address.sin_addr) == 1 else { throw POSIXError(.EINVAL) }
+            let connected = withUnsafePointer(to: &address) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    Darwin.connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            guard connected == 0 else { throw POSIXError(.ECONNREFUSED) }
+            var local = sockaddr_in()
+            var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let localResult = withUnsafeMutablePointer(to: &local) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    getsockname(descriptor, $0, &length)
+                }
+            }
+            guard localResult == 0 else { throw POSIXError(.EINVAL) }
+            let peerPort = UInt16(bigEndian: local.sin_port)
+            let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+            var retained: NWConnection?
+            while retained == nil, ContinuousClock.now < deadline {
+                retained = await server.failConnectionForTesting(peerPort: peerPort)
+                if retained == nil { try await Task.sleep(for: .milliseconds(10)) }
+            }
+            guard let retained else { throw POSIXError(.ETIMEDOUT) }
+            defer { retained.cancel() }
+            let cancelDeadline = ContinuousClock.now.advanced(by: .seconds(1))
+            while ContinuousClock.now < cancelDeadline {
+                if case .cancelled = retained.state { return }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            throw NSError(
+                domain: "HTTPServerSmokeTest.FailedConnectionNotCancelled", code: 33,
+                userInfo: [NSLocalizedDescriptionKey: "The failed connection was forgotten without cancellation."])
+        }
+    #endif
+
+    private static func openDescriptorKinds(serverPort: UInt16) throws -> [String: Int] {
+        let size = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)
+        guard size > 0 else { throw POSIXError(.EIO) }
+        var entries = [proc_fdinfo](
+            repeating: proc_fdinfo(), count: Int(size) / MemoryLayout<proc_fdinfo>.stride + 32)
+        let used = entries.withUnsafeMutableBytes { buffer in
+            proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, buffer.baseAddress, Int32(buffer.count))
+        }
+        guard used > 0 else { throw POSIXError(.EIO) }
+        var kinds: [String: Int] = [:]
+        for entry in entries.prefix(Int(used) / MemoryLayout<proc_fdinfo>.stride) {
+            let kind: String
+            switch Int32(entry.proc_fdtype) {
+            case PROX_FDTYPE_SOCKET:
+                var socketInfo = socket_fdinfo()
+                let bytes = proc_pidfdinfo(
+                    getpid(), entry.proc_fd, PROC_PIDFDSOCKETINFO,
+                    &socketInfo, Int32(MemoryLayout<socket_fdinfo>.stride))
+                if bytes > 0, socketInfo.psi.soi_kind == SOCKINFO_TCP {
+                    let tcp = socketInfo.psi.soi_proto.pri_tcp
+                    let local = UInt16(bigEndian: UInt16(truncatingIfNeeded: tcp.tcpsi_ini.insi_lport))
+                    let remote = UInt16(bigEndian: UInt16(truncatingIfNeeded: tcp.tcpsi_ini.insi_fport))
+                    let role = local == serverPort ? "server" : (remote == serverPort ? "client" : "other")
+                    kind = "tcp-\(role)-state-\(tcp.tcpsi_state)"
+                } else {
+                    kind = "socket"
+                }
+            case PROX_FDTYPE_VNODE: kind = "file"
+            case PROX_FDTYPE_KQUEUE: kind = "kqueue"
+            case PROX_FDTYPE_NETPOLICY: kind = "network-policy"
+            case PROX_FDTYPE_CHANNEL: kind = "channel"
+            case PROX_FDTYPE_NEXUS: kind = "nexus"
+            default: kind = "other-\(entry.proc_fdtype)"
+            }
+            kinds[kind, default: 0] += 1
+        }
+        return kinds
     }
 
     private static func sendAll(_ data: Data, through descriptor: Int32) throws {
