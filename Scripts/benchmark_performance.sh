@@ -2,10 +2,14 @@
 set -euo pipefail
 
 project_dir="${0:A:h:h}"
+if [[ "${AIRCILLER_TEST_STORAGE_CHILD:-}" != "$project_dir/Scripts/benchmark_performance.sh" ]]; then
+  exec python3 "$project_dir/Scripts/test_storage.py" run -- "$project_dir/Scripts/benchmark_performance.sh" "$@"
+fi
 source_dir="${1:-$project_dir/Sources}"
 benchmark_root="$project_dir/.build/performance"
 mkdir -p "$benchmark_root"
 run_dir="$(mktemp -d "$benchmark_root/run.XXXXXX")"
+python3 "$project_dir/Scripts/test_storage.py" register "$run_dir"
 
 # A source directory from an earlier revision can be measured with the same
 # fixture and compiler settings. This never builds or installs the app.

@@ -549,6 +549,8 @@ def run_workflow(config_path, project, *, run=False, prepare=False):
     root = project / ".build/playback-checks"
     root.mkdir(exist_ok=True)
     directory = Path(tempfile.mkdtemp(prefix="capture-run-", dir=root))
+    from test_storage import register_run
+    register_run(project, directory)
     report = {"schemaVersion": 1, "outcome": "incomplete", "cases": [], "limits": LIMITS}
     binary = project / ".build/AirCiller Playback Checks.app/Contents/MacOS/AirCiller"
     try:
