@@ -731,12 +731,45 @@ enum SubtitleService {
         let overlapping = cues.filter { cue in
             cue.end > segment.startTime && cue.start < endTime
         }
+        var presentation: [WebVTTCue] = []
+        for cue in overlapping {
+            // tvOS can defer restoring an already-active cue after a forward seek
+            // until its next text event. Contiguous intervals refresh the same text
+            // without changing its coverage or requiring a remote-control command.
+            // Internal WebVTT timestamps have separate semantics and stay intact.
+            if cue.end - cue.start <= 1
+                || cue.payload.contains(where: {
+                    $0.range(of: #"<(?:\d{2,}:)?\d{2}:\d{2}\.\d{3}>"#, options: .regularExpression) != nil
+                })
+            {
+                presentation.append(cue)
+                continue
+            }
+            // Materialize only this segment's overlaps, not an unbounded cue's
+            // whole duration. A fragment crossing a boundary is repeated intact.
+            var start = cue.start + floor(max(0, segment.startTime - cue.start))
+            while start < min(endTime, cue.end) {
+                try Task.checkCancellation()
+                let end = min(start + 1, cue.end)
+                guard end > start else {
+                    throw AirCillerError.invalidVODPackage("Los subtítulos no están alineados con el vídeo.")
+                }
+                if end > segment.startTime {
+                    presentation.append(WebVTTCue(start: start, end: end, settings: cue.settings, payload: cue.payload))
+                }
+                start += 1
+            }
+        }
         let timestamp = Int64((timestampOrigin * 90_000).rounded())
         var blocks = ["WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:\(timestamp)"]
 
-        for cue in overlapping {
-            // RFC 8216 exige conservar el intervalo total del cue aunque cruce
-            // los límites del segmento; todos los tiempos permanecen absolutos.
+        // WebVTT requires nondecreasing starts. Preserve source order for ties
+        // when several captions overlap, including captions at different positions.
+        let ordered = presentation.enumerated().sorted {
+            $0.element.start == $1.element.start ? $0.offset < $1.offset : $0.element.start < $1.element.start
+        }
+        for (_, cue) in ordered {
+            // Each prepared cue keeps its full interval across segment boundaries.
             let settings = cue.settings.isEmpty ? "" : " \(cue.settings)"
             let timing = "\(formatTimestamp(cue.start)) --> \(formatTimestamp(cue.end))\(settings)"
             blocks.append(([timing] + cue.payload).joined(separator: "\n"))
