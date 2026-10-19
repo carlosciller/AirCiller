@@ -2,7 +2,7 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
-## Unreleased
+## 0.17.2 (19 October 2026)
 
 - Update the bundled aiohttp networking library to 3.14.5, including upstream
   security fixes. Supported formats and playback controls are unchanged.

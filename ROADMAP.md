@@ -44,6 +44,10 @@ Release and update steps follow [Distribution](DISTRIBUTION.md).
 
 ## Next repairs
 
+The intermittent native HTTP abandoned-range descriptor failure is tracked in
+[issue #32](https://github.com/carlosciller/AirCiller/issues/32). Its cause is not
+established; investigate it separately without weakening the cleanup assertion.
+
 1. **Subtitles after seeking.** Investigate the brief HLS visibility gap using
    known cues, separating individual seeks, rapid commands and receiver controls.
    Repeat earlier segment experiments only with a new cause to test.
@@ -123,6 +127,10 @@ Their limits are in [Compatibility](COMPATIBILITY.md), with separate
   membership is available. Sparkle signatures do not replace notarization.
 
 ## Maintenance and distribution
+
+0.17.2 updates aiohttp to 3.14.5 and its required yarl dependency to 1.25.1.
+No other locked package changes. The [maintenance record](Docs/AIOHTTP_MAINTENANCE.md)
+documents caller analysis, session-cleanup coverage and the scoped validation.
 
 The distribution audit distinguishes local certificates from Developer ID and
 checks Hardened Runtime flags separately. Its simulated regressions cover invalid

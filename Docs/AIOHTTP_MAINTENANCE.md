@@ -1,8 +1,8 @@
 # aiohttp maintenance candidate
 
-19 October 2026. Based on main `d7cb4bd`; this is a preparation branch for
-PR #29, not a published or installed update. The version remains 0.17.1 until
-an authorized release task assigns the next patch version and build.
+19 October 2026. Based on main `d7cb4bd`; prepared in PR #29 and assigned
+version 0.17.2, build 67, for the authorized release. Assignment of version
+metadata does not establish publication or installation.
 
 ## Scope and compatibility
 
@@ -60,5 +60,5 @@ Reassess only if the diff or actual caller investigation changes that boundary.
 
 The PR handoff records final local/CI outcomes and candidate size after checking them.
 No publication, installed update, new device output or notarization is implied.
-Release versioning, signed downloads and native updating remain separate,
+Publication, signed downloads and native updating remain separate,
 authorized distribution work under [Distribution](../DISTRIBUTION.md).
