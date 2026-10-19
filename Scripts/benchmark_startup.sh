@@ -2,6 +2,9 @@
 set -euo pipefail
 
 project_dir="${0:A:h:h}"
+if [[ "${AIRCILLER_TEST_STORAGE_CHILD:-}" != "$project_dir/Scripts/benchmark_startup.sh" ]]; then
+  exec python3 "$project_dir/Scripts/test_storage.py" run -- "$project_dir/Scripts/benchmark_startup.sh" "$@"
+fi
 repetitions="${1:-5}"
 profile="${2:-small}"
 if [[ "$repetitions" != [1-9] || ( "$profile" != small && "$profile" != large ) ]]; then
@@ -24,6 +27,7 @@ fi
 benchmark_root="$project_dir/.build/startup-benchmark"
 mkdir -p "$benchmark_root"
 run_dir="$(mktemp -d "$benchmark_root/run.XXXXXX")"
+python3 "$project_dir/Scripts/test_storage.py" register "$run_dir"
 baseline_dir="$run_dir/baseline-sources"
 mkdir -p "$baseline_dir"
 "$fixture_encoder" -version > "$run_dir/fixture-encoder.txt"

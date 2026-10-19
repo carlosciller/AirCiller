@@ -263,7 +263,7 @@ class CaptureWorkflowTests(unittest.TestCase):
     def test_documented_command_leaves_source_clean(self):
         scripts = self.root / "Scripts"
         scripts.mkdir()
-        for name in ("playback_checks.py", "playback_capture.py"):
+        for name in ("playback_checks.py", "playback_capture.py", "test_storage.py"):
             shutil.copyfile(Path(capture.__file__).parent / name, scripts / name)
         config_path = self.root / "config.json"
         capture.save_json(config_path, self.config)
