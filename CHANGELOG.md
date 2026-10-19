@@ -2,6 +2,20 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.17.3 (19 October 2026)
+
+- Fix missing HLS text subtitles after seeking within a long caption. Captions
+  containing internal WebVTT timestamps keep their existing behavior.
+- Release failed streaming connections promptly, preventing abandoned requests
+  from exhausting the server's file handles during extended playback.
+- Edit > Undo and Redo name watched-status changes correctly. Undo in a text
+  field continues to edit that field independently of Playlist changes.
+- Applying tracks or hiding Audio & Subtitles returns keyboard focus to the
+  session controls. Keyboard navigation follows the macOS setting.
+
+Bundled engines and supported formats are unchanged.
+[Scope and validation](Docs/RELEASE_0.17.3.md)
+
 ## 0.17.2 (19 October 2026)
 
 - Update the bundled aiohttp networking library to 3.14.5, including upstream

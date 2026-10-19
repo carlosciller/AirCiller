@@ -53,11 +53,13 @@ remain separate from its regression and receiver checks.
 1. **Subtitles after seeking.** The HLS writer now renews ordinary text cues
    without changing their displayed coverage. Controlled comparisons and the
    regression are in [the seek repair record](Docs/HLS_SUBTITLE_SEEK.md).
-   Final candidate acceptance and publication remain separate; specialized
+   Receiver checks are recorded; publication remains separate. Specialized
    in-cue WebVTT timestamps are preserved and remain unverified after seeking.
-2. **Focus and editing.** Check independent text-field Undo, focus after applying
-   tracks, operation-specific Undo wording and long inspector content at minimum
-   window size. [Interface record](Docs/NATIVE_UI_INTEGRATION.md).
+2. **Focus and editing.** Native checks cover independent text-field Undo, focus
+   after applying tracks, operation-specific Undo wording and long inspector
+   content at minimum window size. The 0.17.3 candidate includes the fixes;
+   release and installation gates remain separate.
+   [Candidate record](Docs/RELEASE_0.17.3.md).
 
 ## 0.17.1 maintenance
 

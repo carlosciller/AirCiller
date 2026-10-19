@@ -15,7 +15,7 @@ struct ContentView: View {
     @WindowState private var isScrubbing = false
     @WindowState private var scrubTime: Double = 0
     @FocusState private var focusedControl: Control?
-    private enum Control: Hashable { case play, open, selection }
+    private enum Control: Hashable { case play, stop, open, selection }
 
     var body: some View {
         NavigationSplitView {
@@ -32,9 +32,12 @@ struct ContentView: View {
                     // Keep the inspector's scrolling editor inside the split
                     // viewport; its intrinsic height must not resize every column.
                     GeometryReader { viewport in
-                        TrackSettingsView(coordinator: coordinator, isPresented: $showingTracks)
-                            .id(trackEditingID)
-                            .frame(width: viewport.size.width, height: viewport.size.height)
+                        TrackSettingsView(
+                            coordinator: coordinator, isPresented: $showingTracks,
+                            onApplied: restoreSessionFocus
+                        )
+                        .id(trackEditingID)
+                        .frame(width: viewport.size.width, height: viewport.size.height)
                     }
                     .inspectorColumnWidth(min: 245, ideal: 265, max: 310)
                 }
@@ -57,6 +60,7 @@ struct ContentView: View {
                         }
                         .help("Detener")
                         .disabled(!coordinator.commandAvailability.canStop)
+                        .focused($focusedControl, equals: .stop)
                     }
                     ToolbarItem(placement: .primaryAction) {
                         AirPlayDevicePicker(controller: coordinator.airPlay)
@@ -139,7 +143,7 @@ struct ContentView: View {
             isScrubbing = false
         }
         .onChange(of: showingTracks) { _, shown in
-            if !shown { focusedControl = coordinator.selectedURL == nil ? .open : .play }
+            if !shown { restoreSessionFocus() }
         }
         .dropDestination(for: URL.self) { urls, _ in
             coordinator.handleURLs(urls)
@@ -157,6 +161,14 @@ struct ContentView: View {
     private func presentTracks() {
         trackEditingID = UUID()
         showingTracks = true
+    }
+
+    private func restoreSessionFocus() {
+        if coordinator.commandAvailability.canStop {
+            focusedControl = .stop
+        } else {
+            focusedControl = coordinator.selectedURL == nil ? .open : .play
+        }
     }
 
     private var mainContent: some View {
