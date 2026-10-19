@@ -1,0 +1,28 @@
+name: HTTP32 diagnostic
+on:
+  push:
+    branches: [fix/http-terminal-cleanup]
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    runs-on: macos-26
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compile only the unchanged HTTP server and diagnostic test
+        run: |
+          mkdir -p .build
+          xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" \
+            -target arm64-apple-macosx14.0 -parse-as-library -swift-version 6 \
+            -strict-concurrency=complete -warnings-as-errors -framework Network \
+            Sources/Localization.swift Sources/HTTPServerTelemetry.swift \
+            Sources/LocalNetworkRoute.swift Sources/NetworkAddressIdentity.swift \
+            Sources/LocalHTTPServer.swift Tests/HTTPServerSmokeTest.swift \
+            -o .build/http32
+      - name: Bounded reproduction, stop on first failure
+        run: |
+          for run in {1..8}; do
+            echo "HTTP reproduction $run of 8"
+            .build/http32
+          done
