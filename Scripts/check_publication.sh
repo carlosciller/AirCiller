@@ -114,7 +114,7 @@ fi
 
 if [[ -d .git ]]; then
   for generated in .build VendorPython; do
-    if ! git check-ignore -q "$generated"; then
+    if ! git check-ignore -q "$generated/"; then
       echo "$generated is not protected by .gitignore." >&2
       failed=1
     fi
