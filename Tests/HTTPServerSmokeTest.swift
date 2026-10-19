@@ -331,6 +331,7 @@ struct HTTPServerSmokeTest {
 
         try await Task.sleep(for: .milliseconds(250))
         let baselineDescriptorCount = try openDescriptorCount()
+        let baselineDescriptorKinds = try openDescriptorKinds()
         let path = baseURL.appendingPathComponent("large.mp4").path
 
         for index in 0..<160 {
@@ -412,6 +413,10 @@ struct HTTPServerSmokeTest {
 
         try await Task.sleep(for: .seconds(1))
         let finalDescriptorCount = try openDescriptorCount()
+        let finalDescriptorKinds = try openDescriptorKinds()
+        print(
+            "Abandoned-range descriptors: \(baselineDescriptorCount) -> \(finalDescriptorCount); kinds \(baselineDescriptorKinds) -> \(finalDescriptorKinds)"
+        )
         guard finalDescriptorCount <= baselineDescriptorCount + 12 else {
             throw NSError(
                 domain: "HTTPServerSmokeTest.AbandonedRangeLeak",
@@ -437,6 +442,32 @@ struct HTTPServerSmokeTest {
 
     private static func openDescriptorCount() throws -> Int {
         try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
+    }
+
+    private static func openDescriptorKinds() throws -> [String: Int] {
+        let size = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)
+        guard size > 0 else { throw POSIXError(.EIO) }
+        var entries = [proc_fdinfo](
+            repeating: proc_fdinfo(), count: Int(size) / MemoryLayout<proc_fdinfo>.stride + 32)
+        let used = entries.withUnsafeMutableBytes { buffer in
+            proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, buffer.baseAddress, Int32(buffer.count))
+        }
+        guard used > 0 else { throw POSIXError(.EIO) }
+        var kinds: [String: Int] = [:]
+        for entry in entries.prefix(Int(used) / MemoryLayout<proc_fdinfo>.stride) {
+            let kind: String
+            switch Int32(entry.proc_fdtype) {
+            case PROX_FDTYPE_SOCKET: kind = "socket"
+            case PROX_FDTYPE_VNODE: kind = "file"
+            case PROX_FDTYPE_KQUEUE: kind = "kqueue"
+            case PROX_FDTYPE_NETPOLICY: kind = "network-policy"
+            case PROX_FDTYPE_CHANNEL: kind = "channel"
+            case PROX_FDTYPE_NEXUS: kind = "nexus"
+            default: kind = "other-\(entry.proc_fdtype)"
+            }
+            kinds[kind, default: 0] += 1
+        }
+        return kinds
     }
 
     private static func sendAll(_ data: Data, through descriptor: Int32) throws {
