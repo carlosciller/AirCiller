@@ -50,10 +50,11 @@ The native HTTP abandoned-range descriptor failure is tracked in
 and retains the original resource limits. Publication and installed updating
 remain separate from its regression and receiver checks.
 
-1. **Subtitles after seeking.** Investigate the brief HLS visibility gap using
-   known cues, separating individual seeks, rapid commands and receiver controls.
-   Repeat earlier segment experiments only with a new cause to test.
-   [Playback checks](Docs/PLAYBACK_CHECKS.md).
+1. **Subtitles after seeking.** The HLS writer now renews ordinary text cues
+   without changing their displayed coverage. Controlled comparisons and the
+   regression are in [the seek repair record](Docs/HLS_SUBTITLE_SEEK.md).
+   Final candidate acceptance and publication remain separate; specialized
+   in-cue WebVTT timestamps are preserved and remain unverified after seeking.
 2. **Focus and editing.** Check independent text-field Undo, focus after applying
    tracks, operation-specific Undo wording and long inspector content at minimum
    window size. [Interface record](Docs/NATIVE_UI_INTEGRATION.md).

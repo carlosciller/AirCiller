@@ -12,6 +12,7 @@ struct HLSSubtitlePreparationSmokeTest {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
         defer { try? FileManager.default.removeItem(at: root) }
 
+        try verifySeekRefresh(root: root)
         try await verifyTextPreparation(root: root, ffmpeg: ffmpeg)
         try verifyBitmapDuration(root: root)
         try verifyIncompletePlaylist(root: root)
@@ -20,6 +21,59 @@ struct HLSSubtitlePreparationSmokeTest {
         print(
             "HLS subtitle staging: text/ASS timing, exact VOD boundaries, bitmap duration, cancellation and cleanup: OK"
         )
+    }
+
+    private static func verifySeekRefresh(root: URL) throws {
+        let directory = try makeDirectory(root, "seek-refresh")
+        let playlist = try makePlaylist(directory)
+        let content = HLSSubtitleContent(
+            track: makeTrack(codec: "webvtt", source: root.appendingPathComponent("long.vtt")),
+            webVTT: "WEBVTT\n\n00:00:02.250 --> 00:00:11.750 line:15%\n<i>Unchanged caption</i>\n\n"
+                + "00:00:04.500 --> 00:00:08.500 line:85%\nSecond position\n",
+            bitmapDuration: nil)
+        try SubtitleService.finalizeHLSContent(
+            content, delay: 0, videoPlaylistURL: playlist, outputDirectory: directory)
+        let first = try read(directory, "subtitles-00000000.vtt")
+        let second = try read(directory, "subtitles-00000001.vtt")
+        let crossing = "00:00:05.250 --> 00:00:06.250 line:15%\n<i>Unchanged caption</i>"
+        guard first.contains("00:00:02.250 --> 00:00:03.250"), first.contains(crossing),
+            second.contains(crossing), second.contains("00:00:11.250 --> 00:00:11.750"),
+            !first.contains("00:00:02.250 --> 00:00:11.750")
+        else { throw Failure.seekRefresh }
+
+        // Check the complete displayed coverage, not merely a count of fragments.
+        let all = Set(
+            (first + "\n\n" + second).components(separatedBy: "\n\n").filter { $0.contains(" --> ") }
+                .map { $0.trimmingCharacters(in: .newlines) })
+        let expected = Set(
+            (0..<10).map { index in
+                let start = 2.25 + Double(index)
+                let end = min(start + 1, 11.75)
+                return String(format: "00:00:%06.3f --> 00:00:%06.3f line:15%%\n<i>Unchanged caption</i>", start, end)
+            }
+                + (0..<4).map { index in
+                    let start = 4.5 + Double(index)
+                    return String(format: "00:00:%06.3f --> 00:00:%06.3f line:85%%\nSecond position", start, start + 1)
+                })
+        guard all == expected else { throw Failure.seekRefresh }
+        for text in [first, second] {
+            let starts = text.components(separatedBy: .newlines).filter { $0.contains(" --> ") }.compactMap {
+                Double($0.prefix(12).suffix(6))
+            }
+            guard starts == starts.sorted() else { throw Failure.seekRefresh }
+        }
+
+        // In-cue timestamps have their own presentation semantics; leave them intact.
+        let timed = HLSSubtitleContent(
+            track: content.track,
+            webVTT: "WEBVTT\n\n00:00:01.000 --> 00:00:11.000\nBefore <00:00:04.000>after\n",
+            bitmapDuration: nil)
+        try SubtitleService.finalizeHLSContent(
+            timed, delay: 0, videoPlaylistURL: playlist, outputDirectory: directory)
+        guard
+            try read(directory, "subtitles-00000000.vtt").contains(
+                "00:00:01.000 --> 00:00:11.000\nBefore <00:00:04.000>after")
+        else { throw Failure.seekRefresh }
     }
 
     private static func verifyTextPreparation(root: URL, ffmpeg: URL) async throws {
@@ -48,11 +102,15 @@ struct HLSSubtitlePreparationSmokeTest {
         let resolved = try SubtitleService.finalizeHLSContent(
             content, delay: 0.5, videoPlaylistURL: playlist, outputDirectory: directory)
         let header = "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:0"
-        let firstCue = "00:00:01.500 --> 00:00:07.500\nAcross the segment boundary"
+        let fragments = (1...6).map { start in
+            String(format: "00:00:%02d.500 --> 00:00:%02d.500\nAcross the segment boundary", start, start + 1)
+        }
         let secondCue = "00:00:10.500 --> 00:00:11.500\nSecond caption"
         guard resolved == track,
-            try read(directory, "subtitles-00000000.vtt") == header + "\n\n" + firstCue + "\n",
-            try read(directory, "subtitles-00000001.vtt") == header + "\n\n" + firstCue + "\n\n" + secondCue + "\n\n"
+            try read(directory, "subtitles-00000000.vtt") == header + "\n\n"
+                + fragments.prefix(5).joined(separator: "\n\n") + "\n",
+            try read(directory, "subtitles-00000001.vtt")
+                == header + "\n\n" + (Array(fragments.suffix(2)) + [secondCue]).joined(separator: "\n\n") + "\n\n"
         else {
             throw Failure.textGoldenOutput(
                 "first=\(try read(directory, "subtitles-00000000.vtt").debugDescription); "
@@ -66,7 +124,11 @@ struct HLSSubtitlePreparationSmokeTest {
 
         let shifted = try makeDirectory(root, "shifted")
         try SubtitleService.finalizeHLSContent(content, delay: -2, videoPlaylistURL: playlist, outputDirectory: shifted)
-        guard try read(shifted, "subtitles-00000000.vtt").contains("00:00:00.000 --> 00:00:05.000") else {
+        let shiftedText = try read(shifted, "subtitles-00000000.vtt")
+        guard shiftedText.contains("00:00:00.000 --> 00:00:01.000"),
+            shiftedText.contains("00:00:04.000 --> 00:00:05.000"),
+            !shiftedText.contains("00:00:05.000 -->")
+        else {
             throw Failure.negativeDelayOutput
         }
 
@@ -94,7 +156,8 @@ struct HLSSubtitlePreparationSmokeTest {
             styled, delay: 0, videoPlaylistURL: playlist, outputDirectory: styledOutput)
         for index in 0..<2 {
             let value = try read(styledOutput, String(format: "subtitles-%08d.vtt", index))
-            guard value.contains("00:00:02.000 --> 00:00:08.000"), value.contains("<i>Styled caption</i>") else {
+            let firstInterval = index == 0 ? "00:00:02.000 --> 00:00:03.000" : "00:00:06.000 --> 00:00:07.000"
+            guard value.contains(firstInterval), value.contains("<i>Styled caption</i>"), value.contains("line:") else {
                 throw Failure.assSegmentOutput
             }
         }
@@ -253,6 +316,7 @@ struct HLSSubtitlePreparationSmokeTest {
     private enum Failure: Error {
         case missingPinnedEngine, prematureOutput, negativeDelayOutput, segmentTimeline
         case textGoldenOutput(String)
+        case seekRefresh
         case assMaterializationOutput, assSegmentOutput, acceptedEstimatedBitmapDuration
         case acceptedIncompletePlaylist
         case extractionDidNotStart, ignoredCancellation, retainedTemporaryFile, acceptedFailedExtraction
