@@ -20,9 +20,16 @@ jobs:
             Sources/LocalNetworkRoute.swift Sources/NetworkAddressIdentity.swift \
             Sources/LocalHTTPServer.swift Tests/HTTPServerSmokeTest.swift \
             -o .build/http32
-      - name: Bounded reproduction, stop on first failure
+      - name: Four independent reproductions under bounded CPU contention
         run: |
-          for run in {1..8}; do
-            echo "HTTP reproduction $run of 8"
-            .build/http32
+          pids=()
+          for run in {1..4}; do
+            .build/http32 > ".build/http32-$run.log" 2>&1 &
+            pids+=("$!")
           done
+          result=0
+          for pid in "${pids[@]}"; do
+            wait "$pid" || result=1
+          done
+          cat .build/http32-*.log
+          exit "$result"

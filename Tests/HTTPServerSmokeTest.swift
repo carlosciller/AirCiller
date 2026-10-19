@@ -331,7 +331,7 @@ struct HTTPServerSmokeTest {
 
         try await Task.sleep(for: .milliseconds(250))
         let baselineDescriptorCount = try openDescriptorCount()
-        let baselineDescriptorKinds = try openDescriptorKinds()
+        let baselineDescriptorKinds = try openDescriptorKinds(serverPort: UInt16(port))
         let path = baseURL.appendingPathComponent("large.mp4").path
 
         for index in 0..<160 {
@@ -413,8 +413,8 @@ struct HTTPServerSmokeTest {
 
         try await Task.sleep(for: .seconds(1))
         let finalDescriptorCount = try openDescriptorCount()
-        let finalDescriptorKinds = try openDescriptorKinds()
-        print(
+        let finalDescriptorKinds = try openDescriptorKinds(serverPort: UInt16(port))
+        mark(
             "Abandoned-range descriptors: \(baselineDescriptorCount) -> \(finalDescriptorCount); kinds \(baselineDescriptorKinds) -> \(finalDescriptorKinds)"
         )
         guard finalDescriptorCount <= baselineDescriptorCount + 12 else {
@@ -444,7 +444,7 @@ struct HTTPServerSmokeTest {
         try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
     }
 
-    private static func openDescriptorKinds() throws -> [String: Int] {
+    private static func openDescriptorKinds(serverPort: UInt16) throws -> [String: Int] {
         let size = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)
         guard size > 0 else { throw POSIXError(.EIO) }
         var entries = [proc_fdinfo](
@@ -457,7 +457,20 @@ struct HTTPServerSmokeTest {
         for entry in entries.prefix(Int(used) / MemoryLayout<proc_fdinfo>.stride) {
             let kind: String
             switch Int32(entry.proc_fdtype) {
-            case PROX_FDTYPE_SOCKET: kind = "socket"
+            case PROX_FDTYPE_SOCKET:
+                var socketInfo = socket_fdinfo()
+                let bytes = proc_pidfdinfo(
+                    getpid(), entry.proc_fd, PROC_PIDFDSOCKETINFO,
+                    &socketInfo, Int32(MemoryLayout<socket_fdinfo>.stride))
+                if bytes > 0, socketInfo.psi.soi_kind == SOCKINFO_TCP {
+                    let tcp = socketInfo.psi.soi_proto.pri_tcp
+                    let local = UInt16(bigEndian: UInt16(truncatingIfNeeded: tcp.tcpsi_ini.insi_lport))
+                    let remote = UInt16(bigEndian: UInt16(truncatingIfNeeded: tcp.tcpsi_ini.insi_fport))
+                    let role = local == serverPort ? "server" : (remote == serverPort ? "client" : "other")
+                    kind = "tcp-\(role)-state-\(tcp.tcpsi_state)"
+                } else {
+                    kind = "socket"
+                }
             case PROX_FDTYPE_VNODE: kind = "file"
             case PROX_FDTYPE_KQUEUE: kind = "kqueue"
             case PROX_FDTYPE_NETPOLICY: kind = "network-policy"
