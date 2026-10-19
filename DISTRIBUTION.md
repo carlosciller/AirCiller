@@ -104,8 +104,8 @@ Publication and installation require authorization in the conversation. Prepare 
 
    This command includes the strict Swift 6 build, warnings-as-errors, signature-structure verification and bundle-size gate. Package its accepted `.build/AirCiller.app`; do not run a second identical build. Inspect the distribution diagnostics described below. If later changes affect executable inputs, signing or packaging, repeat the affected gates and identify the new artifact. Documentation-only follow-ups require diff/reference checks, not an unchanged binary rebuild.
 
-4. Complete the applicable Apple TV matrix in [TESTING.md](TESTING.md) before publication. Shared session or server changes affect both playback paths. Record failures and untested cases explicitly. When carrying earlier candidate results forward, compare the affected source, pinned runtimes and relevant build configuration; metadata-only changes do not constitute a new device test.
-5. Verify CI for the reviewed candidate. After the authorized merge and tag, verify both the exact merged `main` commit and its separate tag-triggered CI run before publication. Those runs may proceed in parallel. Record the commit each run actually tested; a green PR run, previous SHA or main run does not establish that the tag run passed. If merging changes candidate contents, reconcile the diff and rerun affected gates. The released-OS runner configured in `.github/workflows/ci.yml` is the release gate; a manual preview run is diagnostic. Inspect failures and preserve failed attempts when recording reruns. Required pending or failed CI blocks completion.
+4. Select the applicable cases under [TESTING.md](TESTING.md), not the entire catalogue. Documentation, pure UI and packaging-only changes do not automatically require an Apple TV session. Shared session or server changes affect both paths; long-pause and extended track/cache tests need their own affected boundary. Record failures and required missing observations explicitly. Carry earlier results forward only with the documented source/runtime/configuration/media comparison. Reused evidence is not a new device run.
+5. Verify the required CI result for the reviewed PR and, after authorized merge/tag, the exact merged `main` and tag commits. Each run must complete successfully, but need not rebuild identical inputs: the workflow may explicitly report `reuse` with an originating successful full-check artifact, or `docs` for allowlisted prose. Record the mode, current SHA/run URL and originating evidence URL. Never infer tag acceptance merely from a green PR/main run. Different trees or toolchains, missing/expired evidence or API errors require a full run. Reconcile merge changes and repeat affected local gates. Manual preview runs remain diagnostic, never release evidence. Inspect failures and preserve failed attempts; required pending/failed CI blocks completion. This reuse concerns CI checks only, not signed release artifact identity.
 6. Package the accepted app:
 
    ```sh
@@ -143,6 +143,12 @@ Publication and installation require authorization in the conversation. Prepare 
 11. With installation authorized, preserve a rollback copy and use an older AirCiller build to run **Check for Updates…**, download, install through Sparkle and relaunch. This may use an isolated older copy or the authorized daily-use copy; two installations are not required. Confirm the running app's path, installed version/build, library and preferences. Preserve the update result or relevant logs. Copying the new bundle into place is not a native updater test. If the isolated-copy option is used, replacing the daily-use copy still requires authorization and rollback.
 
 The placeholder values above are documentation markers. They are not valid publication URLs. Report packaged, published and installed as separate outcomes; do not report installation when only the feed, download or update offer has been checked.
+
+Archive/feed signatures, published-byte identity and the authorized installed
+version/library/preferences checks remain required for every binary release.
+Do not repeat playback merely because installation succeeded. Extended updater
+failure/delta scenarios are needed when Sparkle, signing or packaging behavior
+changes, not for every unrelated application fix.
 
 ## Distribution diagnostics
 
