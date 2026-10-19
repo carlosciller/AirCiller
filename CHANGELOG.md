@@ -2,6 +2,11 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## Unreleased
+
+- Update the bundled aiohttp networking library to 3.14.5, including upstream
+  security fixes. Supported formats and playback controls are unchanged.
+
 ## 0.17.1 (16 October 2026)
 
 - Open **AirCiller > About AirCiller** for links to this version's release notes
