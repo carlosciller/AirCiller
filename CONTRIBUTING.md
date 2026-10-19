@@ -33,6 +33,11 @@ For documentation-only changes, review the diff, verify referenced paths and con
 
 For code, dependency, or build changes:
 
+Select checks before implementation using [TESTING.md](TESTING.md#choose-checks-from-the-change).
+The local full gate below remains required once on the final code candidate;
+focused regressions are for iteration. CI can reuse an identical successful full
+check as documented there. CI-only tooling changes need no Apple TV session.
+
 1. Run `./Scripts/check.sh` on the final candidate. It already invokes `./build.sh` using strict Swift 6 and warnings-as-errors; a second identical build is unnecessary after it passes. Keep focused regression tests for iteration before this full gate.
 2. Identify the candidate and distinguish local or simulated tests, receiver state, captured digital output, and physical observation. A receiver reporting playback does not establish that picture, sound or subtitles reached the screen.
 3. For playback changes, validate the affected cases in [TESTING.md](TESTING.md), keeping the two paths separate. Engine upgrades require both paths. Record failures and missing observations explicitly; neither is a pass.

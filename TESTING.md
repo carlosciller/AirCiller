@@ -18,6 +18,32 @@ behavior and applicable cases before testing:
 | One playback path | Local media checks and applicable receiver/output cases for that path |
 | Shared session/control/server code, or an engine upgrade | Assess and validate affected behavior on both direct MP4 and HLS |
 
+Before implementation, record a short validation selection: changed boundary,
+required local checks, any receiver/output cases, and why earlier evidence can
+or cannot be retained. A release number alone never invalidates playback evidence.
+Keep this selection with the candidate report, not as a new permanent runbook.
+
+Apply these narrower rules when choosing receiver cases:
+
+- Interface, library, preferences and About links need no Apple TV session unless
+  the changed behavior controls playback.
+- Packaging-only cleanup needs bundle inventory, signature, import and launch
+  checks. If retained functional files are unchanged, do not repeat HDR or subtitles.
+- Classify dependencies by their actual callers. A secondary HTTP dependency is
+  not automatically a media-engine upgrade. Test imports and the used HTTP/control
+  boundary; add a scoped receiver smoke only for a changed or uncertain playback path.
+- Changes to an audio/subtitle component need its regression and the affected
+  route/case, not every codec and track combination.
+- FFmpeg, pyatv, Python or shared transport changes need both routes assessed and
+  short applicable playback checks. Long pause, natural end, rapid commands, OCR
+  and cache campaigns are required only when those boundaries are affected.
+- Check stop/replay/close briefly when playback was affected. Do not run an
+  extended cache/track-change campaign merely to establish replay.
+
+Reuse device evidence only after comparing relevant source, helpers/resources,
+locked engines/dependencies, build configuration and media/track settings. Record
+the original report and the comparison; do not label reused evidence a fresh run.
+
 The matrix below is the playback case catalogue, not a requirement to repeat
 every case for every release. An applicable case remains a release gate; a
 failure or missing required observation must be resolved or explicitly left
@@ -59,10 +85,27 @@ and typechecks the optional playback tools without opening a capture source or
 starting an Apple TV session. The standalone tests it runs are listed in
 `Scripts/check.sh`.
 
-Push, pull-request and release-tag CI use the released `macos-26` runner. The CI
-workflow can also be started manually with `xcode-27` to investigate preview
-compatibility; it runs the same full suite and does not ignore failures.
-Compiler and OS versions are recorded in each run. See the
+Push, pull-request and release-tag CI retain the required `build-and-test` job
+on `macos-26`. It always runs policy regressions and reports one validation mode:
+
+- `docs`: only allowlisted prose changed; check the diff and publication rules.
+  Unknown paths, executable files and packaged release notes require the full gate.
+- `full`: prepare pinned dependencies and run `./Scripts/check.sh` once.
+- `reuse`: an immutable GitHub artifact proves a successful full run with the
+  identical entire Git tree, runner image, OS, Xcode, Swift, architecture and
+  selection-Python version. The summary links the originating run. Only completed,
+  successful runs of this workflow from the same repository are eligible; expired,
+  missing, failed, preview/manual or invalid evidence falls back to `full`.
+
+No path-filtered workflow or skipped required job substitutes for acceptance.
+Reused runs do not publish new full-check evidence. Artifacts expire after 30 days;
+API failure or changed inputs means more testing, never automatic acceptance.
+PR-to-main and main-to-tag reuse therefore works only when inputs really match.
+Concurrent runs may both run the suite if neither has completed yet.
+
+Manual `workflow_dispatch` always runs the full suite, including on `xcode-27`
+for preview diagnostics. CI identity does not certify the locally signed release
+artifact or replace applicable playback evidence. See the
 [Vision CI investigation](Docs/VISION_CI.md) for why these environments are separate.
 
 ## Local tests with media
