@@ -428,6 +428,9 @@ compile_and_run flac-manifest \
   "$project_dir/Tests/FLACManifestSmokeTest.swift"
 
 python_path="$(< "$project_dir/VendorPython/.airciller-python-executable")"
+PYTHONPATH="$project_dir/VendorPython" \
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" -W error::ResourceWarning "$project_dir/Tests/AiohttpCompatibilityTest.py"
 PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/BundleSizeSmokeTest.py"
 PYTHONPATH="$project_dir/VendorPython" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
