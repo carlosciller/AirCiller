@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build-and-test:
@@ -30,14 +31,34 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate CI selection rules
+        run: python3 Tests/CIValidationTest.py
+
+      - name: Select validation
+        id: validation
+        run: python3 Scripts/ci_validation.py
+        env:
+          CI_RUNNER: ${{ inputs.runner || 'macos-26' }}
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Documentation checks
+        if: steps.validation.outputs.mode == 'docs'
+        run: |
+          git diff --check
+          ./Scripts/check_publication.sh
 
       - name: Record compiler and operating system
+        if: steps.validation.outputs.mode == 'full'
         run: |
           sw_vers
           xcodebuild -version
           xcrun swiftc --version
 
       - name: Python 3.13
+        if: steps.validation.outputs.mode == 'full'
         uses: actions/setup-python@v7
         with:
           python-version: "3.13.15"
@@ -45,15 +66,44 @@ jobs:
           cache-dependency-path: requirements.lock
 
       - name: Prepare locked AirPlay dependencies
+        if: steps.validation.outputs.mode == 'full'
         run: AIRCILLER_PYTHON="$(command -v python3)" ./Scripts/bootstrap_dependencies.sh
 
       - name: Prepare Sparkle
+        if: steps.validation.outputs.mode == 'full'
         run: ./Scripts/bootstrap_sparkle.sh
 
       - name: Prepare bundled playback engine
+        if: steps.validation.outputs.mode == 'full'
         run: ./Scripts/bootstrap_engine.sh
 
       - name: Build and test
+        if: steps.validation.outputs.mode == 'full'
         run: ./Scripts/check.sh
         env:
           AIRCILLER_TEST_FFMPEG: ${{ github.workspace }}/.build/dependencies/AirCillerEngine-ffmpeg-9.0.1-python-3.13.15/ffmpeg/bin/ffmpeg
+
+      - name: Record successful full check
+        if: steps.validation.outputs.mode == 'full'
+        run: python3 Scripts/ci_validation.py record
+
+      - name: Preserve full-check evidence
+        if: steps.validation.outputs.mode == 'full'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.validation.outputs.artifact }}
+          path: .build/validation.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Require a completed validation mode
+        if: always()
+        env:
+          JOB_STATUS: ${{ job.status }}
+          MODE: ${{ steps.validation.outputs.mode }}
+        run: |
+          test "$JOB_STATUS" = success
+          case "$MODE" in
+            docs|full|reuse) ;;
+            *) exit 1 ;;
+          esac

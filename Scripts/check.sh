@@ -2,6 +2,7 @@
 set -euo pipefail
 
 project_dir="${0:A:h:h}"
+python3 "$project_dir/Tests/CIValidationTest.py"
 build_dir="$project_dir/.build"
 test_dir="$build_dir/tests"
 module_cache="$build_dir/test-module-cache"
