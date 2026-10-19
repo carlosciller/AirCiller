@@ -113,9 +113,14 @@ final class LocalHTTPServer: @unchecked Sendable {
         let identifier = ObjectIdentifier(connection)
         activeConnections[identifier] = connection
         requestGenerations[identifier] = 0
-        connection.stateUpdateHandler = { [weak self] state in
+        connection.stateUpdateHandler = { [weak self, weak connection] state in
             switch state {
-            case .failed, .cancelled:
+            case .failed:
+                // A failed transport still needs cancellation. Retire it before
+                // dropping our last reference; pending weak callbacks may not.
+                connection?.cancel()
+                fallthrough
+            case .cancelled:
                 self?.activeConnections.removeValue(forKey: identifier)
                 self?.requestGenerations.removeValue(forKey: identifier)
                 if let transfer = self?.transfers.removeValue(forKey: identifier) {
@@ -128,6 +133,25 @@ final class LocalHTTPServer: @unchecked Sendable {
         connection.start(queue: queue)
         receiveRequest(on: connection, accumulated: Data())
     }
+
+    #if AIRCILLER_HTTP_TESTS
+        // Deliver a terminal event on the real server queue. Keeping the returned
+        // connection alive proves cleanup does not depend on object destruction.
+        func failConnectionForTesting(peerPort: UInt16) async -> NWConnection? {
+            await withCheckedContinuation { continuation in
+                queue.async {
+                    let connection = self.activeConnections.values.first {
+                        guard case .hostPort(_, let port) = $0.endpoint,
+                            case .ready = $0.state
+                        else { return false }
+                        return port.rawValue == peerPort
+                    }
+                    connection?.stateUpdateHandler?(.failed(.posix(.ECONNRESET)))
+                    continuation.resume(returning: connection)
+                }
+            }
+        }
+    #endif
 
     private func receiveRequest(on connection: NWConnection, accumulated: Data) {
         let separator = Data("\r\n\r\n".utf8)

@@ -15,7 +15,7 @@ jobs:
           mkdir -p .build
           xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" \
             -target arm64-apple-macosx14.0 -parse-as-library -swift-version 6 \
-            -strict-concurrency=complete -warnings-as-errors -framework Network \
+            -strict-concurrency=complete -warnings-as-errors -framework Network -D AIRCILLER_HTTP_TESTS \
             Sources/Localization.swift Sources/HTTPServerTelemetry.swift \
             Sources/LocalNetworkRoute.swift Sources/NetworkAddressIdentity.swift \
             Sources/LocalHTTPServer.swift Tests/HTTPServerSmokeTest.swift \
