@@ -133,6 +133,8 @@ def main():
     output_root = project / ".build/playback-checks"
     output_root.mkdir(exist_ok=True)
     directory = Path(tempfile.mkdtemp(prefix="run-", dir=output_root))
+    from test_storage import register_run
+    register_run(project, directory)
     report_path = directory / "report.json"
     command = [str(binary), "--run", str(args.plan.resolve()), "--report", str(report_path),
                "--local-only" if args.local_only else "--tv-is-idle"]
@@ -156,4 +158,10 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    sys.dont_write_bytecode = True
+    from test_storage import guarded
+    try:
+        raise SystemExit(guarded(Path(__file__).resolve().parent.parent, main))
+    except (OSError, ValueError) as error:
+        print(f"Test storage: {error}", file=sys.stderr)
+        raise SystemExit(2)
