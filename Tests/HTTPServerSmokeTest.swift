@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import Network
 
 @main
 struct HTTPServerSmokeTest {
@@ -140,6 +141,10 @@ struct HTTPServerSmokeTest {
 
         mark("repeated abandoned large ranges")
         try await verifyAbandonedLargeRanges(baseURL: baseURL, fileSize: hugeFileSize)
+        #if AIRCILLER_HTTP_TESTS
+            mark("failed-state cancellation independent of connection lifetime")
+            try await verifyFailedConnectionCleanup(server: server, baseURL: baseURL)
+        #endif
 
         mark("transport stream")
         let (transportStream, transportResponse) = try await session.data(
@@ -443,6 +448,49 @@ struct HTTPServerSmokeTest {
     private static func openDescriptorCount() throws -> Int {
         try FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count
     }
+
+    #if AIRCILLER_HTTP_TESTS
+        private static func verifyFailedConnectionCleanup(server: LocalHTTPServer, baseURL: URL) async throws {
+            let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+            guard descriptor >= 0 else { throw POSIXError(.EMFILE) }
+            defer { Darwin.close(descriptor) }
+            var address = sockaddr_in()
+            address.sin_family = sa_family_t(AF_INET)
+            address.sin_port = UInt16(baseURL.port!).bigEndian
+            guard inet_pton(AF_INET, baseURL.host!, &address.sin_addr) == 1 else { throw POSIXError(.EINVAL) }
+            let connected = withUnsafePointer(to: &address) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    Darwin.connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+                }
+            }
+            guard connected == 0 else { throw POSIXError(.ECONNREFUSED) }
+            var local = sockaddr_in()
+            var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+            let localResult = withUnsafeMutablePointer(to: &local) { pointer in
+                pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                    getsockname(descriptor, $0, &length)
+                }
+            }
+            guard localResult == 0 else { throw POSIXError(.EINVAL) }
+            let peerPort = UInt16(bigEndian: local.sin_port)
+            let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+            var retained: NWConnection?
+            while retained == nil, ContinuousClock.now < deadline {
+                retained = await server.failConnectionForTesting(peerPort: peerPort)
+                if retained == nil { try await Task.sleep(for: .milliseconds(10)) }
+            }
+            guard let retained else { throw POSIXError(.ETIMEDOUT) }
+            defer { retained.cancel() }
+            let cancelDeadline = ContinuousClock.now.advanced(by: .seconds(1))
+            while ContinuousClock.now < cancelDeadline {
+                if case .cancelled = retained.state { return }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            throw NSError(
+                domain: "HTTPServerSmokeTest.FailedConnectionNotCancelled", code: 33,
+                userInfo: [NSLocalizedDescriptionKey: "The failed connection was forgotten without cancellation."])
+        }
+    #endif
 
     private static func openDescriptorKinds(serverPort: UInt16) throws -> [String: Int] {
         let size = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)
