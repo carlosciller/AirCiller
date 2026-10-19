@@ -21,6 +21,7 @@ struct AirCillerApp: App {
         .defaultSize(width: 960, height: 650)
         .windowResizability(.contentMinSize)
         .commands {
+            NativeUndoCommands(state: appDelegate.undoCommands)
             CommandGroup(replacing: .appInfo) {
                 Button("Acerca de AirCiller") {
                     appDelegate.showAboutPanel()
@@ -88,6 +89,7 @@ struct AirCillerApp: App {
 @MainActor
 final class AirCillerAppDelegate: NSObject, NSApplicationDelegate {
     let updateController = UpdateController()
+    let undoCommands = NativeUndoCommandState()
 
     private var pendingURLs: [URL] = []
     private var openHandler: (([URL]) -> Void)?
@@ -115,6 +117,7 @@ final class AirCillerAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        undoCommands.start()
         NSApplication.shared.setActivationPolicy(.regular)
         NSApplication.shared.activate(ignoringOtherApps: true)
         #if !AIRCILLER_PLAYBACK_CHECKS && !AIRCILLER_UI_CHECKS
@@ -128,6 +131,10 @@ final class AirCillerAppDelegate: NSObject, NSApplicationDelegate {
         } else {
             pendingURLs.append(contentsOf: urls)
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        undoCommands.stop()
     }
 
     func installOpenHandler(_ handler: @escaping ([URL]) -> Void) {
@@ -522,13 +529,15 @@ struct TrackSettingsView: View {
     @AirCillerState private var draft: TrackSettings
     @AirCillerState private var original: TrackSettings
     private let videoURL: URL?
+    private let onApplied: () -> Void
 
-    init(coordinator: StreamCoordinator, isPresented: Binding<Bool>) {
+    init(coordinator: StreamCoordinator, isPresented: Binding<Bool>, onApplied: @escaping () -> Void = {}) {
         self.coordinator = coordinator
         _isPresented = isPresented
         _original = AirCillerState(initialValue: coordinator.trackSettings)
         _draft = AirCillerState(initialValue: coordinator.trackSettings)
         videoURL = coordinator.selectedURL
+        self.onApplied = onApplied
     }
 
     private var selectedSubtitle: SubtitleTrack? {
@@ -710,6 +719,7 @@ struct TrackSettingsView: View {
                         coordinator.trackSettings = draft
                         original = draft
                         coordinator.applyTrackSettings()
+                        onApplied()
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(!canApply || selectedSubtitle?.isSelectable == false)

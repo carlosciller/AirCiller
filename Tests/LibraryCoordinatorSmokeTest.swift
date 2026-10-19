@@ -275,11 +275,14 @@ struct LibraryCoordinatorSmokeTest {
         progressUndo.groupsByEvent = false
         progressCoordinator.setLibraryUndoManager(progressUndo)
         action(progressUndo) { progressCoordinator.setWatched(episodes[0], watched: true) }
+        try require(progressUndo.undoActionName == L10n.text("Marcar como visto"), "watched action name")
         action(progressUndo) { progressCoordinator.setWatched(episodes[0], watched: false) }
+        try require(progressUndo.undoActionName == L10n.text("Marcar como pendiente"), "unwatched action name")
         try require(
             progressCoordinator.queueItems.first { $0.id == episodes[0].id }?.lastPosition == 42,
             "marking pending preserves playback progress")
         progressUndo.undo()
+        try require(progressUndo.redoActionName == L10n.text("Marcar como pendiente"), "unwatched Redo name")
         try require(
             progressCoordinator.queueItems.first { $0.id == episodes[0].id }?.lastPosition == 42,
             "watched Undo preserves playback progress")

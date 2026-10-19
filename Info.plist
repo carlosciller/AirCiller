@@ -43,13 +43,13 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.17.2</string>
+    <string>0.17.3</string>
     <key>CFBundleSupportedPlatforms</key>
     <array>
         <string>MacOSX</string>
     </array>
     <key>CFBundleVersion</key>
-    <string>67</string>
+    <string>68</string>
     <key>ACShortcutsAvailable</key>
     <false/>
     <key>ACBundledEngineRequired</key>

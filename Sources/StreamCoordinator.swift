@@ -720,21 +720,24 @@ final class StreamCoordinator {
     func setWatched(_ item: QueueMediaItem, watched: Bool) {
         guard let index = queueItems.firstIndex(where: { $0.id == item.id }) else { return }
         guard queueItems[index].watched != watched else { return }
-        registerWatchedUndo(id: item.id, previous: queueItems[index].watched)
+        registerWatchedUndo(
+            id: item.id, previous: queueItems[index].watched,
+            actionName: watched ? "Marcar como visto" : "Marcar como pendiente")
         queueItems[index].watched = watched
         HistoryStore.saveQueue(queueItems)
     }
 
-    private func registerWatchedUndo(id: String, previous: Bool?) {
+    private func registerWatchedUndo(id: String, previous: Bool?, actionName: String) {
         libraryUndoManager?.registerUndo(withTarget: self) { coordinator in
             MainActor.assumeIsolated {
                 guard let index = coordinator.queueItems.firstIndex(where: { $0.id == id }) else { return }
-                coordinator.registerWatchedUndo(id: id, previous: coordinator.queueItems[index].watched)
+                coordinator.registerWatchedUndo(
+                    id: id, previous: coordinator.queueItems[index].watched, actionName: actionName)
                 coordinator.queueItems[index].watched = previous
                 HistoryStore.saveQueue(coordinator.queueItems)
             }
         }
-        libraryUndoManager?.setActionName(L10n.text("Marcar como visto"))
+        libraryUndoManager?.setActionName(L10n.text(actionName))
     }
 
     func removeSeason(_ id: String) {
