@@ -98,7 +98,8 @@ Do not reopen them as new features. [Current compatibility](COMPATIBILITY.md).
 
 - Keep engines pinned and bundled. Update for a concrete fix or security need,
   regenerate dependency locks and select checks by the affected boundary.
-- Leave zeroconf PR #30 outside the current delivery. Keep protobuf 6.33.6 until
+- zeroconf PR #30 has a separate [lock and discovery review](Docs/ZEROCONF_MAINTENANCE.md);
+  it is not part of the published 0.18.0 package. Keep protobuf 6.33.6 until
   a major update has a concrete benefit and serialization/control evidence.
 - Retain the 165 MB logical bundle budget. Trim only with measured savings and
   applicable checks; do not remove runtime files just to lower the number.

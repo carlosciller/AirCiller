@@ -482,6 +482,8 @@ compile_and_run flac-manifest \
 python_path="$(< "$project_dir/VendorPython/.airciller-python-executable")"
 PYTHONPATH="$project_dir/VendorPython" \
   "$python_path" -B "$project_dir/Tests/DependencySecurityTest.py"
+PYTHONPATH="$project_dir/VendorPython" \
+  "$python_path" -B -W error::ResourceWarning "$project_dir/Tests/ZeroconfCompatibilityTest.py"
 
 PYTHONPATH="$project_dir/VendorPython" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
