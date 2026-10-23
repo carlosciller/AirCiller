@@ -1,5 +1,44 @@
 import Foundation
 
+/// Authorize redirects before URLSession forwards API headers or a login body.
+/// API calls stay on their original HTTPS origin; subtitle CDNs may redirect
+/// between HTTPS OpenSubtitles hosts, without credentials on the request.
+final class OpenSubtitlesRedirectPolicy: NSObject, URLSessionTaskDelegate, Sendable {
+    enum Mode: Sendable { case api, subtitle }
+    let mode: Mode
+
+    init(mode: Mode) { self.mode = mode }
+
+    static func isTrustedURL(_ url: URL) -> Bool {
+        guard isSecureURL(url), let host = url.host?.lowercased() else { return false }
+        return host == "opensubtitles.com" || host.hasSuffix(".opensubtitles.com")
+    }
+
+    func allowsRedirect(from original: URL?, to destination: URL?) -> Bool {
+        guard let destination, Self.isSecureURL(destination) else { return false }
+        switch mode {
+        case .api:
+            guard let original, Self.isSecureURL(original) else { return false }
+            return original.host?.lowercased() == destination.host?.lowercased()
+        case .subtitle:
+            return Self.isTrustedURL(destination)
+        }
+    }
+
+    func urlSession(
+        _ session: URLSession, task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        completionHandler(allowsRedirect(from: task.originalRequest?.url, to: request.url) ? request : nil)
+    }
+
+    private static func isSecureURL(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == "https" && url.host?.isEmpty == false
+            && url.user == nil && url.password == nil && (url.port == nil || url.port == 443)
+    }
+}
+
 struct OpenSubtitlesFileIdentity: Equatable, Sendable {
     let hash: String
     let size: UInt64
@@ -287,7 +326,8 @@ actor OpenSubtitlesService {
         let data: Data
         do {
             let (content, urlResponse) = try await BoundedHTTPResponse.data(
-                for: contentRequest, using: session, maximumBytes: Self.maximumSubtitleBytes
+                for: contentRequest, using: session, maximumBytes: Self.maximumSubtitleBytes,
+                delegate: OpenSubtitlesRedirectPolicy(mode: .subtitle)
             )
             try Self.validate(urlResponse)
             guard let finalURL = urlResponse.url, Self.isTrustedDownloadURL(finalURL) else {
@@ -439,7 +479,8 @@ actor OpenSubtitlesService {
         let response: URLResponse
         do {
             (data, response) = try await BoundedHTTPResponse.data(
-                for: request, using: session, maximumBytes: Self.maximumResponseBytes
+                for: request, using: session, maximumBytes: Self.maximumResponseBytes,
+                delegate: OpenSubtitlesRedirectPolicy(mode: .api)
             )
         } catch BoundedHTTPResponse.Failure.tooLarge {
             throw OpenSubtitlesError.invalidResponse
@@ -579,10 +620,7 @@ actor OpenSubtitlesService {
     }
 
     private static func isTrustedDownloadURL(_ url: URL) -> Bool {
-        guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else {
-            return false
-        }
-        return host == "opensubtitles.com" || host.hasSuffix(".opensubtitles.com")
+        OpenSubtitlesRedirectPolicy.isTrustedURL(url)
     }
 
     private static func validatedAPIBaseURL(_ value: String?) -> URL? {
@@ -590,6 +628,8 @@ actor OpenSubtitlesService {
         if !value.hasPrefix("https://") { value = "https://\(value)" }
         guard var components = URLComponents(string: value),
             components.scheme == "https",
+            components.user == nil, components.password == nil,
+            components.port == nil || components.port == 443,
             let host = components.host?.lowercased(),
             host == "opensubtitles.com" || host.hasSuffix(".opensubtitles.com")
         else { return nil }

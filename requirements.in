@@ -7,6 +7,8 @@ aiohttp==3.14.5
 requests==2.34.2
 urllib3==2.8.0
 zeroconf==0.150.0
+certifi==2026.10.19
+multidict==6.9.1
 
 # Keep the serialization/model stack used by the physically validated release.
 protobuf==6.33.6

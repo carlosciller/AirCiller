@@ -23,12 +23,13 @@ class ValidationTests(unittest.TestCase):
             self.assertTrue(policy.docs_only([path]))
         for path in ["Sources/App.swift", "Docs/tool.py", "new.md", "Info.plist",
                      "requirements.lock", "Distribution/ReleaseNotes/1.md",
-                     ".github/workflows/ci.yml", "build.sh"]:
+                     ".github/workflows/ci.yml", "build.sh", ".node-version",
+                     "PrivateRemote/relay.mjs", "PrivateRemote/Lifecycle.swift"]:
             self.assertFalse(policy.docs_only(["TESTING.md", path]))
         self.assertFalse(policy.docs_only([]))
 
     def test_identity_changes_invalidate(self):
-        inputs = {"tree": "abc", "runner": "macos-26", "image": "1"}
+        inputs = {"tree": "abc", "runner": "macos-26", "image": "1", "node": "v24.19.0"}
         for key in inputs:
             self.assertNotEqual(policy.artifact_name(inputs),
                                 policy.artifact_name(dict(inputs, **{key: "different"})))

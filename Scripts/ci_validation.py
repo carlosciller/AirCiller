@@ -50,6 +50,7 @@ def identity():
         "xcode": command("xcodebuild", "-version").decode().strip(),
         "swift": command("xcrun", "swiftc", "--version").decode().strip(),
         "python": sys.version,
+        "node": command("node", "--version").decode().strip(),
         "architecture": command("uname", "-m").decode().strip(),
     }
 

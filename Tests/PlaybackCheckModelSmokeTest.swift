@@ -3,6 +3,12 @@ import Foundation
 @main
 struct PlaybackCheckModelSmokeTest {
     static func main() throws {
+        let conversionPlaylist =
+            #"{"version":1,"deviceID":"fixture","profile":"playlistTransition","clips":[{"path":"/episode1.mkv","route":"hls","audioOutput":"compatible","externalSubtitle":"/cue.srt","nextClip":{"path":"/episode2.mkv","route":"hls"}}]}"#
+        let conversionPlan = try PlaybackCheckPlan.decode(Data(conversionPlaylist.utf8))
+        try expect(conversionPlan.clips[0].audioOutput == .compatible, "explicit playlist conversion plan")
+        try expectRejected(
+            Data(conversionPlaylist.replacingOccurrences(of: "playlistTransition", with: "controls").utf8))
         let pcmPlan =
             #"{"version":1,"deviceID":"fixture","clips":[{"path":"/clip.mov","route":"hls","audioOutput":"losslessFLAC"}]}"#
         let decodedPCM = try PlaybackCheckPlan.decode(Data(pcmPlan.utf8))

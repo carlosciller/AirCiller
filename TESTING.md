@@ -77,7 +77,9 @@ the candidate pass.
 
 Run `./Scripts/check.sh` from the repository root. It validates formatting,
 strict Swift 6 compilation with warnings-as-errors, standalone regressions,
-Python bridge simulations, packaging and publication checks. It already builds
+Python bridge simulations, private relay/lifecycle Node tests, strict native
+lifecycle-helper compilation, packaging and publication checks. The Node version
+is fixed in `.node-version`; `AIRCILLER_NODE` may select that executable. It already builds
 the application; do not repeat an identical build after it passes.
 
 Tests use synthetic inputs and do not require private media. The suite builds
@@ -93,7 +95,7 @@ on `macos-26`. It always runs policy regressions and reports one validation mode
 - `full`: prepare pinned dependencies and run `./Scripts/check.sh` once.
 - `reuse`: an immutable GitHub artifact proves a successful full run with the
   identical entire Git tree, runner image, OS, Xcode, Swift, architecture and
-  selection-Python version. The summary links the originating run. Only completed,
+  selection-Python and Node versions. The summary links the originating run. Only completed,
   successful runs of this workflow from the same repository are eligible; expired,
   missing, failed, preview/manual or invalid evidence falls back to `full`.
 
@@ -177,11 +179,21 @@ preparation and end-to-end observations. Report cold preparation and warm cache
 reuse separately; the benchmark does not reset the operating-system cache.
 Further startup work follows the [roadmap](ROADMAP.md#faster-playback-startup).
 
+For current HLS preparation, run `./Scripts/benchmark_startup.sh 3 small head`.
+This freezes committed HEAD as the no-cache reference and compares it with the
+working candidate, including empty/warm app-cache modes. The optional historical
+reference remains available, but its older subtitles differ after the seek fix;
+its strict parity failure must not be suppressed or used for a speedup claim.
+The [October review](Docs/REVIEW_PLAYBACK_2026_10.md#benchmark-reference-repair)
+records the baseline repair and current small-fixture samples.
+
 ## Validation records
 
 Read the record relevant to the change, not every previous run. Each records its
 own candidate, failures, observations and remaining limits.
 
+- [October reliability, security and interaction review](Docs/REVIEW_2026_10.md)
+- [Optional private control and lifecycle checks](Docs/PRIVATE_REMOTE_CONTROL.md)
 - [Playback runner, capture and control checks](Docs/PLAYBACK_CHECKS.md)
 - [PCM/LPCM and TrueHD audio conversion](Docs/AUDIO_EXPANSION.md),
   [SDR manual audio timing](Docs/HLS_AUDIO_TIMING.md) and

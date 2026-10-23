@@ -9,8 +9,10 @@ scan_paths=(
   .gitattributes
   .gitignore
   .swift-format
+  .node-version
   Sources
   CredentialService
+  PrivateRemote
   Tests
   Scripts
   Distribution

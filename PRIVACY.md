@@ -22,10 +22,29 @@ AirCiller has no AirCiller account, telemetry, analytics, advertising, or cloud 
 
 During playback, AirCiller opens a temporary HTTP server on the local network so the Apple TV can read the file or VOD. The URL contains a random session path, and the server closes when playback stops. AirPlay requires this local transport without TLS; it is not exposed to the Internet and does not act as a permanent server.
 
+## Optional private control through ChatGPT
+
+This integration requires separate provisioning and explicit activation. It is
+not enabled by downloading AirCiller. When enabled, ChatGPT and a private relay
+process requested commands and the necessary library titles, track metadata,
+playback position and errors. That information therefore reaches OpenAI through
+the connected private plugin. Movies, audio, subtitle contents, local file paths
+and AirPlay credentials are not sent through it.
+
+AirCiller makes outbound authenticated requests to the relay; no new listener
+opens on the playback Mac. A separately installed lifecycle agent can open or
+normally close the fixed AirCiller app while the Mac is awake and the user is
+logged in. Disabling Private control disables both playback and lifecycle
+commands. It does not require uploading the library or running a background
+media index. See [configuration and removal](Docs/PRIVATE_REMOTE_CONTROL.md).
+
 ## Logs
 
 The macOS unified log may contain technical state, but filenames, receivers, addresses, and URIs are marked private. Before sharing diagnostics, review and remove any remaining personal data.
 
 An exported local diagnostic can include HLS preparation stage timings and cache-hit status. These measurements contain no movie path/title, receiver identity or credentials. They are only exported when requested and are not transmitted automatically.
 
-AirCiller does not send your library, diagnostics, or credentials to its maintainer or OpenAI. Data sent to GitHub and OpenSubtitles is limited to the actions described above.
+AirCiller does not send your library, diagnostics or credentials to its maintainer.
+Without private control, it sends no library metadata to OpenAI. Data exchanged
+with GitHub, OpenSubtitles and an explicitly enabled private plugin is limited to
+the actions described above.

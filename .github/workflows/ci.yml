@@ -37,6 +37,11 @@ jobs:
       - name: Validate CI selection rules
         run: python3 Tests/CIValidationTest.py
 
+      - name: Node for private-control checks
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+
       - name: Select validation
         id: validation
         run: python3 Scripts/ci_validation.py

@@ -59,7 +59,7 @@ Sources: [Progress indicators](https://developer.apple.com/design/human-interfac
 - Verify light/dark and active/inactive appearance, another accent, Increase Contrast, Reduce Transparency and Reduce Motion. Measure contrast where drawing/styling is custom; semantic API names alone do not prove readable output.
 - macOS does not provide iOS Dynamic Type. Semantic SwiftUI fonts alone do not establish user-scalable text. Test system accessibility zoom/text needs and choose an explicit macOS text strategy when the content requires one.
 - Give icon-only controls action names and expose meaningful values: a timeline should communicate elapsed/total time, not an unexplained fractional value. Communicate selection, current item, destination and disabled state. Announce phase/error changes without flooding VoiceOver on every progress tick.
-- Test the real native accessibility hierarchy and keyboard/VoiceOver workflows. Framework controls are a useful foundation, not proof of accessible behavior. Keep alternatives to hover, drag and gesture-only actions.
+- Test the real native hierarchy and keyboard workflows. Framework controls are a useful foundation, not proof of accessible behavior. Keep alternatives to hover, drag and gesture-only actions. A dedicated VoiceOver campaign is deferred at the maintainer's request; preserve existing labels and do not claim VoiceOver acceptance from keyboard tests.
 
 Sources: [Typography](https://developer.apple.com/design/human-interface-guidelines/typography), [Materials](https://developer.apple.com/design/human-interface-guidelines/materials), [Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility), [Make your Mac app more accessible to everyone](https://developer.apple.com/videos/play/wwdc2025/229/).
 
@@ -73,7 +73,7 @@ Sources: [Typography](https://developer.apple.com/design/human-interface-guideli
 | --- | --- |
 | Primary task | The user can identify selected file, active item, destination, current phase and next action without opening diagnostics. |
 | Keyboard | Open/select/activate/pause/stop/edit tracks/return to library works without a pointer; Space/arrows inside text or selection controls do not trigger unrelated playback commands. |
-| VoiceOver | The same flow has useful labels, groups, values and focus return; no function depends only on hover, color or drag. |
+| VoiceOver (deferred) | Preserve useful labels, groups and values; no function depends only on hover, color or drag. Dedicated spoken-output acceptance is not part of the current campaign. |
 | Resizing | At the declared minimum, normal size and full screen, all essential actions and recovery text are reachable; sidebar/inspector visibility does not remove functionality. |
 | Localization | Spanish and English, long filenames, long track names and incomplete metadata fit without lost meaning. |
 | Appearance | Light/dark, active/inactive and the accessibility settings above retain legibility and understandable state. |
