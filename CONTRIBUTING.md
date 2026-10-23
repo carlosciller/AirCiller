@@ -33,6 +33,14 @@ brew bundle
 
 These scripts prepare the locked Python packages and verified Sparkle and playback-engine archives. Do not replace them with arbitrary host packages or regenerate dependency locks just to build. Record `git rev-parse HEAD`, `sw_vers`, `xcodebuild -version` and `xcrun swiftc --version` with validation results. This makes the inputs and environment traceable; it does not promise byte-identical signed bundles across machines.
 
+Python package installation uses `Scripts/build_pip.py`, which downloads and
+verifies the pinned pip 26.2.2 wheel before execution. It does not upgrade the
+host interpreter or use the old pip embedded in the historical engine archive.
+The lock compiler is created without pip, then seeded offline with the verified
+wheel. A corrupt installer cache fails closed. The app itself excludes pip and
+ensurepip; neither is required for playback. See the
+[build-installer review](Docs/BUILD_PIP_MAINTENANCE.md).
+
 For a release, finish versioning and release documentation before running the final check below. [DISTRIBUTION.md](DISTRIBUTION.md#release-procedure) defines the public signing configuration and the remaining release gates.
 
 ## Minimum validation

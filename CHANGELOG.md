@@ -2,6 +2,11 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## Unreleased
+
+- Remove unused Python package installers from the app. Playback dependencies
+  remain bundled; no additional setup or downloads are needed.
+
 ## 0.18.0 (23 October 2026)
 
 This release fixes HDR startup failures and improves Playlist controls and

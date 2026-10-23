@@ -40,7 +40,7 @@ mkdir -p "$build_dir"
 rm -rf "$staged" "$previous"
 mkdir -p "$staged"
 
-"$python_path" -m pip install \
+"$python_path" -I -B "$project_dir/Scripts/build_pip.py" install \
   --disable-pip-version-check \
   --require-hashes \
   --no-compile \
