@@ -282,4 +282,22 @@ The private operation record is retained under `.build/audit-20261023/`.
 This validates the installed lifecycle path while the Mac is awake, logged in
 and screen-locked. It is not a new iPhone-originated command, a wake/unlock test,
 or deployment validation of the separate relay/lifecycle source corrections in
-the October review. Those source changes have not been installed.
+the October review. Those source changes had not been installed at this checkpoint.
+
+## Reviewed service deployment (2026-10-23)
+
+The maintainer subsequently authorized deployment with release 0.18.0. The
+relay and lifecycle-agent corrections are installed, with their previous
+sources retained for rollback. The initial restart exposed a listener resolving
+its own hostname to loopback; the corrected server selects only an eligible
+address on its local non-internal interfaces and fails closed otherwise.
+Configuration, credentials, tunnel, runtime and native helper were preserved.
+
+The actual server runtime passed the standalone tests. Connected MCP tools
+opened the new daily 0.18.0 app, returned fresh idle status, closed it, and
+independently reported closed; process observations agreed. The daily app was
+then reopened and left idle. Settings reported Connected. Repeated operation
+IDs retain their cached result, and anonymous MCP requests remain unauthorized.
+These are live deployment checks, not new iPhone-originated or screen-lock
+observations. See the [release record](RELEASE_0.18.0.md) for exact artifacts,
+CI, update verification and the remaining distribution limits.
