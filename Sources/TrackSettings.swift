@@ -34,6 +34,10 @@ struct TrackSettings: Equatable {
 
     /// An unchanged or stale inspector must never restart playback or overwrite
     /// settings applied elsewhere after the inspector was opened.
+    func conflicts(replacing original: Self, current: Self) -> Bool {
+        self != original && current != original
+    }
+
     func canApply(
         replacing original: Self,
         current: Self,

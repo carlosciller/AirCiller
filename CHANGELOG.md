@@ -2,6 +2,40 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.18.0 (23 October 2026)
+
+This release fixes HDR startup failures and improves Playlist controls and
+episode continuity. A separately configured private connector can control
+AirCiller from ChatGPT; no hosted service or automatic setup is included.
+
+- Keep the current movie and its pending authorization when adding files to
+  Playlist. New items join the queue without replacing that decision.
+- Move a selected season with the Playlist menu or keyboard commands and undo
+  the move. Collapsing a season with a selected episode selects its parent.
+- Keep the Mac awake across automatic episode transitions and pending audio
+  approval. Conversion consent can cover equivalent following episodes in the
+  same session; Stop ends that consent.
+- Honor the chosen subtitle preference when matching text and bitmap tracks.
+  An available SDH track now wins over a normal text track when SDH is preferred.
+- Explain when an edited tracks panel has become stale and offer **Load Current
+  Tracks**. Converted audio no longer displays the original track's Atmos label.
+- Prevent a cancelled direct-MP4 startup from resuming after a later asset load
+  or seek completes. Cancelling AirPlay authorization releases its wake assertion.
+- Fix direct HDR preparation failing or consuming excessive memory when audio
+  precedes video in the MP4. Video, audio and their sample positions are preserved.
+- For the separately configured private-control integration, reject mismatched
+  deliveries before acting and keep status queries independent of the command
+  limit. Status distinguishes receiver observations from the Mac's estimated clock.
+- Block OpenSubtitles redirects that could forward credentials to another host.
+  Reject incorrect local-installation destinations before replacing any bundle.
+- Update certifi to 2026.10.19 and multidict to 6.9.1 for upstream security fixes.
+  FFmpeg, Python and pyatv remain unchanged.
+
+Bundled dependency changes and validation limits are recorded in the
+[October review](Docs/REVIEW_2026_10.md). Private control is opt-in and requires
+separate provisioning; its code being included does not connect an account.
+[Release scope and verification](Docs/RELEASE_0.18.0.md)
+
 ## 0.17.3 (19 October 2026)
 
 - Fix missing HLS text subtitles after seeking within a long caption. Captions

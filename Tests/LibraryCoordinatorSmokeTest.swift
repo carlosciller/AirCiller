@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Foundation
 
 /// Run only as an isolated check bundle with a fresh, UUID-suffixed preferences domain.
@@ -18,6 +19,7 @@ struct LibraryCoordinatorSmokeTest {
             throw Failure(message: "Refusing to overwrite an existing preferences domain")
         }
         defer { defaults.removePersistentDomain(forName: domain) }
+        try await DirectStartupCancellationCheck.run()
         let queue = ["a", "b", "c"].map {
             QueueMediaItem(path: "/synthetic-library/\($0).mkv", title: $0)
         }
@@ -29,6 +31,135 @@ struct LibraryCoordinatorSmokeTest {
         HistoryStore.saveQueue(queue)
         HistoryStore.saveRecent(recent)
         let coordinator = StreamCoordinator()
+        let remote = RemotePlaybackControl(coordinator: coordinator, installationKey: Data(repeating: 7, count: 32))
+        let gatewayInstallation = UUID()
+        let gatewayKey = Data(repeating: 9, count: 32)
+        let gateway = try RemoteCommandGateway(
+            coordinator: coordinator, installationID: gatewayInstallation,
+            key: gatewayKey)
+        let gatewayCipher = try RemoteCommandCipher(key: gatewayKey, installationID: gatewayInstallation)
+        let gatewayNow = Date()
+        func sealedCommand(_ command: RemoteCommand, session: UUID) throws -> Data {
+            try gatewayCipher.seal(
+                .init(
+                    operationID: UUID(), sessionID: session,
+                    expiresAt: gatewayNow.addingTimeInterval(30), command: command))
+        }
+        let gatewayStatus = try gateway.receive(try sealedCommand(.status, session: UUID()), now: gatewayNow)
+        try require(gatewayStatus.disposition == "result", "authenticated status bootstraps session")
+        let identitySession = coordinator.remoteControlSessionID
+        do {
+            _ = try gateway.receive(
+                try sealedCommand(.stop, session: identitySession),
+                expectedOperationID: UUID(), now: gatewayNow)
+            throw Failure(message: "mismatched delivery reached the coordinator")
+        } catch RemoteCommandGateway.Failure.deliveryIdentityMismatch {}
+        try require(
+            coordinator.remoteControlSessionID == identitySession,
+            "delivery identity is checked before Stop rotates the real session")
+        try require(
+            gatewayStatus.snapshot.position == nil && gatewayStatus.snapshot.receiverObservedAt == nil,
+            "missing receiver timing is not reported as observed zero")
+        let gatewaySearch = try gateway.receive(
+            try sealedCommand(.search(query: "a"), session: gatewayStatus.snapshot.sessionID), now: gatewayNow)
+        try require(gatewaySearch.items?.count == 1, "authenticated gateway searches actual coordinator")
+        let pauseEnvelope = try sealedCommand(.pause, session: gatewayStatus.snapshot.sessionID)
+        let rejectedPause = try gateway.receive(pauseEnvelope, now: gatewayNow)
+        let repeatedPause = try gateway.receive(pauseEnvelope, now: gatewayNow)
+        try require(
+            rejectedPause.disposition == "rejected" && repeatedPause.disposition == "duplicate",
+            "failed authenticated operation is not executed twice")
+        var tamperedEnvelope = pauseEnvelope
+        tamperedEnvelope[tamperedEnvelope.startIndex] ^= 1
+        do {
+            _ = try gateway.receive(tamperedEnvelope, now: gatewayNow)
+            throw Failure(message: "tampered gateway request accepted")
+        } catch is CryptoKitError {}
+        let remoteMatches = try remote.search("a")
+        try require(remoteMatches.count == 1 && remoteMatches[0].title == "a", "remote searches production library")
+        do {
+            try remote.dispatch(
+                .play(itemID: remoteMatches[0].id, fromBeginning: false),
+                sessionID: remote.snapshot().sessionID)
+            throw Failure(message: "remote accepted missing local media")
+        } catch RemotePlaybackControl.Failure.missingItem {}
+        let remoteSession = remote.snapshot().sessionID
+        let savedPreferences = remote.preferences()
+        try remote.dispatch(.setLanguages(audio: "jpn", subtitles: "spa", persistent: false), sessionID: remoteSession)
+        try require(
+            remote.preferences().audio == "jpn" && remote.preferences().subtitles == "spa"
+                && remote.preferences().savedAudio == savedPreferences.savedAudio
+                && remote.preferences().savedSubtitles == savedPreferences.savedSubtitles,
+            "session languages do not overwrite saved preferences")
+        do {
+            try remote.dispatch(.selectReceiver(id: UUID()), sessionID: remoteSession)
+            throw Failure(message: "remote selected an unknown receiver")
+        } catch RemotePlaybackControl.Failure.unavailable {}
+        coordinator.subtitleTracks = [
+            SubtitleTrack(
+                streamIndex: nil, codec: "subrip", language: "spa", title: "Spanish",
+                isDefault: false, isForced: false, isHearingImpaired: false,
+                externalPath: "/private/synthetic-subtitles.srt")
+        ]
+        let remoteTracks = remote.tracks()
+        try require(
+            remoteTracks.count == 1 && UUID(uuidString: remoteTracks[0].id) != nil,
+            "remote subtitle identity is opaque")
+        let trackJSON = String(decoding: try JSONEncoder().encode(remoteTracks), as: UTF8.self)
+        try require(
+            !trackJSON.contains("/private") && !trackJSON.contains(".srt"),
+            "remote tracks do not disclose external paths")
+        coordinator.subtitleTracks = []
+        let conversionTrack = AudioTrack(
+            streamIndex: 1, codec: "truehd", profile: nil,
+            channels: 6, channelLayout: "5.1(side)", language: "jpn", title: "Japanese", isDefault: true)
+        coordinator.audioTracks = [conversionTrack]
+        coordinator.selectedAudioID = conversionTrack.id
+        coordinator.showConversionAlert = true
+        let firstDecision = coordinator.remoteConversionDecisionID!
+        try require(
+            !coordinator.resolveRemoteConversion(decisionID: UUID(), approve: false, equivalentEpisodes: false),
+            "unknown conversion decision rejected")
+        coordinator.showConversionAlert = false
+        coordinator.showConversionAlert = true
+        let secondDecision = coordinator.remoteConversionDecisionID!
+        try require(firstDecision != secondDecision, "new conversion prompt has a new identity")
+        try require(
+            !coordinator.resolveRemoteConversion(decisionID: firstDecision, approve: true, equivalentEpisodes: true),
+            "retired conversion decision cannot authorize a new prompt")
+        let declinedOperation = try gateway.receive(
+            try sealedCommand(
+                .resolveConversion(decisionID: secondDecision, approve: false, equivalentEpisodes: false),
+                session: remoteSession), now: gatewayNow)
+        try require(
+            !coordinator.showConversionAlert && coordinator.remoteConversionDecisionID == nil,
+            "remote decline dismisses the actual pending conversion")
+        let declinedState = try gateway.receive(
+            try sealedCommand(.operation(id: declinedOperation.operationID), session: remoteSession), now: gatewayNow)
+        try require(declinedState.code == "declined", "declined conversion does not wait for receiver playback")
+        let cancelDeclined = try gateway.receive(
+            try sealedCommand(.cancelOperation(id: declinedOperation.operationID), session: remoteSession),
+            now: gatewayNow)
+        try require(
+            cancelDeclined.code == "operation_not_cancellable" && coordinator.remoteControlSessionID == remoteSession,
+            "completed conversion decline cannot cancel the session")
+        coordinator.audioTracks = []
+        coordinator.selectedAudioID = nil
+        try require(remote.snapshot().phase == "idle", "remote observes the real idle coordinator")
+        do {
+            try remote.dispatch(.pause, sessionID: remoteSession)
+            throw Failure(message: "remote pause accepted without a stream")
+        } catch RemotePlaybackControl.Failure.unavailable {}
+        try remote.dispatch(.stop, sessionID: remoteSession)
+        try require(
+            remote.preferences().audio == savedPreferences.savedAudio
+                && remote.preferences().subtitles == savedPreferences.savedSubtitles,
+            "Stop clears scoped language overrides")
+        try require(remote.snapshot().sessionID != remoteSession, "Stop rotates remote session")
+        do {
+            try remote.dispatch(.stop, sessionID: remoteSession)
+            throw Failure(message: "obsolete remote Stop accepted")
+        } catch RemotePlaybackControl.Failure.staleSession {}
         let manager = UndoManager()
         manager.groupsByEvent = false
         coordinator.setLibraryUndoManager(manager)
@@ -176,6 +307,23 @@ struct LibraryCoordinatorSmokeTest {
             "admitted files survive a new coordinator before analysis succeeds")
         coordinator.isStreaming = false
         coordinator.isPlaying = false
+        coordinator.showConversionAlert = true
+        let pendingDecision = coordinator.remoteConversionDecisionID
+        let pendingSession = coordinator.remoteControlSessionID
+        let waitingImport = URL(fileURLWithPath: "/synthetic-library/added-while-awaiting-audio.mkv")
+        coordinator.handleURLs([waitingImport])
+        try require(
+            coordinator.queueItems.contains { $0.path == waitingImport.path }
+                && coordinator.selectedURL == sessionURL && coordinator.showConversionAlert
+                && coordinator.remoteConversionDecisionID == pendingDecision
+                && coordinator.remoteControlSessionID == pendingSession,
+            "adding a movie preserves the pending audio decision and current session")
+        coordinator.handleURLs([URL(fileURLWithPath: "/synthetic-library/unsupported.txt")])
+        try require(
+            coordinator.showConversionAlert && coordinator.status == sessionStatus
+                && coordinator.detail == sessionDetail,
+            "rejected input reports an import issue without replacing a pending playback prompt")
+        coordinator.showConversionAlert = false
         let legacy = Data("[{\"path\":\"/legacy.mkv\",\"title\":\"Legacy\"}]".utf8)
         let decoded = try JSONDecoder().decode([QueueMediaItem].self, from: legacy)
         try require(
@@ -197,6 +345,45 @@ struct LibraryCoordinatorSmokeTest {
         try await verifySeasonIntegration(coordinator, manager: manager)
         coordinator.setLibraryUndoManager(nil)
         try require(!manager.canUndo && !manager.canRedo, "detaching window removes only library history")
+        if let fixturePath = ProcessInfo.processInfo.environment["AIRCILLER_REMOTE_NETWORK_FIXTURE"] {
+            let configuration = try JSONDecoder().decode(
+                PrivateRemoteConfiguration.self,
+                from: Data(contentsOf: URL(fileURLWithPath: fixturePath)))
+            let networkCoordinator = StreamCoordinator()
+            let originalSession = networkCoordinator.remoteControlSessionID
+            let wrongPin = PrivateRemoteConfiguration(
+                endpoint: configuration.endpoint,
+                agentToken: configuration.agentToken, commandKey: configuration.commandKey,
+                installationID: configuration.installationID, certificateSHA256: String(repeating: "0", count: 64))
+            let rejectedClient = try PrivateRemoteClient(configuration: wrongPin, coordinator: networkCoordinator)
+            rejectedClient.start()
+            for _ in 0..<50 {
+                if rejectedClient.lastTransportErrorCode != nil { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            rejectedClient.stop()
+            // The delegate explicitly cancels the authentication challenge on
+            // a pin mismatch; URLSession reports that as cancellation (-999).
+            try require(
+                rejectedClient.lastTransportErrorCode == NSURLErrorCancelled
+                    && networkCoordinator.remoteControlSessionID == originalSession,
+                "wrong certificate pin rejected without executing any command; transport code \(rejectedClient.lastTransportErrorCode ?? 0)"
+            )
+            let client = try PrivateRemoteClient(configuration: configuration, coordinator: networkCoordinator)
+            client.start()
+            defer { client.stop() }
+            for _ in 0..<150 {
+                if networkCoordinator.remoteControlSessionID != originalSession { break }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            try require(
+                networkCoordinator.remoteControlSessionID != originalSession,
+                "real TLS relay delivered Stop to the production coordinator; transport code \(client.lastTransportErrorCode ?? 0)"
+            )
+            // Allow the asynchronous result post to complete before tearing down.
+            try await Task.sleep(for: .milliseconds(500))
+            print("Private remote TLS integration: OK")
+        }
         print("Production coordinator library Undo/Redo, selection, persistence and session-state preservation: OK")
     }
 
@@ -321,14 +508,32 @@ struct LibraryCoordinatorSmokeTest {
         coordinator.loadVideo(episodes[0].url, autoStart: false)
         coordinator.duration = 120
         coordinator.currentTime = 120
+        coordinator.beginSyntheticPlaybackSessionForChecks()
         coordinator.airPlay.onPlaybackEnded?()
         try require(coordinator.selectedURL == episodes[1].url, "natural completion selects next grouped episode")
+        try require(coordinator.playbackPowerIsActiveForChecks, "transition preserves sleep protection")
+        coordinator.airPlay.onPlaybackEnded?()
+        try require(coordinator.selectedURL == episodes[1].url, "duplicate completion does not skip an episode")
         try require(
             coordinator.queueItems.first { $0.id == episodes[0].id }?.watched == true,
             "natural completion persists watched state")
         coordinator.stop()
         // No actor yield occurs between loading, injected end and Stop: no probe,
         // preparation or receiver session is started by the completion fixture.
+        try require(!coordinator.playbackPowerIsActiveForChecks, "Stop releases transition sleep protection")
+        coordinator.loadVideo(episodes[0].url, autoStart: true)
+        try require(coordinator.playbackPowerIsActiveForChecks, "automatic analysis prevents idle sleep")
+        coordinator.airPlay.onPlaybackError?("Synthetic receiver failure during transition")
+        try require(!coordinator.playbackPowerIsActiveForChecks, "receiver failure releases transition protection")
+        coordinator.stop()
+        coordinator.loadVideo(episodes[0].url, autoStart: true)
+        let analysisDeadline = Date().addingTimeInterval(10)
+        while coordinator.isAnalyzing, Date() < analysisDeadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try require(!coordinator.isAnalyzing && coordinator.hasError, "invalid episode analysis fails explicitly")
+        try require(!coordinator.playbackPowerIsActiveForChecks, "analysis failure releases transition protection")
+        coordinator.stop()
         try require(HistoryStore.loadQueue() == coordinator.queueItems, "season and progress state persisted")
         let cancelledFolder = root.appendingPathComponent("Cancelled season")
         let queuedFolder = root.appendingPathComponent("Queued season")
@@ -482,6 +687,50 @@ struct LibraryCoordinatorSmokeTest {
         try require(
             firstMenu.items.first { $0.title == L10n.text("Mover arriba") }?.isEnabled == false,
             "native first-episode context menu disables Move Up")
+
+        guard let seasonMenu = adapter.menu(outline.row(forItem: group)) else {
+            throw Failure(message: "native season menu missing")
+        }
+        try require(
+            coordinator.focusedQueueItemID == nil && coordinator.focusedQueueSeasonID == sourceSeason,
+            "native season selection is shared with menu commands without selecting an episode")
+        try require(
+            coordinator.canMoveFocusedQueueItemUp == (groupIndex > 0)
+                && coordinator.canMoveFocusedQueueItemDown == (groupIndex + 1 < rootCount)
+                && seasonMenu.items.first { $0.title == L10n.text("Mover arriba") }?.isEnabled
+                    == coordinator.canMoveFocusedQueueItemUp
+                && seasonMenu.items.first { $0.title == L10n.text("Mover abajo") }?.isEnabled
+                    == coordinator.canMoveFocusedQueueItemDown,
+            "main menu and native context menu share season movement availability")
+        let direction = groupIndex > 0 ? -1 : 1
+        var moved = false
+        action(manager) { moved = coordinator.moveFocusedQueueItem(by: direction) }
+        try require(moved && coordinator.queueItems != original, "main-menu action moves the complete season")
+        manager.undo()
+        try require(
+            coordinator.queueItems == original && coordinator.focusedQueueSeasonID == sourceSeason,
+            "season move Undo restores order and selection")
+        action(manager) { coordinator.removeSeason(sourceSeason) }
+        try require(coordinator.focusedQueueSeasonID == nil, "removing a selected season clears focus")
+        manager.undo()
+        try require(
+            coordinator.queueItems == original && coordinator.focusedQueueSeasonID == sourceSeason,
+            "season removal Undo restores group selection")
+        adapter.refresh(outline)
+        outline.selectRowIndexes(IndexSet(integer: outline.row(forItem: target)), byExtendingSelection: false)
+        try require(coordinator.focusedQueueItemID != nil, "collapse fixture selects a visible episode first")
+        outline.collapseItem(group)
+        adapter.refresh(outline)
+        try require(
+            coordinator.focusedQueueSeasonID == sourceSeason
+                && outline.item(atRow: outline.selectedRow) as AnyObject? === group as AnyObject,
+            "collapsing a selected episode returns selection to its season")
+        outline.deselectAll(nil)
+        try require(
+            coordinator.focusedQueueItemID == nil && coordinator.focusedQueueSeasonID == nil,
+            "native deselection clears shared selection")
+        adapter.refresh(outline)
+        try require(outline.selectedRow == -1, "refresh does not resurrect a deselected row")
     }
 
     @MainActor

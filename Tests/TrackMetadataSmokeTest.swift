@@ -45,6 +45,15 @@ struct TrackMetadataSmokeTest {
             title: "English Atmos",
             isDefault: false
         )
+        guard englishAlternateAudio.sessionSummary(outputMode: .original).contains("Atmos"),
+            audio.sessionSummary(outputMode: .original).contains("5.1"),
+            AudioOutputMode.allCases.filter({ $0 != .original }).allSatisfy({ mode in
+                englishAlternateAudio.sessionSummary(outputMode: mode) == englishAlternateAudio.interpretedName
+                    && audio.sessionSummary(outputMode: mode) == audio.interpretedName
+            })
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.OutputSummary", code: 15)
+        }
         guard
             AudioTrackSelection.preferredTrack(
                 in: [spanishDefaultAudio, englishAlternateAudio],
@@ -170,6 +179,32 @@ struct TrackMetadataSmokeTest {
         )
         guard vobSub.isSelectable, vobSub.usesBitmapOCR, vobSub.unsupportedReason == nil else {
             throw NSError(domain: "TrackMetadataSmokeTest.VobSub", code: 8)
+        }
+
+        let englishBitmapSDH = SubtitleTrack(
+            streamIndex: 9, codec: "hdmv_pgs_subtitle", language: "eng", title: "English SDH",
+            isDefault: true, isForced: false, isHearingImpaired: true, externalPath: nil)
+        let englishBitmapRegular = SubtitleTrack(
+            streamIndex: 10, codec: "dvd_subtitle", language: "eng", title: "English",
+            isDefault: false, isForced: false, isHearingImpaired: false, externalPath: nil)
+        guard
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishRegular, englishBitmapSDH], language: "eng", preference: .sdh
+            )?.id == englishBitmapSDH.id,
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishForced, englishSDH, englishBitmapRegular], language: "eng", preference: .standard
+            )?.id == englishBitmapRegular.id,
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishBitmapSDH, englishSDH], language: "eng", preference: .sdh
+            )?.id == englishSDH.id,
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishBitmapRegular, englishRegular], language: "eng", preference: .standard
+            )?.id == englishRegular.id,
+            SubtitleTrackSelection.preferredTrack(
+                in: [englishBitmapSDH, englishRegular], language: "eng", preference: .forced
+            ) == nil
+        else {
+            throw NSError(domain: "TrackMetadataSmokeTest.PreferenceBeforeOCRCost", code: 14)
         }
 
         guard MediaPresentation.resolutionLabel(width: 3840, height: 1608) == "4K",

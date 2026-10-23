@@ -3,10 +3,10 @@ import Darwin
 import Foundation
 
 /// Opt-in preparation benchmark. No HTTP server, Apple TV, Keychain or capture.
-/// STARTUP_BASELINE links the frozen production sources from 558b235.
+/// STARTUP_BASELINE preserves the historical sequential preparation at 558b235.
+/// STARTUP_REFERENCE links the production HLSPreparationService from a frozen HEAD.
 @main
 struct HLSPreparationPerformanceBenchmark {
-    private static let baselineRevision = "558b2350cec9414cfb1d8aca72a693f5412497ef"
 
     private enum Mode: String, Codable, CaseIterable {
         case baseline, noCache, emptyAppCache, warmAppCache
@@ -139,6 +139,7 @@ struct HLSPreparationPerformanceBenchmark {
 
     private struct Summary: Codable {
         let baselineRevision: String
+        let baselineKind: String
         let fixtureBytes: Int64
         let packagedDuration: Double
         let scope: String
@@ -253,9 +254,15 @@ struct HLSPreparationPerformanceBenchmark {
         #if STARTUP_BASELINE
             guard mode == .baseline else { throw Failure("Baseline executable only accepts baseline mode") }
         #else
-            guard mode != .baseline else { throw Failure("Current executable does not implement the frozen baseline") }
+            #if STARTUP_REFERENCE
+                guard mode == .baseline else { throw Failure("Reference executable only accepts baseline mode") }
+            #else
+                guard mode != .baseline else {
+                    throw Failure("Current executable does not implement the frozen baseline")
+                }
+            #endif
             let cache =
-                mode == .noCache
+                mode == .noCache || mode == .baseline
                 ? nil
                 : PreparedMediaCache(
                     rootDirectory: directory.appendingPathComponent("cache", isDirectory: true),
@@ -443,6 +450,15 @@ struct HLSPreparationPerformanceBenchmark {
     }
 
     private static func summarize(directory: URL, repetitions: Int) throws {
+        guard let baselineRevision = Bundle.main.object(forInfoDictionaryKey: "ACBenchmarkBaselineRevision") as? String,
+            baselineRevision.count == 40, baselineRevision.allSatisfy({ $0.isHexDigit }),
+            let baselineKind = Bundle.main.object(forInfoDictionaryKey: "ACBenchmarkBaselineKind") as? String,
+            ["historical", "head"].contains(baselineKind)
+        else { throw Failure("Missing frozen benchmark reference metadata") }
+        let baselineDescription =
+            baselineKind == "historical"
+            ? "Baseline uses frozen production sources plus the equivalent sequential preparation call order and 200 ms polling."
+            : "Baseline executes HLSPreparationService from the recorded committed HEAD with no app cache; working edits belong only to the candidate."
         guard let enumerator = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil) else {
             throw Failure("Missing benchmark output")
         }
@@ -504,6 +520,7 @@ struct HLSPreparationPerformanceBenchmark {
         }
         let summary = Summary(
             baselineRevision: baselineRevision,
+            baselineKind: baselineKind,
             fixtureBytes: samples[0].0.fixtureBytes,
             packagedDuration: samples[0].0.packagedDuration,
             scope: "Local complete HLS preparation: embedded text subtitles, copied H.264 and AAC, VOD validation",
@@ -513,7 +530,7 @@ struct HLSPreparationPerformanceBenchmark {
                 "Empty app cache does not mean cold OS/disk cache; no system cache purge is performed.",
                 "Probe, fixture generation, warm-cache fill and output comparisons are not timed.",
                 "No HTTP, receiver, first-visible-frame, sound, HDR or direct-MP4 measurement.",
-                "Baseline uses frozen production sources plus the equivalent sequential preparation call order and 200 ms polling.",
+                baselineDescription,
                 "No performance threshold or expected gain is asserted; every sample must retain identical served bytes.",
                 "CPU is the preparation-interval rusage delta for this benchmark and its reaped children, including measurement overhead.",
                 "RSS is sampled every requested 20 ms for this benchmark and its direct children; short peaks can be missed and shared mappings can be counted twice.",

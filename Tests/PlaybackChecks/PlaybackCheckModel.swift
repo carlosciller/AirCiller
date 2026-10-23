@@ -4,7 +4,7 @@ import Foundation
 struct PlaybackCheckPlan: Decodable {
     enum Route: String, Codable { case directHDR, hls, hlsHDR }
     enum HLSCacheMode: String, Codable { case disabled, isolated }
-    enum AudioOutput: String, Decodable { case original, losslessFLAC }
+    enum AudioOutput: String, Decodable { case original, losslessFLAC, compatible }
     enum Profile: String, Codable {
         case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap, subtitleSeek
         case hlsCacheReuse
@@ -105,6 +105,11 @@ struct PlaybackCheckPlan: Decodable {
             else { throw PlaybackCheckFailure.invalidPlan }
         }
         for clip in plan.clips {
+            if clip.audioOutput == .compatible {
+                guard plan.selectedProfile == .playlistTransition, clip.route == .hls else {
+                    throw PlaybackCheckFailure.invalidPlan
+                }
+            }
             if plan.selectedProfile.fixedAudioDelay != nil {
                 guard clip.route == .hls, clip.externalSubtitle != nil,
                     clip.audioOutput == nil || clip.audioOutput == .original,
@@ -147,7 +152,9 @@ struct PlaybackCheckPlan: Decodable {
             if [.trackChanges, .playlistTransition, .longPause].contains(plan.selectedProfile) {
                 guard clip.externalSubtitle != nil else { throw PlaybackCheckFailure.invalidPlan }
             }
-            if plan.selectedProfile == .playlistTransition, clip.route != .directHDR {
+            if plan.selectedProfile == .playlistTransition, clip.route != .directHDR,
+                !(clip.route == .hls && clip.audioOutput == .compatible)
+            {
                 throw PlaybackCheckFailure.invalidPlan
             }
             if plan.selectedProfile == .cancelPreparation,

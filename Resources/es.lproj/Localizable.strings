@@ -562,7 +562,7 @@
 "Prefiere SDH y usa una pista normal si no hay SDH en el idioma elegido." = "Prefiere SDH y usa una pista normal si no hay SDH en el idioma elegido.";
 "Activa únicamente una pista forzada. Si no existe, deja los subtítulos desactivados." = "Activa únicamente una pista forzada. Si no existe, deja los subtítulos desactivados.";
 "Conversión" = "Conversión";
-"Estas preferencias solo eligen pistas. Si un audio necesita conversión, AirCiller seguirá explicando el motivo y pidiendo permiso para esa película." = "Estas preferencias solo eligen pistas. Si un audio necesita conversión, AirCiller seguirá explicando el motivo y pidiendo permiso para esa película.";
+"Estas preferencias solo eligen pistas. AirCiller pide permiso antes de convertir audio. La autorización también cubre los siguientes episodios de la sesión que necesiten la misma conversión y termina al detener o elegir otra reproducción." = "Estas preferencias solo eligen pistas. AirCiller pide permiso antes de convertir audio. La autorización también cubre los siguientes episodios de la sesión que necesiten la misma conversión y termina al detener o elegir otra reproducción.";
 "Gestor" = "Gestor";
 "No disponible" = "No disponible";
 "Comprobando componentes…" = "Comprobando componentes…";
@@ -695,6 +695,8 @@
 "Opciones de audio" = "Opciones de audio";
 "Opciones de subtítulos" = "Opciones de subtítulos";
 "No hay cambios pendientes." = "No hay cambios pendientes.";
+"Las pistas han cambiado mientras editabas. Carga los ajustes actuales para descartar este borrador y seguir editando." = "Las pistas han cambiado mientras editabas. Carga los ajustes actuales para descartar este borrador y seguir editando.";
+"Cargar pistas actuales" = "Cargar pistas actuales";
 "Cerrar" = "Cerrar";
 "Ordenar la playlist" = "Ordenar la playlist";
 "Vaciar la playlist" = "Vaciar la playlist";
@@ -734,3 +736,13 @@
 "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán." = "El envío de PCM original no está validado en esta ruta de AirCiller. E-AC-3 añade pérdida. Para conservar las muestras, cancela y elige FLAC sin pérdida en las opciones de audio, si está disponible. El vídeo y el archivo original no cambiarán.";
 "Ocultar audio y subtítulos" = "Ocultar audio y subtítulos";
 "Mostrar audio y subtítulos" = "Mostrar audio y subtítulos";
+"Esperando autorización de audio" = "Esperando autorización de audio";
+"Control privado" = "Control privado";
+"Conectando" = "Conectando";
+"Desactivado" = "Desactivado";
+"Control privado con Dot" = "Control privado con Dot";
+"Comparte órdenes, títulos y estado con tu conexión privada. No envía películas, audio ni subtítulos. AirCiller debe permanecer abierta y el Mac despierto." = "Comparte órdenes, títulos y estado con tu conexión privada. No envía películas, audio ni subtítulos. AirCiller debe permanecer abierta y el Mac despierto.";
+"No se pudo abrir la configuración privada. Reinstala la conexión; no cambies los permisos del Llavero." = "No se pudo abrir la configuración privada. Reinstala la conexión; no cambies los permisos del Llavero.";
+"Conexión no disponible" = "Conexión no disponible";
+"Autoriza la conversión en el Mac para continuar la playlist." = "Autoriza la conversión en el Mac para continuar la playlist.";
+"La autorización se aplicará a los siguientes episodios de esta sesión que necesiten la misma conversión. Se borrará al detener o elegir otra reproducción." = "La autorización se aplicará a los siguientes episodios de esta sesión que necesiten la misma conversión. Se borrará al detener o elegir otra reproducción.";

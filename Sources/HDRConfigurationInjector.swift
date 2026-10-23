@@ -95,17 +95,18 @@ enum HDRConfigurationInjector {
         }
         let lengthSize = Int(prefix[configuration.contentStart + 21] & 0x03) + 1
         guard
-            let mediaStart = topLevelMediaDataContentStart(
+            let mediaRange = topLevelMediaDataRange(
                 in: prefix,
                 fileSize: fileSize
-            ), mediaStart < prefix.endIndex
+            ), mediaRange.lowerBound < prefix.endIndex
         else {
             throw InjectionError.invalidMediaSegment
         }
-        let metadataNALUnits = try staticMetadataNALUnits(
+        let metadataNALUnits = try directSampleMetadataNALUnits(
             in: prefix,
             lengthSize: lengthSize,
-            mediaPayloadRange: mediaStart..<prefix.endIndex
+            configurationPath: path,
+            mediaRange: mediaRange
         )
         guard metadataNALUnits.count <= Int(UInt16.max),
             metadataNALUnits.allSatisfy({ $0.count <= Int(UInt16.max) })
@@ -455,10 +456,156 @@ enum HDRConfigurationInjector {
         return result
     }
 
-    private static func topLevelMediaDataContentStart(
+    /// A regular MP4 interleaves audio, text and video in `mdat`. Only sample
+    /// tables belonging to the selected hvcC can identify its HEVC boundaries;
+    /// scanning arbitrary bytes can mistake compressed audio for oversized SEI.
+    /// Keep the existing 32 MiB prefix bound and inspect at most 256 samples.
+    private static func directSampleMetadataNALUnits(
+        in data: Data,
+        lengthSize: Int,
+        configurationPath: [MP4Box],
+        mediaRange: Range<Int>
+    ) throws -> [Data] {
+        guard (1...4).contains(lengthSize),
+            let table = configurationPath.last(where: { $0.type == "stbl" }),
+            let descriptions = configurationPath.last(where: { $0.type == "stsd" }),
+            let selectedEntry = configurationPath.last(where: { visualSampleEntries.contains($0.type) }),
+            descriptions.end - descriptions.contentStart >= 8,
+            readUInt32(data, at: descriptions.contentStart) == 0,
+            let descriptionCount = readUInt32(data, at: descriptions.contentStart + 4)
+        else { throw InjectionError.invalidInitializationSegment }
+        let entries = try directChildBoxes(in: data, range: (descriptions.contentStart + 8)..<descriptions.end)
+        guard entries.count == Int(descriptionCount),
+            let selectedIndex = entries.firstIndex(where: { $0.start == selectedEntry.start })
+        else { throw InjectionError.invalidInitializationSegment }
+        let selectedDescription = selectedIndex + 1
+        let children = try directChildBoxes(in: data, range: table.contentStart..<table.end)
+        let offsetBoxes = children.filter { $0.type == "stco" || $0.type == "co64" }
+        let sizeBoxes = children.filter { $0.type == "stsz" }
+        let runBoxes = children.filter { $0.type == "stsc" }
+        guard offsetBoxes.count == 1, sizeBoxes.count == 1, runBoxes.count == 1 else {
+            throw InjectionError.invalidInitializationSegment
+        }
+        let offsets = offsetBoxes[0]
+        let sizes = sizeBoxes[0]
+        let runs = runBoxes[0]
+        let offsetWidth = offsets.type == "co64" ? 8 : 4
+        let chunkCount = try directTableEntryCount(in: data, box: offsets, width: offsetWidth)
+        let runCount = try directTableEntryCount(in: data, box: runs, width: 12)
+        guard sizes.end - sizes.contentStart >= 12,
+            readUInt32(data, at: sizes.contentStart) == 0,
+            let fixedSizeValue = readUInt32(data, at: sizes.contentStart + 4),
+            let sampleCountValue = readUInt32(data, at: sizes.contentStart + 8)
+        else { throw InjectionError.invalidInitializationSegment }
+        let fixedSize = Int(fixedSizeValue)
+        let sampleCount = Int(sampleCountValue)
+        let sizeEntries = sizes.end - (sizes.contentStart + 12)
+        guard sampleCount > 0, chunkCount > 0, runCount > 0,
+            fixedSize > 0 ? sizeEntries == 0 : (sizeEntries % 4 == 0 && sizeEntries / 4 == sampleCount)
+        else { throw InjectionError.invalidInitializationSegment }
+
+        func run(_ index: Int) -> (first: Int, samples: Int, description: Int) {
+            let start = runs.contentStart + 8 + index * 12
+            return (
+                readVariableUInt(data, at: start, count: 4),
+                readVariableUInt(data, at: start + 4, count: 4),
+                readVariableUInt(data, at: start + 8, count: 4)
+            )
+        }
+        var mappedSamples = 0
+        for index in 0..<runCount {
+            let entry = run(index)
+            let next = index + 1 < runCount ? run(index + 1).first : chunkCount + 1
+            guard index != 0 || entry.first == 1, entry.first >= 1, entry.first <= chunkCount,
+                next > entry.first, next <= chunkCount + 1,
+                entry.samples > 0, entry.description >= 1, entry.description <= entries.count,
+                next - entry.first <= (sampleCount - mappedSamples) / entry.samples
+            else { throw InjectionError.invalidInitializationSegment }
+            mappedSamples += (next - entry.first) * entry.samples
+        }
+        guard mappedSamples == sampleCount else { throw InjectionError.invalidInitializationSegment }
+
+        var result: [Data] = []
+        var seen = Set<Data>()
+        var sampleIndex = 0
+        var runIndex = 0
+        sampleSearch: for chunk in 0..<chunkCount {
+            try Task.checkCancellation()
+            if sampleIndex >= min(sampleCount, 256) { break }
+            if runIndex + 1 < runCount, chunk + 1 >= run(runIndex + 1).first { runIndex += 1 }
+            let entry = run(runIndex)
+            let location = offsets.contentStart + 8 + chunk * offsetWidth
+            let rawOffset =
+                offsetWidth == 8 ? readUInt64(data, at: location) : readUInt32(data, at: location).map(UInt64.init)
+            guard let rawOffset, rawOffset >= UInt64(mediaRange.lowerBound), rawOffset < UInt64(mediaRange.upperBound)
+            else {
+                throw InjectionError.invalidMediaSegment
+            }
+            var sampleStart = Int(rawOffset)
+            for _ in 0..<entry.samples {
+                if sampleIndex >= min(sampleCount, 256) { break sampleSearch }
+                let size =
+                    fixedSize > 0
+                    ? fixedSize
+                    : readVariableUInt(data, at: sizes.contentStart + 12 + sampleIndex * 4, count: 4)
+                guard size > 0, size <= mediaRange.upperBound - sampleStart else {
+                    throw InjectionError.invalidMediaSegment
+                }
+                let sampleEnd = sampleStart + size
+                if sampleEnd > data.count { break sampleSearch }
+                if entry.description == selectedDescription {
+                    var offset = sampleStart
+                    while offset < sampleEnd {
+                        guard lengthSize <= sampleEnd - offset else { throw InjectionError.invalidMediaSegment }
+                        let length = readVariableUInt(data, at: offset, count: lengthSize)
+                        offset += lengthSize
+                        guard length >= 2, length <= sampleEnd - offset else {
+                            throw InjectionError.invalidMediaSegment
+                        }
+                        if Int((data[offset] >> 1) & 0x3F) == 39 {
+                            let nal = Data(data[offset..<(offset + length)])
+                            if !staticSEIMessageTypes(in: nal).isDisjoint(with: staticSEITypes),
+                                seen.insert(nal).inserted
+                            {
+                                result.append(nal)
+                            }
+                        }
+                        offset += length
+                    }
+                }
+                sampleIndex += 1
+                sampleStart = sampleEnd
+            }
+        }
+        guard !result.isEmpty else { throw InjectionError.missingStaticMetadata }
+        return result
+    }
+
+    private static func directChildBoxes(in data: Data, range: Range<Int>) throws -> [MP4Box] {
+        var result: [MP4Box] = []
+        var offset = range.lowerBound
+        while offset < range.upperBound {
+            guard let box = readBox(in: data, at: offset, limit: range.upperBound) else {
+                throw InjectionError.invalidInitializationSegment
+            }
+            result.append(box)
+            offset = box.end
+        }
+        return result
+    }
+
+    private static func directTableEntryCount(in data: Data, box: MP4Box, width: Int) throws -> Int {
+        guard box.end - box.contentStart >= 8, readUInt32(data, at: box.contentStart) == 0,
+            let count = readUInt32(data, at: box.contentStart + 4),
+            box.end - (box.contentStart + 8) == Int(count) * width
+        else { throw InjectionError.invalidInitializationSegment }
+        return Int(count)
+    }
+
+    private static func topLevelMediaDataRange(
         in data: Data,
         fileSize: Int
-    ) -> Int? {
+    ) -> Range<Int>? {
         var offset = 0
         while offset + 8 <= data.count {
             guard let compactSize = readUInt32(data, at: offset),
@@ -484,7 +631,7 @@ enum HDRConfigurationInjector {
                 size = Int(compactSize)
             }
             guard size >= headerSize, offset <= fileSize - size else { return nil }
-            if type == "mdat" { return offset + headerSize }
+            if type == "mdat" { return (offset + headerSize)..<(offset + size) }
             guard offset <= data.count - size else { return nil }
             offset += size
         }
