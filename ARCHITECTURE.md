@@ -1,8 +1,9 @@
 # Architecture
 
 AirCiller consists of a native macOS application, bundled media tools and an
-on-demand Python helper for AirPlay 2. No playback server or helper stays running
-independently of the app's active work.
+on-demand Python helper for AirPlay 2. The playback server and media helper live
+only for the app's active work. The optional private-control service below has a
+separate lifecycle; it never serves media.
 
 Local certificate-signed builds also embed an on-demand, read-only
 [credential service](Docs/CREDENTIAL_SERVICE.md). It authenticates XPC callers
@@ -116,3 +117,26 @@ Keychain stores. Legacy movie entries remain readable without optional season
 fields. Prepared-media, downloaded-subtitle and OCR caches remain on the Mac.
 Original media is not modified. See [Privacy](PRIVACY.md) for data and network
 boundaries and [Distribution](DISTRIBUTION.md) for packaging and update ownership.
+
+## Optional private control
+
+An explicitly provisioned relay receives bounded commands through a private
+ChatGPT tunnel. AirCiller polls it over pinned HTTPS and authenticates encrypted
+commands before dispatch to its existing coordinator. Transport identity must
+match the authenticated operation before any mutation. Retries reuse an operation
+ID; changed arguments or a retired session are rejected. Receiver observations
+retain their own timestamp and optional position, separate from the UI clock and
+command acknowledgements.
+
+A separate opt-in lifecycle agent can launch and normally quit the fixed installed
+AirCiller bundle. It cannot execute arbitrary commands, wake the computer or unlock
+the user session. Its status queries remain live without consuming the bounded
+mutation ledger. These agents are not installed by building the app. Their
+configuration, removal procedure and candidate-specific evidence are in
+[Private control](Docs/PRIVATE_REMOTE_CONTROL.md).
+
+During automatic playlist transitions, a short-lived power assertion spans the
+gap between playback sessions, analysis and a pending audio decision. Equivalent
+audio conversion consent belongs to that playlist session; Stop or an unrelated
+explicit playback choice clears it. A cancelled authorization releases its own
+transition assertion, never one belonging to a newer session.

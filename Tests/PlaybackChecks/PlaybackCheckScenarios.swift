@@ -81,7 +81,9 @@ final class PlaybackCheckScenarioRunner {
                 ["h264", "hevc"].contains(probe.videoCodec.lowercased()),
                 clip.audioOutput == .losslessFLAC
                     ? coordinator.selectedAudio?.canPrepareLosslessFLAC == true
-                    : coordinator.selectedAudio?.canPassThrough == true,
+                    : (clip.audioOutput == .compatible
+                        ? coordinator.selectedAudio?.canPassThrough == false
+                        : coordinator.selectedAudio?.canPassThrough == true),
                 clip.route == .directHDR ? probe.isHDR : !probe.isHDR
             else { throw PlaybackCheckFailure.unsupportedFixture }
             coordinator.selectedSubtitleID = nil
@@ -114,6 +116,12 @@ final class PlaybackCheckScenarioRunner {
             let marker = events.count
             let requestedAt = now
             coordinator.start(at: 0)
+            if clip.audioOutput == .compatible {
+                guard coordinator.showConversionAlert else { throw PlaybackCheckFailure.applicationError }
+                coordinator.confirmAudioConversion()
+                requestedAudioOutput = .compatible
+                result.completedSteps.append("first_episode_audio_conversion_explicitly_approved")
+            }
             if profile == .cancelPreparation {
                 try await cancelPreparation(result: &result, directories: &directories)
             } else {
@@ -206,7 +214,9 @@ final class PlaybackCheckScenarioRunner {
             coordinator.audioOutputMode == requestedAudioOutput,
             requestedAudioOutput == .losslessFLAC
                 ? coordinator.selectedAudio?.canPrepareLosslessFLAC == true
-                : coordinator.selectedAudio?.canPassThrough == true
+                : (requestedAudioOutput == .compatible
+                    ? coordinator.selectedAudio?.canPassThrough == false
+                    : coordinator.selectedAudio?.canPassThrough == true)
         else {
             throw PlaybackCheckFailure.unsupportedFixture
         }
@@ -606,6 +616,12 @@ final class PlaybackCheckScenarioRunner {
         step = "automatic_next_item"
         let nextMarker = events.firstIndex(where: { $0.kind == "ended" })!.advanced(by: 1)
         try await started(after: nextMarker, route: next.route, expectedPosition: 0, result: &result)
+        if clip.audioOutput == .compatible {
+            guard coordinator.audioOutputMode == .compatible, !coordinator.showConversionAlert else {
+                throw PlaybackCheckFailure.conversionRequested
+            }
+            result.completedSteps.append("next_episode_reuses_equivalent_audio_approval")
+        }
         if let directory = coordinator.activePreparedDirectory { directories.insert(directory) }
         guard coordinator.selectedSubtitleID == nil else { throw PlaybackCheckFailure.receiverMismatch }
         try await observe("nextItem", after: nextMarker, result: &result)

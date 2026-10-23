@@ -7,6 +7,7 @@ private typealias AirCillerState<Value> = SwiftUI.State<Value>
 struct AirCillerSettingsView: View {
     @Bindable var coordinator: StreamCoordinator
     @Bindable var updateController: UpdateController
+    @Bindable var privateRemote: PrivateRemoteSettings
     @AirCillerState private var components = ComponentManager()
 
     var body: some View {
@@ -35,6 +36,10 @@ struct AirCillerSettingsView: View {
                 .tabItem {
                     Label("Actualizaciones", systemImage: "arrow.triangle.2.circlepath")
                 }
+            if privateRemote.configurationAvailable || privateRemote.configurationError {
+                PrivateRemoteSettingsView(remote: privateRemote, coordinator: coordinator)
+                    .tabItem { Label("Control privado", systemImage: "network") }
+            }
         }
         .frame(width: 640, height: 500)
     }
@@ -376,7 +381,7 @@ struct PlaybackSettingsView: View {
 
             Section("Conversión") {
                 Text(
-                    "Estas preferencias solo eligen pistas. Si un audio necesita conversión, AirCiller seguirá explicando el motivo y pidiendo permiso para esa película."
+                    "Estas preferencias solo eligen pistas. AirCiller pide permiso antes de convertir audio. La autorización también cubre los siguientes episodios de la sesión que necesiten la misma conversión y termina al detener o elegir otra reproducción."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

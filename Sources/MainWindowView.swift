@@ -252,13 +252,7 @@ struct ContentView: View {
             .filter { ["resolution", "dynamic-range"].contains($0.id) }
             .map { L10n.text($0.value) }
         if let audio = coordinator.selectedAudio {
-            parts.append(
-                [
-                    audio.interpretedName, coordinator.audioOutputMode == .original ? L10n.text("Original") : nil,
-                    audio.isAtmos ? "Atmos" : audio.channelDescription,
-                ]
-                .compactMap { $0 }.joined(separator: " ")
-            )
+            parts.append(audio.sessionSummary(outputMode: coordinator.audioOutputMode))
         } else {
             parts.append(L10n.text("Sin audio"))
         }

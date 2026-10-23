@@ -9,7 +9,7 @@
 
 ## Invariants
 
-- Preserve original media and subtitles. Preparation stays local. Audio transcoding requires an explicit choice; video is never transcoded. No telemetry, permanent server or unrelated background work.
+- Preserve original media and subtitles. Preparation stays local. Audio transcoding requires an explicit choice; video is never transcoded. No telemetry or unrelated background work. The explicitly provisioned, opt-in private-control relay and lifecycle agent are the narrow exception to the no-permanent-server rule; see [private control](Docs/PRIVATE_REMOTE_CONTROL.md). Do not deploy, expand or reconfigure them as a routine app-build step.
 - Direct MP4 never encodes video. HLS/fMP4 must be complete VOD before playback. Do not change both packagers in one delivery; assess shared controls/server changes on both routes.
 - Keep pinned, verified bundled runtimes and `ACBundledEngineRequired`. No silent host-engine fallback or opportunistic upgrades.
 - Retain the established Keychain stores and credential-service boundaries. Keep private media, device/network identifiers and credentials out of Git and published diagnostics.

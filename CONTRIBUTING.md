@@ -5,14 +5,22 @@ AirCiller is a personal project, but focused reviews and small proposals are wel
 ## Before proposing a change
 
 - Keep opening a file and starting playback fast and lightweight.
-- Do not add telemetry, cloud services, a permanent server, or background work.
+- Do not add telemetry, cloud-library services or unrelated background work.
+  The separately provisioned [private-control integration](Docs/PRIVATE_REMOTE_CONTROL.md)
+  is opt-in and is not deployed by an ordinary app build or release.
 - Do not modify originals or transcode silently.
 - Do not change both the direct MP4 and HLS/fMP4 packagers in one delivery. Shared controls or server changes require assessing and validating their effects on both paths.
 - Do not include movies, commercial subtitles, network addresses, device names, or credentials.
 
 ## Prepare a checkout
 
-Use an Apple silicon Mac with the Swift 6 Command Line Tools. Start from the intended revision in a clean clone or worktree; inspect `git status --short` and preserve any existing work. Do not copy another checkout's build output or local signing configuration into a clean release checkout.
+Use an Apple silicon Mac with the Swift 6 Command Line Tools and the Node version
+in `.node-version` for private-control tests. Put that Node executable on PATH or
+set `AIRCILLER_NODE` to its absolute path. Node is a development/service dependency,
+not an addition to the app bundle. Start from the intended revision in a clean
+clone or worktree; inspect `git status --short` and preserve any existing work.
+Do not copy another checkout's build output or local signing configuration into
+a clean release checkout.
 
 Prepare the dependencies from the repository root:
 

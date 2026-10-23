@@ -7,11 +7,20 @@ if [[ "${AIRCILLER_TEST_STORAGE_CHILD:-}" != "$project_dir/Scripts/benchmark_sta
 fi
 repetitions="${1:-5}"
 profile="${2:-small}"
-if [[ "$repetitions" != [1-9] || ( "$profile" != small && "$profile" != large ) ]]; then
-  echo "Usage: $0 [repetitions: 1-9, default 5] [small|large, default small]" >&2
+reference="${3:-historical}"
+if [[ $# -gt 3 || "$repetitions" != [1-9] || ( "$profile" != small && "$profile" != large ) \
+  || ( "$reference" != historical && "$reference" != head ) ]]; then
+  echo "Usage: $0 [repetitions: 1-9, default 5] [small|large, default small] [historical|head, default historical]" >&2
   exit 2
 fi
 baseline_revision="558b2350cec9414cfb1d8aca72a693f5412497ef"
+baseline_arguments=(-D STARTUP_BASELINE)
+if [[ "$reference" == head ]]; then
+  # Freeze the committed production service, excluding working-tree edits.
+  # Use this explicitly when historical output changed for a correctness fix.
+  baseline_revision="$(git -C "$project_dir" rev-parse --verify 'HEAD^{commit}')"
+  baseline_arguments=(-D STARTUP_REFERENCE)
+fi
 engine_root="$project_dir/.build/dependencies/AirCillerEngine-ffmpeg-9.0.1-python-3.13.15"
 ffmpeg="$engine_root/ffmpeg/bin/ffmpeg"
 ffprobe="$engine_root/ffmpeg/bin/ffprobe"
@@ -50,6 +59,19 @@ for name in "${common_names[@]}"; do
   baseline_sources+=("$baseline_dir/$name.swift")
   current_sources+=("$project_dir/Sources/$name.swift")
 done
+current_sources+=(
+  "$project_dir/Sources/HLSAudioTimeline.swift"
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift"
+  "$project_dir/Sources/CapturedProcess.swift"
+)
+if [[ "$reference" == head ]]; then
+  for name in HLSAudioTimeline HLSAudioTimelineInfo CapturedProcess PreparedMediaCache HLSPreparationService PlaybackStartupTrace; do
+    git -C "$project_dir" show "$baseline_revision:Sources/$name.swift" > "$baseline_dir/$name.swift"
+    baseline_sources+=("$baseline_dir/$name.swift")
+  done
+else
+  baseline_sources+=("$project_dir/Sources/PlaybackStartupTrace.swift")
+fi
 common_arguments=(
   -sdk "$(xcrun --sdk macosx --show-sdk-path)"
   -target arm64-apple-macosx14.0 -module-cache-path "$benchmark_root/module-cache"
@@ -66,9 +88,11 @@ for variant in baseline current; do
   plutil -insert CFBundleIdentifier -string "local.airciller.startupbenchmark.$variant" "$app/Contents/Info.plist"
   plutil -insert CFBundlePackageType -string APPL "$app/Contents/Info.plist"
   plutil -insert ACBundledEngineRequired -bool YES "$app/Contents/Info.plist"
+  plutil -insert ACBenchmarkBaselineRevision -string "$baseline_revision" "$app/Contents/Info.plist"
+  plutil -insert ACBenchmarkBaselineKind -string "$reference" "$app/Contents/Info.plist"
 done
-xcrun swiftc "${common_arguments[@]}" -D STARTUP_BASELINE \
-  "${baseline_sources[@]}" "$project_dir/Sources/PlaybackStartupTrace.swift" \
+xcrun swiftc "${common_arguments[@]}" "${baseline_arguments[@]}" \
+  "${baseline_sources[@]}" \
   "$project_dir/Tests/HLSPreparationPerformanceBenchmark.swift" \
   -o "$run_dir/baseline.app/Contents/MacOS/benchmark"
 xcrun swiftc "${common_arguments[@]}" \
@@ -84,6 +108,7 @@ sw_vers > "$run_dir/system.txt"
 df -P "$run_dir" > "$run_dir/storage-location.txt"
 "$ffmpeg" -version > "$run_dir/ffmpeg.txt"
 git -C "$project_dir" rev-parse HEAD > "$run_dir/current-revision.txt"
+shasum -a 256 "${baseline_sources[@]}" > "$run_dir/baseline-source-sha256.txt"
 shasum -a 256 "${current_sources[@]}" \
   "$project_dir/Sources/PlaybackStartupTrace.swift" "$project_dir/Sources/PreparedMediaCache.swift" \
   "$project_dir/Sources/HLSPreparationService.swift" "$project_dir/Tests/HLSPreparationPerformanceBenchmark.swift" \

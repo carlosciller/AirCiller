@@ -57,12 +57,12 @@ struct NativeSeasonOutline: NSViewRepresentable {
         private var nodes: [String: Node] = [:]
         private weak var outline: NSOutlineView?
         private var syncing = false
-        private var selectedID: String?
         private var contextual: Node?
         private var lastItems: [QueueMediaItem] = []
         private var lastGroups: [SeasonFolder] = []
         private var lastCurrent: String?
         private var lastFocus: String?
+        private var lastSeasonFocus: String?
         private var lastUnavailable: Set<String> = []
 
         init(_ owner: StreamCoordinator) { self.owner = owner }
@@ -72,12 +72,14 @@ struct NativeSeasonOutline: NSViewRepresentable {
             guard
                 lastItems != owner.queueItems || lastGroups != owner.seasonFolders
                     || lastCurrent != owner.selectedURL?.path || lastFocus != owner.focusedQueueItemID
+                    || lastSeasonFocus != owner.focusedQueueSeasonID
                     || lastUnavailable != owner.unavailableLibraryPaths || roots.isEmpty
             else { return }
             lastItems = owner.queueItems
             lastGroups = owner.seasonFolders
             lastCurrent = owner.selectedURL?.path
             lastFocus = owner.focusedQueueItemID
+            lastSeasonFocus = owner.focusedQueueSeasonID
             lastUnavailable = owner.unavailableLibraryPaths
             roots = []
             var groupsSeen = Set<String>()
@@ -112,7 +114,7 @@ struct NativeSeasonOutline: NSViewRepresentable {
             outline.reloadData()
             for node in roots where node.group?.isExpanded == true { outline.expandItem(node) }
             for node in roots where node.group?.isExpanded == false { outline.collapseItem(node) }
-            let selection = owner.focusedQueueItemID ?? selectedID
+            let selection = owner.focusedQueueItemID ?? owner.focusedQueueSeasonID.map { "season:" + $0 }
             if let selection, let node = nodes[selection], outline.row(forItem: node) >= 0 {
                 outline.selectRowIndexes(IndexSet(integer: outline.row(forItem: node)), byExtendingSelection: false)
             } else {
@@ -169,19 +171,36 @@ struct NativeSeasonOutline: NSViewRepresentable {
             return cell
         }
         func outlineViewSelectionDidChange(_ notification: Notification) {
-            guard !syncing, let outline, let node = outline.item(atRow: outline.selectedRow) as? Node else { return }
-            selectedID = node.id
-            if let movie = node.movie { owner.focusQueueItem(movie) } else { owner.clearQueueFocus() }
+            guard !syncing, let outline else { return }
+            guard let node = outline.item(atRow: outline.selectedRow) as? Node else {
+                owner.clearQueueFocus()
+                return
+            }
+            if let movie = node.movie {
+                owner.focusQueueItem(movie)
+            } else if let group = node.group {
+                owner.focusQueueSeason(group.id)
+            }
         }
         func outlineViewItemDidExpand(_ notification: Notification) { expansion(notification, expanded: true) }
+        func outlineViewItemWillCollapse(_ notification: Notification) {
+            guard !syncing, let outline, let node = notification.userInfo?["NSObject"] as? Node,
+                node.children.contains(where: { $0.movie?.id == owner.focusedQueueItemID })
+            else { return }
+            // AppKit removes the selected descendant before DidCollapse. Move
+            // selection to the still-visible parent before that removal can
+            // report an empty selection and erase the descendant's identity.
+            let row = outline.row(forItem: node)
+            guard row >= 0 else { return }
+            outline.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        }
         func outlineViewItemDidCollapse(_ notification: Notification) { expansion(notification, expanded: false) }
         private func expansion(_ notification: Notification, expanded: Bool) {
             guard !syncing, let node = notification.userInfo?["NSObject"] as? Node,
                 let group = node.group
             else { return }
             if !expanded, node.children.contains(where: { $0.movie?.id == owner.focusedQueueItemID }) {
-                selectedID = node.id
-                owner.clearQueueFocus()
+                owner.focusQueueSeason(group.id)
             }
             owner.setSeasonExpanded(group.id, expanded: expanded)
         }
@@ -214,10 +233,8 @@ struct NativeSeasonOutline: NSViewRepresentable {
                 add(menu, "Marcar como pendiente", #selector(markGroupPending))
             }
             menu.addItem(.separator())
-            let siblings = (outline.parent(forItem: node) as? Node)?.children ?? roots
-            let position = siblings.firstIndex(where: { $0 === node }) ?? 0
-            add(menu, "Mover arriba", #selector(moveUp)).isEnabled = position > 0
-            add(menu, "Mover abajo", #selector(moveDown)).isEnabled = position + 1 < siblings.count
+            add(menu, "Mover arriba", #selector(moveUp)).isEnabled = owner.canMoveFocusedQueueItemUp
+            add(menu, "Mover abajo", #selector(moveDown)).isEnabled = owner.canMoveFocusedQueueItemDown
             menu.addItem(.separator())
             add(menu, "Quitar de la playlist", #selector(remove))
             return menu
@@ -264,13 +281,10 @@ struct NativeSeasonOutline: NSViewRepresentable {
             guard let node = contextual else { return }
             if let movie = node.movie {
                 owner.focusQueueItem(movie)
-                _ = owner.moveFocusedQueueItem(by: offset)
-            } else if let group = node.group, let index = roots.firstIndex(where: { $0 === node }) {
-                let destination = offset < 0 ? index - 1 : index + 2
-                guard destination >= 0 else { return }
-                let before = destination < roots.count ? roots[destination].firstMovieID : nil
-                owner.moveQueueItems(ids: owner.queueItems.filter { $0.seasonID == group.id }.map(\.id), before: before)
+            } else if let group = node.group {
+                owner.focusQueueSeason(group.id)
             }
+            _ = owner.moveFocusedQueueItem(by: offset)
         }
         func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> (any NSPasteboardWriting)?
         {

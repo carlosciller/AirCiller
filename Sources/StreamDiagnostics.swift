@@ -139,8 +139,9 @@ enum StreamDemandAnalyzer {
         guard !videoSegments.isEmpty else {
             throw AirCillerError.invalidVODPackage("No hay segmentos para medir el caudal del stream.")
         }
-        if try HLSAudioTimelineInfo.load(directory: outputDirectory) != nil {
-            return try adjustedHLSProfile(
+        let hasAdjustedTimeline = try HLSAudioTimelineInfo.load(directory: outputDirectory) != nil
+        if hasSeparateAudio || hasAdjustedTimeline {
+            return try combinedHLSProfile(
                 segments: videoSegments + audioSegments,
                 duration: videoSegments.reduce(0) { $0 + $1.duration },
                 directory: outputDirectory)
@@ -175,9 +176,10 @@ enum StreamDemandAnalyzer {
         )
     }
 
-    /// Adjusted renditions have different segment boundaries. Measure their
-    /// combined demand on the shared presentation clock, never by array index.
-    private static func adjustedHLSProfile(
+    /// Video keyframes and audio frames define independent segment boundaries,
+    /// even with zero adjustment. Measure their combined demand on the shared
+    /// presentation clock so every audio segment contributes to totals and peaks.
+    private static func combinedHLSProfile(
         segments: [HLSSegment], duration: Double, directory: URL
     ) throws -> StreamDemandProfile {
         var events: [(time: Double, delta: Double)] = []

@@ -13,6 +13,12 @@ struct TrackSettingsSmokeTest {
         var current = original
         current.audioID = "audio-2"
         precondition(!draft.canApply(replacing: original, current: current, sameMedia: true, controlsEnabled: true))
+        precondition(draft.conflicts(replacing: original, current: current))
+        precondition(!original.conflicts(replacing: original, current: current))
+        precondition(!draft.conflicts(replacing: original, current: original))
+        let reloaded = current
+        precondition(!reloaded.conflicts(replacing: current, current: current))
+        precondition(!reloaded.canApply(replacing: current, current: current, sameMedia: true, controlsEnabled: true))
         draft = original
         draft.audioDelay = 0.05
         precondition(draft.canApply(replacing: original, current: original, sameMedia: true, controlsEnabled: true))
