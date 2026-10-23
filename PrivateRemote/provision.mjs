@@ -15,7 +15,7 @@ if (existsSync(root)) throw new Error('Existing installation preserved; inspect 
 mkdirSync(root, {recursive: true, mode: 0o700});
 chmodSync(root, 0o700);
 const source = dirname(fileURLToPath(import.meta.url));
-for (const file of ['server.mjs', 'relay.mjs', 'http.mjs']) {
+for (const file of ['server.mjs', 'relay.mjs', 'http.mjs', 'listener-address.mjs']) {
   copyFileSync(join(source, file), join(root, file)); chmodSync(join(root, file), 0o600);
 }
 const privateWrite = (name, value) => writeFileSync(join(root, name), value, {mode: 0o600, flag: 'wx'});

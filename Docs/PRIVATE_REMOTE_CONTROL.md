@@ -12,6 +12,13 @@ authenticated HTTPS long-poll requests to the relay; the Mac opens no listener.
 The relay and tunnel are separate user LaunchAgents, independent of other
 services. They require the server user's logged-in session.
 
+The HTTPS agent listener resolves its configured hostname to an actual local,
+non-internal interface, preferring IPv4. macOS may return loopback first for its
+own Bonjour name; that address cannot serve the other Mac. The listener selects
+only an address both returned for that name and present on a non-internal local
+interface. It never falls back to all interfaces or an unrelated address. If no
+usable address exists, startup fails. The MCP endpoint remains loopback-only.
+
 The client verifies a pinned certificate, hostname, validity and signature.
 DNS comparison is case-insensitive. AES-GCM also authenticates each command with
 an installation-specific context. Owner-only configuration files contain the
