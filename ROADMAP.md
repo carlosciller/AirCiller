@@ -4,7 +4,7 @@ AirCiller should stay quick to open and dependable through a whole movie.
 This is a priority list, not a release schedule. Shipped features belong in the
 [release notes](CHANGELOG.md); validation belongs in [Testing](TESTING.md).
 
-## Shipped: 0.18.0 reliability and private control
+## Shipped: 0.18.1 maintenance, 0.18.0 reliability and private control
 
 The [October review](Docs/REVIEW_2026_10.md) owns the findings and acceptance ledger.
 Its selected fixes are implemented and validated: cancelled direct startup,
@@ -18,21 +18,37 @@ checked through the connected tools. [Release record](Docs/RELEASE_0.18.0.md).
 
 The identified certifi and multidict advisories were addressed with targeted locked
 updates. The separate [build-time pip correction](Docs/BUILD_PIP_MAINTENANCE.md)
-uses a verified installer and excludes unused installers from future app bundles.
-It is not part of the installed 0.18.0 package; its packaging checks and release
-boundary are recorded separately.
+uses a verified installer and excludes unused installers from app bundles.
+Version 0.18.1 is published and installed through Sparkle. PR, main and tag CI
+passed; the published archive matched the accepted local package. Existing
+playback evidence remains applicable because playback inputs did not change.
 
 ## Faster playback startup
 
-**Next: select one measured local bottleneck, without redesigning AirPlay.**
+**Completed: private-library cache and demand-analysis baseline.**
 
-1. Keep a current, reproducible preparation baseline with disabled, empty and
-   warm app caches. Compare equivalent served output, pinned engines and the
-   same machine; historical subtitle output is not byte-equivalent after the
-   seek repair. Retain raw samples and identify the exact reference revision.
-2. Measure repeated cache-metadata reads and concurrent full-file demand analysis
-   before changing them. Rank opportunities by observed time, risk and effort.
-   Keep integrity checks, finalized VOD and original audio/video quality.
+Three complete movies, three empty/warm pairs each, have equivalent served bytes.
+Warm HLS preparation medians are 2.279 s, 1.918 s and 0.566 s. A link-API
+experiment did not show a worthwhile reliable saving; no production optimization
+was adopted. The ordinary 16 GiB cache cannot retain the 20.92 GB first sample;
+its experimental warm result used an isolated 32 GiB limit. See the
+[measurement and decision record](Docs/LIBRARY_STARTUP_MEASUREMENT.md), including
+CPU, sampled RSS, the corrected wrapper and measurement limits.
+
+**Next, if warranted: a paired direct-route scheduling experiment.** Measure
+whether full-file demand analysis competes with direct preparation before
+changing cancellation. HLS already cancels that analysis at startup. Do not add
+the separately measured analysis time to Play delay or repeat the HLS baseline
+without a changed hypothesis. Apply a small optimization only when repeated
+measurements demonstrate an avoidable cost and output equivalence.
+
+1. Retain the completed preparation baseline and its raw samples. Refresh only
+   for a changed hypothesis or relevant production input; historical subtitle
+   output is not byte-equivalent after the seek repair.
+2. Compare direct preparation with and without concurrent full-file demand
+   analysis on equivalent media. Keep integrity checks, finalized VOD and
+   original audio/video quality. Profile individual cache operations only for a
+   specific alternative; the link-API comparison provides no basis for a rewrite.
 3. Return to transport measurements only with a specific new hypothesis. The
    recorded 3.31 s accepted-to-playing interval is not an established removable
    delay. Capture added about 1.28 s in one matched campaign; it is not a universal
@@ -100,7 +116,7 @@ Do not reopen them as new features. [Current compatibility](COMPATIBILITY.md).
 - Keep engines pinned and bundled. Update for a concrete fix or security need,
   regenerate dependency locks and select checks by the affected boundary.
 - zeroconf PR #30 is merged with a separate [lock and discovery review](Docs/ZEROCONF_MAINTENANCE.md);
-  it is not part of the published 0.18.0 package. Keep protobuf 6.33.6 until
+  it is included in 0.18.1. Keep protobuf 6.33.6 until
   a major update has a concrete benefit and serialization/control evidence.
 - Retain the 165 MB logical bundle budget. Trim only with measured savings and
   applicable checks; do not remove runtime files just to lower the number.
