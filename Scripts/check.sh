@@ -38,6 +38,8 @@ fi
 mkdir -p "$test_dir" "$module_cache" "$build_dir/python-cache"
 
 "$project_dir/Scripts/requirements_lock.sh" check
+"$engine_path/airplay/python/bin/python3" -I -B "$project_dir/Tests/BuildPipTest.py"
+"$engine_path/airplay/python/bin/python3" -I -B "$project_dir/Tests/PythonInstallerPruningTest.py"
 
 common_swift_arguments=(
   -sdk "$sdk_path"
@@ -561,5 +563,6 @@ test -f "$project_dir/.build/AirCiller.app/Contents/Resources/Legal/Sparkle-LICE
 otool -L "$project_dir/.build/AirCiller.app/Contents/MacOS/AirCiller" | \
   grep -Eq '@rpath/Sparkle.framework/'
 codesign --verify --deep --strict "$project_dir/.build/AirCiller.app"
+"$engine_path/airplay/python/bin/python3" -I -B "$project_dir/Tests/BundledPythonPackagingTest.py"
 
 echo "AirCiller local checks: OK"

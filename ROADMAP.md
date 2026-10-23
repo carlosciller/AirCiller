@@ -17,9 +17,10 @@ update passed. The private service corrections were separately deployed and
 checked through the connected tools. [Release record](Docs/RELEASE_0.18.0.md).
 
 The identified certifi and multidict advisories were addressed with targeted locked
-updates. Keep the separate build-time pip trust bundle visible in the security
-record; changing the app's runtime packages does not patch that copy. Do not
-combine this with the unrelated zeroconf upgrade.
+updates. The separate [build-time pip correction](Docs/BUILD_PIP_MAINTENANCE.md)
+uses a verified installer and excludes unused installers from future app bundles.
+It is not part of the installed 0.18.0 package; its packaging checks and release
+boundary are recorded separately.
 
 ## Faster playback startup
 
@@ -98,7 +99,7 @@ Do not reopen them as new features. [Current compatibility](COMPATIBILITY.md).
 
 - Keep engines pinned and bundled. Update for a concrete fix or security need,
   regenerate dependency locks and select checks by the affected boundary.
-- zeroconf PR #30 has a separate [lock and discovery review](Docs/ZEROCONF_MAINTENANCE.md);
+- zeroconf PR #30 is merged with a separate [lock and discovery review](Docs/ZEROCONF_MAINTENANCE.md);
   it is not part of the published 0.18.0 package. Keep protobuf 6.33.6 until
   a major update has a concrete benefit and serialization/control evidence.
 - Retain the 165 MB logical bundle budget. Trim only with measured savings and

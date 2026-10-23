@@ -1,5 +1,11 @@
 # Distribution and credential review, October 2026
 
+Follow-up on 23 October: the separate pip finding is addressed for current build
+entry points and future app packaging in the
+[build-installer maintenance record](BUILD_PIP_MAINTENANCE.md). The original
+archive findings below remain historical evidence; installed 0.18.0 and recovery
+archives have not been rewritten by that follow-up.
+
 This record covers the working candidate based on `68410591e3786705f54938326e152be94fa564d1`.
 It is a source review and focused local validation record. It does not establish
 GitHub CI acceptance, publication, installation, Apple TV output or notarization.
