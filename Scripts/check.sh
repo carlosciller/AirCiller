@@ -2,6 +2,12 @@
 set -euo pipefail
 
 project_dir="${0:A:h:h}"
+node_path="${AIRCILLER_NODE:-$(command -v node || true)}"
+expected_node_version="$(< "$project_dir/.node-version")"
+if [[ ! -x "$node_path" || "$("$node_path" --version)" != "v$expected_node_version" ]]; then
+  echo "Node $expected_node_version is required for the private-control checks. Set AIRCILLER_NODE to that executable." >&2
+  exit 2
+fi
 PYTHONDONTWRITEBYTECODE=1 python3 "$project_dir/Tests/TestStorageTest.py"
 python3 "$project_dir/Scripts/test_storage.py" clean
 python3 "$project_dir/Tests/CIValidationTest.py"
@@ -135,6 +141,27 @@ compile_and_run track-settings \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/TrackSettings.swift" \
   "$project_dir/Tests/TrackSettingsSmokeTest.swift"
+compile_and_run remote-command-ledger \
+  "$project_dir/Sources/RemoteCommandLedger.swift" \
+  "$project_dir/Tests/RemoteCommandLedgerSmokeTest.swift"
+compile_and_run remote-command-contract \
+  "$project_dir/Sources/RemoteCommand.swift" \
+  "$project_dir/Tests/RemoteCommandSmokeTest.swift"
+compile_and_run remote-command-envelope \
+  "$project_dir/Sources/RemoteCommand.swift" \
+  "$project_dir/Sources/RemoteCommandLedger.swift" \
+  "$project_dir/Sources/RemoteCommandEnvelope.swift" \
+  "$project_dir/Tests/RemoteCommandEnvelopeSmokeTest.swift"
+compile_and_run remote-library-index \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/RemoteLibraryIndex.swift" \
+  "$project_dir/Tests/RemoteLibraryIndexSmokeTest.swift"
+compile_and_run playlist-audio-consent \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/PlaylistAudioConsent.swift" \
+  "$project_dir/Tests/PlaylistAudioConsentSmokeTest.swift"
 compile_and_run pcm-audio-eligibility \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \
@@ -196,6 +223,15 @@ compile_and_run opensubtitles-service \
 compile_and_run bounded-http-response \
   "$project_dir/Sources/BoundedHTTPResponse.swift" \
   "$project_dir/Tests/BoundedHTTPResponseSmokeTest.swift"
+compile_and_run opensubtitles-redirect \
+  -framework Security \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/AirCillerStorage.swift" \
+  "$project_dir/Sources/OpenSubtitlesCredentialStore.swift" \
+  "$project_dir/Sources/BoundedHTTPResponse.swift" \
+  "$project_dir/Sources/OpenSubtitlesService.swift" \
+  "$project_dir/Tests/OpenSubtitlesRedirectSmokeTest.swift"
 compile_and_run airplay-runtime-probe \
   "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
   "$project_dir/Tests/AirPlayRuntimeProbeSmokeTest.swift"
@@ -235,6 +271,11 @@ compile_and_run season-folder \
   "$project_dir/Sources/SeasonFolder.swift" \
   "$project_dir/Tests/SeasonFolderSmokeTest.swift"
 "$project_dir/Scripts/check_library_coordinator.sh"
+# The HTTPS fixture starts only its isolated coordinator and loopback servers.
+# It never invokes provisioners, Keychain, launch agents or media receivers.
+"$node_path" --test "$project_dir"/PrivateRemote/*.test.mjs
+"$swiftc_path" "${common_swift_arguments[@]}" \
+  "$project_dir/PrivateRemote/Lifecycle.swift" -o "$test_dir/private-lifecycle"
 compile_and_run local-network-route \
   "$project_dir/Sources/LocalNetworkRoute.swift" \
   "$project_dir/Tests/LocalNetworkRouteSmokeTest.swift"
@@ -387,6 +428,11 @@ compile_and_run hls-subtitle-preparation \
   "$project_dir/Tests/HLSSubtitlePreparationSmokeTest.swift"
 unset AIRCILLER_TEST_FFMPEG
 
+compile_and_run direct-hdr-sample-tables \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/HDRConfigurationInjector.swift" \
+  "$project_dir/Tests/DirectHDRSampleTableSmokeTest.swift"
+
 compile_and_run hls-preparation-service \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
@@ -435,6 +481,9 @@ compile_and_run flac-manifest \
 
 python_path="$(< "$project_dir/VendorPython/.airciller-python-executable")"
 PYTHONPATH="$project_dir/VendorPython" \
+  "$python_path" -B "$project_dir/Tests/DependencySecurityTest.py"
+
+PYTHONPATH="$project_dir/VendorPython" \
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" -W error::ResourceWarning "$project_dir/Tests/AiohttpCompatibilityTest.py"
 PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/BundleSizeSmokeTest.py"
@@ -457,6 +506,7 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackStartupSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/SigningIdentitySmokeTest.py"
+PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/LocalInstallerSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/DistributionAuditSmokeTest.py"
 

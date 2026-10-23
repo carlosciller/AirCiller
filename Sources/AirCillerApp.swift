@@ -12,11 +12,13 @@ private typealias AirCillerState<Value> = SwiftUI.State<Value>
 struct AirCillerApp: App {
     @NSApplicationDelegateAdaptor(AirCillerAppDelegate.self) private var appDelegate
     @AirCillerState private var coordinator = StreamCoordinator()
+    @AirCillerState private var privateRemote = PrivateRemoteSettings()
 
     var body: some Scene {
         Window("AirCiller", id: "main") {
             ContentView(coordinator: coordinator, appDelegate: appDelegate)
                 .frame(minWidth: 720, minHeight: 520)
+                .task { privateRemote.start(coordinator: coordinator) }
         }
         .defaultSize(width: 960, height: 650)
         .windowResizability(.contentMinSize)
@@ -80,7 +82,8 @@ struct AirCillerApp: App {
         Settings {
             AirCillerSettingsView(
                 coordinator: coordinator,
-                updateController: appDelegate.updateController
+                updateController: appDelegate.updateController,
+                privateRemote: privateRemote
             )
         }
     }
@@ -560,6 +563,10 @@ struct TrackSettingsView: View {
             isHDR: coordinator.probeInfo?.isHDR)
     }
 
+    private var hasConflict: Bool {
+        draft.conflicts(replacing: original, current: coordinator.trackSettings)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -692,7 +699,18 @@ struct TrackSettingsView: View {
             .formStyle(.grouped)
             .disabled(!coordinator.commandAvailability.canEditTracks)
             VStack(alignment: .leading, spacing: 12) {
-                if !audioOutputAvailable {
+                if hasConflict {
+                    Text(
+                        "Las pistas han cambiado mientras editabas. Carga los ajustes actuales para descartar este borrador y seguir editando."
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    Button("Cargar pistas actuales") {
+                        let current = coordinator.trackSettings
+                        draft = current
+                        original = current
+                    }
+                } else if !audioOutputAvailable {
                     Text("No se puede aplicar esta salida de audio. Elige otro formato o restablece la sincronía.")
                         .font(.caption)
                         .foregroundStyle(.secondary)

@@ -87,6 +87,14 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
         return parts.joined(separator: " · ")
     }
 
+    /// Converted output is described separately by the selected audio plan.
+    /// Do not label it with the source's Atmos objects or channel count.
+    func sessionSummary(outputMode: AudioOutputMode) -> String {
+        guard outputMode == .original else { return interpretedName }
+        return [interpretedName, L10n.text("Original"), isAtmos ? "Atmos" : channelDescription]
+            .compactMap { $0 }.joined(separator: " ")
+    }
+
     var codecDisplayName: String {
         switch codec.lowercased() {
         case "eac3": return "E-AC-3"
@@ -584,13 +592,13 @@ enum SubtitleTrackSelection {
         _ right: SubtitleTrack,
         preference: SubtitleTrackPreference
     ) -> Bool {
-        if left.isTextBased != right.isTextBased {
-            return left.isTextBased
-        }
         let leftRank = preferenceRank(for: left, preference: preference)
         let rightRank = preferenceRank(for: right, preference: preference)
         if leftRank != rightRank {
             return leftRank < rightRank
+        }
+        if left.isTextBased != right.isTextBased {
+            return left.isTextBased
         }
         if left.isDefault != right.isDefault {
             return left.isDefault

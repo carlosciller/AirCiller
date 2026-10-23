@@ -8,6 +8,13 @@ import UniformTypeIdentifiers
 @Observable
 @MainActor
 final class StreamCoordinator {
+    // Local control identity, independent of the receiver's transport session.
+    // Rotated even during analysis, when no AirPlay session exists yet.
+    private(set) var remoteControlSessionID = UUID()
+    func invalidateRemoteControlSession() {
+        remoteControlSessionID = UUID()
+    }
+    private(set) var remoteReceiverObservation: AirPlayReceiverObservation?
     private(set) var selectedURL: URL?
     private(set) var probeInfo: MediaProbe?
     var status = "Listo"
@@ -48,6 +55,22 @@ final class StreamCoordinator {
         UserDefaults.standard.string(forKey: "preferredAudioLanguage") ?? ""
     private(set) var preferredSubtitleLanguage: String =
         UserDefaults.standard.string(forKey: "preferredSubtitleLanguage") ?? ""
+    private var remoteSessionAudioLanguage: String?
+    private var remoteSessionSubtitleLanguage: String?
+    var effectiveAudioLanguage: String { remoteSessionAudioLanguage ?? preferredAudioLanguage }
+    var effectiveSubtitleLanguage: String { remoteSessionSubtitleLanguage ?? preferredSubtitleLanguage }
+
+    func setRemoteLanguagePreferences(audio: String, subtitles: String, persistent: Bool) {
+        if persistent {
+            setPreferredAudioLanguage(audio)
+            setPreferredSubtitleLanguage(subtitles)
+            remoteSessionAudioLanguage = nil
+            remoteSessionSubtitleLanguage = nil
+        } else {
+            remoteSessionAudioLanguage = audio
+            remoteSessionSubtitleLanguage = subtitles
+        }
+    }
     private(set) var preferredSubtitleKind: SubtitleTrackPreference =
         UserDefaults.standard.string(forKey: "preferredSubtitleKind")
         .flatMap(SubtitleTrackPreference.init(rawValue:)) ?? .standard
@@ -63,10 +86,23 @@ final class StreamCoordinator {
     @ObservationIgnored private var libraryImportID: UUID?
     @ObservationIgnored private var pendingLibraryURLs: [URL] = []
     private(set) var focusedQueueItemID: String?
+    private(set) var focusedQueueSeasonID: String?
     var focusedRecentItemID: String?
     @ObservationIgnored private weak var libraryUndoManager: UndoManager?
     private(set) var unavailableLibraryPaths: Set<String> = []
-    var showConversionAlert = false
+    var showConversionAlert = false {
+        didSet {
+            if showConversionAlert && !oldValue {
+                remoteConversionDecisionID = UUID()
+                remoteConversionAudio = selectedAudio
+            } else if !showConversionAlert {
+                remoteConversionDecisionID = nil
+                remoteConversionAudio = nil
+            }
+        }
+    }
+    private(set) var remoteConversionDecisionID: UUID?
+    private var remoteConversionAudio: AudioTrack?
     private(set) var conversionReason = ""
 
     let player = AVPlayer()
@@ -74,6 +110,29 @@ final class StreamCoordinator {
     let airPlay = AirPlayController()
     private let nowPlaying = SystemNowPlayingController()
     private let playbackPower = PlaybackPowerAssertion()
+    private let transitionPower = PlaybackPowerAssertion()
+    private var playlistAudioConsent = PlaylistAudioConsent()
+    #if AIRCILLER_UI_CHECKS
+        func beginSyntheticPlaybackSessionForChecks() {
+            precondition(CommandLine.arguments.contains("--skip-device-scan"))
+            activeSessionID = UUID()
+            playbackPower.begin()
+            isStreaming = true
+        }
+        var playbackPowerIsActiveForChecks: Bool { playbackPower.isActive || transitionPower.isActive }
+
+        func directStartupCheckpointForChecks(after suspension: @MainActor () async -> Void) async throws {
+            guard let sessionID = activeSessionID else { preconditionFailure("Requires a synthetic session") }
+            await suspension()
+            try requireCurrentStreamSession(sessionID)
+        }
+
+        func beginSyntheticAuthorizationRenewalForChecks() {
+            precondition(CommandLine.arguments.contains("--skip-device-scan"))
+            authorizationRenewalSessionID = remoteControlSessionID
+            transitionPower.begin()
+        }
+    #endif
     private let playbackLogger = Logger(subsystem: "local.carlosciller.AirCiller", category: "Playback")
     @ObservationIgnored private let launchOptions = AirCillerLaunchOptions()
 
@@ -129,6 +188,7 @@ final class StreamCoordinator {
     @ObservationIgnored private var streamTask: Task<Void, Never>?
     @ObservationIgnored private let authorizationPreflight = PlaybackAuthorizationPreflight()
     @ObservationIgnored private var authorizationRetryPolicy = AirPlayAuthorizationRetryPolicy()
+    @ObservationIgnored private var authorizationRenewalSessionID: UUID?
     @ObservationIgnored private let mediaAnalysisTasks = MediaAnalysisTasks()
     @ObservationIgnored private var activeAnalysisID: UUID?
     @ObservationIgnored private var terminationObserver: NSObjectProtocol?
@@ -148,6 +208,9 @@ final class StreamCoordinator {
         player.allowsExternalPlayback = true
         player.automaticallyWaitsToMinimizeStalling = true
 
+        airPlay.onReceiverPlaybackUpdate = { [weak self] observation in
+            self?.remoteReceiverObservation = observation
+        }
         airPlay.onPlaybackUpdate = { [weak self] position, reportedDuration, playing in
             guard let self else { return }
             let previousState = self.isPlaying
@@ -224,7 +287,21 @@ final class StreamCoordinator {
         }
         airPlay.onPairingSucceeded = { [weak self] shouldResumePlayback in
             guard let self, shouldResumePlayback, self.selectedURL != nil else { return }
+            self.authorizationRenewalSessionID = nil
             self.continueStart(at: self.pendingStartTime)
+        }
+        airPlay.onPairingCancelled = { [weak self] in
+            guard let self else { return }
+            let owner = self.authorizationRenewalSessionID
+            self.authorizationRenewalSessionID = nil
+            guard owner == self.remoteControlSessionID,
+                self.activeSessionID == nil, !self.isAnalyzing, !self.isWaitingToStart,
+                !self.showConversionAlert
+            else { return }
+            self.transitionPower.end()
+            self.isPreparing = false
+            self.status = "Operación cancelada."
+            self.detail = "El vídeo se enviará sin recodificar. Elige las pistas y pulsa Reproducir."
         }
 
         nowPlaying.onPlay = { [weak self] in
@@ -576,7 +653,7 @@ final class StreamCoordinator {
         }
         let videos = urls.filter(MediaFileTypes.accepts)
         guard let first = videos.first else {
-            guard !isStreaming, !isPreparing, !isAnalyzing else { return }
+            guard !commandAvailability.canStop else { return }
             presentError(
                 title: "No hay ninguna película compatible",
                 detail: "Arrastra o abre un archivo MKV, MP4, M4V, MOV, TS, MTS o M2TS."
@@ -584,7 +661,7 @@ final class StreamCoordinator {
             return
         }
         enqueue(videos)
-        guard analyzeFirst, !isStreaming, !isPreparing, !isAnalyzing else { return }
+        guard analyzeFirst, !commandAvailability.canStop else { return }
         loadVideo(first, autoStart: false)
     }
 
@@ -747,6 +824,7 @@ final class StreamCoordinator {
         if !queueItems.contains(where: { $0.id == focusedQueueItemID }) { focusedQueueItemID = nil }
         HistoryStore.saveQueue(queueItems)
         registerQueueUndo(before: previousItems, focus: previousFocus, actionName: "Quitar de la playlist")
+        if focusedQueueSeasonID == id { focusedQueueSeasonID = nil }
     }
 
     func chooseExternalSubtitle() -> SubtitleTrack? {
@@ -785,13 +863,17 @@ final class StreamCoordinator {
         loadVideo(item.url, autoStart: true)
     }
 
-    func loadVideo(_ url: URL, autoStart: Bool, startingAt requestedStart: Double? = nil) {
+    func loadVideo(
+        _ url: URL, autoStart: Bool, startingAt requestedStart: Double? = nil,
+        continuingPlaylist: Bool = false
+    ) {
         #if AIRCILLER_PLAYBACK_CHECKS
             onPlaybackCheckLoad?(url)
         #endif
         let commandLineSubtitleIndex = autoStart ? launchOptions.subtitleStreamIndex : nil
         mediaAnalysisTasks.cancelAll()
-        stop(resetStatus: false)
+        if autoStart { transitionPower.begin() }
+        stop(resetStatus: false, preservingPlaylist: continuingPlaylist, preservingTransition: autoStart)
         selectedURL = url
         probeInfo = nil
         audioTracks = []
@@ -836,10 +918,10 @@ final class StreamCoordinator {
                     self.audioTracks = info.audioTracks
                     self.subtitleTracks = info.subtitleTracks
                     self.chapters = info.chapters
-                    if !self.preferredAudioLanguage.isEmpty,
+                    if !self.effectiveAudioLanguage.isEmpty,
                         let preferredAudio = AudioTrackSelection.preferredTrack(
                             in: info.audioTracks,
-                            language: self.preferredAudioLanguage
+                            language: self.effectiveAudioLanguage
                         )
                     {
                         self.selectedAudioID = preferredAudio.id
@@ -852,11 +934,11 @@ final class StreamCoordinator {
                             info.subtitleTracks.first(where: {
                                 $0.streamIndex == commandLineSubtitleIndex
                             })?.id
-                    } else if !self.preferredSubtitleLanguage.isEmpty {
+                    } else if !self.effectiveSubtitleLanguage.isEmpty {
                         self.selectedSubtitleID =
                             SubtitleTrackSelection.preferredTrack(
                                 in: info.subtitleTracks,
-                                language: self.preferredSubtitleLanguage,
+                                language: self.effectiveSubtitleLanguage,
                                 preference: self.preferredSubtitleKind
                             )?.id
                     }
@@ -886,6 +968,7 @@ final class StreamCoordinator {
                     self.activeAnalysisID = nil
                     self.isAnalyzing = false
                     self.hasError = true
+                    self.transitionPower.end()
                     self.status = "No se pudo analizar la película"
                     self.detail = error.localizedDescription
                 }
@@ -897,6 +980,7 @@ final class StreamCoordinator {
     }
 
     func start(at requestedTime: Double) {
+        remoteReceiverObservation = nil
         cancelAuthorizationPreflight()
         authorizationRetryPolicy.reset()
         continueStart(at: requestedTime)
@@ -987,6 +1071,12 @@ final class StreamCoordinator {
             presentError(title: "Esta pista no puede enviarse todavía", detail: reason)
             return
         }
+        if audioOutputMode == .original, let audio = selectedAudio,
+            let authorized = playlistAudioConsent.authorizedOutput(
+                for: audio, isDirectMP4: info.isHDR && selectedSubtitle != nil, audioDelay: audioDelay)
+        {
+            audioOutputMode = authorized
+        }
         guard
             audioOutputMode.isAvailable(
                 audio: selectedAudio, isDirectMP4: info.isHDR && selectedSubtitle != nil
@@ -1020,6 +1110,14 @@ final class StreamCoordinator {
                     "La distribución de canales FLAC (%@) no se conserva con el empaquetado actual. Elige otra pista o autoriza convertir solo el audio a E-AC-3. No se cambiará el vídeo ni el archivo original.",
                     audio.channelLayout ?? L10n.text("Desconocido"))
             }
+            transitionPower.begin()
+            status = "Esperando autorización de audio"
+            detail = "Autoriza la conversión en el Mac para continuar la playlist."
+            conversionReason +=
+                "\n\n"
+                + L10n.text(
+                    "La autorización se aplicará a los siguientes episodios de esta sesión que necesiten la misma conversión. Se borrará al detener o elegir otra reproducción."
+                )
             showConversionAlert = true
             return
         }
@@ -1062,18 +1160,37 @@ final class StreamCoordinator {
         }
     }
 
-    func confirmAudioConversion(to mode: AudioOutputMode = .compatible) {
+    func confirmAudioConversion(to mode: AudioOutputMode = .compatible, rememberForPlaylist: Bool = true) {
         guard mode == .compatible || (mode == .losslessFLAC && canOfferLosslessAudioConversion)
         else { return }
         showConversionAlert = false
+        if rememberForPlaylist, let audio = selectedAudio {
+            playlistAudioConsent.authorize(audio: audio, output: mode)
+        } else {
+            playlistAudioConsent.reset()
+        }
         audioOutputMode = mode
         continueStart(at: pendingStartTime)
     }
 
     func cancelAudioConversion() {
         showConversionAlert = false
+        playlistAudioConsent.reset()
+        transitionPower.end()
         status = "Conversión cancelada"
         detail = "No se ha cambiado ni reproducido nada. Puedes elegir otra pista de audio."
+    }
+
+    func resolveRemoteConversion(decisionID: UUID, approve: Bool, equivalentEpisodes: Bool) -> Bool {
+        guard showConversionAlert, remoteConversionDecisionID == decisionID,
+            let expectedAudio = remoteConversionAudio, expectedAudio == selectedAudio
+        else { return false }
+        if approve {
+            confirmAudioConversion(to: .compatible, rememberForPlaylist: equivalentEpisodes)
+        } else {
+            cancelAudioConversion()
+        }
+        return true
     }
 
     func applyTrackSettings() {
@@ -1139,7 +1256,15 @@ final class StreamCoordinator {
         seek(to: presentationPosition(forMovie: target))
     }
 
-    func stop(resetStatus: Bool = true) {
+    func stop(resetStatus: Bool = true, preservingPlaylist: Bool = false, preservingTransition: Bool = false) {
+        remoteControlSessionID = UUID()
+        remoteReceiverObservation = nil
+        if !preservingPlaylist {
+            playlistAudioConsent.reset()
+            remoteSessionAudioLanguage = nil
+            remoteSessionSubtitleLanguage = nil
+        }
+        if !preservingTransition { transitionPower.end() }
         saveCurrentPosition(force: true)
         activeAnalysisID = nil
         isAnalyzing = false
@@ -1194,6 +1319,9 @@ final class StreamCoordinator {
         }
         HistoryStore.saveQueue(queueItems)
         registerQueueUndo(before: previousItems, focus: previousFocus, actionName: "Quitar de la playlist")
+        if let focusedQueueSeasonID, !queueItems.contains(where: { $0.seasonID == focusedQueueSeasonID }) {
+            self.focusedQueueSeasonID = nil
+        }
     }
 
     func setLibraryUndoManager(_ manager: UndoManager?) {
@@ -1204,22 +1332,29 @@ final class StreamCoordinator {
 
     private func registerQueueUndo(before items: [QueueMediaItem], focus: String?, actionName: String) {
         guard let edit = LibraryListUndo(before: items, after: queueItems) else { return }
-        registerQueueUndo(edit, focus: focus, actionName: actionName)
+        registerQueueUndo(edit, focus: focus, seasonFocus: focusedQueueSeasonID, actionName: actionName)
     }
 
-    private func registerQueueUndo(_ edit: LibraryListUndo<QueueMediaItem>, focus: String?, actionName: String) {
+    private func registerQueueUndo(
+        _ edit: LibraryListUndo<QueueMediaItem>, focus: String?, seasonFocus: String?, actionName: String
+    ) {
         libraryUndoManager?.registerUndo(withTarget: self) { coordinator in
             MainActor.assumeIsolated {
-                coordinator.applyQueueUndo(edit, focus: focus, actionName: actionName)
+                coordinator.applyQueueUndo(edit, focus: focus, seasonFocus: seasonFocus, actionName: actionName)
             }
         }
         libraryUndoManager?.setActionName(L10n.text(actionName))
     }
 
-    private func applyQueueUndo(_ edit: LibraryListUndo<QueueMediaItem>, focus: String?, actionName: String) {
-        registerQueueUndo(edit.inverse(in: queueItems), focus: focusedQueueItemID, actionName: actionName)
+    private func applyQueueUndo(
+        _ edit: LibraryListUndo<QueueMediaItem>, focus: String?, seasonFocus: String?, actionName: String
+    ) {
+        registerQueueUndo(
+            edit.inverse(in: queueItems), focus: focusedQueueItemID,
+            seasonFocus: focusedQueueSeasonID, actionName: actionName)
         queueItems = edit.applying(to: queueItems)
         focusedQueueItemID = focus.flatMap { id in queueItems.contains { $0.id == id } ? id : nil }
+        focusedQueueSeasonID = seasonFocus.flatMap { id in queueItems.contains { $0.seasonID == id } ? id : nil }
         HistoryStore.saveQueue(queueItems)
     }
 
@@ -1247,13 +1382,35 @@ final class StreamCoordinator {
     func focusQueueItem(_ item: QueueMediaItem) {
         guard queueItems.contains(where: { $0.id == item.id }) else { return }
         focusedQueueItemID = item.id
+        focusedQueueSeasonID = nil
+    }
+
+    func focusQueueSeason(_ id: String) {
+        guard seasonFolders.contains(where: { $0.id == id }), queueItems.contains(where: { $0.seasonID == id }) else {
+            return
+        }
+        focusedQueueItemID = nil
+        focusedQueueSeasonID = id
     }
 
     func clearQueueFocus() {
         focusedQueueItemID = nil
+        focusedQueueSeasonID = nil
+    }
+
+    private var focusedSeasonRoot: (index: Int, items: [QueueMediaItem])? {
+        guard let focusedQueueSeasonID else { return nil }
+        var seen = Set<String>()
+        let roots = queueItems.filter { item in
+            guard let season = item.seasonID else { return true }
+            return seen.insert(season).inserted
+        }
+        guard let index = roots.firstIndex(where: { $0.seasonID == focusedQueueSeasonID }) else { return nil }
+        return (index, roots)
     }
 
     var canMoveFocusedQueueItemUp: Bool {
+        if let root = focusedSeasonRoot { return root.index > 0 }
         guard let focusedQueueItemID,
             let index = queueItems.firstIndex(where: { $0.id == focusedQueueItemID })
         else {
@@ -1266,6 +1423,7 @@ final class StreamCoordinator {
     }
 
     var canMoveFocusedQueueItemDown: Bool {
+        if let root = focusedSeasonRoot { return root.index + 1 < root.items.count }
         guard let focusedQueueItemID,
             let index = queueItems.firstIndex(where: { $0.id == focusedQueueItemID })
         else {
@@ -1279,6 +1437,15 @@ final class StreamCoordinator {
 
     @discardableResult
     func moveFocusedQueueItem(by offset: Int) -> Bool {
+        if let root = focusedSeasonRoot, let season = focusedQueueSeasonID {
+            guard offset != 0 else { return false }
+            let destination = min(max(root.index + offset, 0), root.items.count - 1)
+            guard destination != root.index else { return false }
+            let beforeIndex = offset > 0 ? destination + 1 : destination
+            let before = beforeIndex < root.items.count ? root.items[beforeIndex].id : nil
+            moveQueueItems(ids: queueItems.filter { $0.seasonID == season }.map(\.id), before: before)
+            return true
+        }
         guard let focusedQueueItemID,
             let reordered = QueueOrdering.movingItem(queueItems, id: focusedQueueItemID, by: offset)
         else {
@@ -1338,12 +1505,14 @@ final class StreamCoordinator {
     }
 
     func clearQueue() {
+        playlistAudioConsent.reset()
         let previousItems = queueItems
         let previousFocus = focusedQueueItemID
         queueItems.removeAll()
         focusedQueueItemID = nil
         HistoryStore.saveQueue(queueItems)
         registerQueueUndo(before: previousItems, focus: previousFocus, actionName: "Vaciar la playlist")
+        focusedQueueSeasonID = nil
     }
 
     func removeRecent(_ item: RecentMediaItem) {
@@ -1477,6 +1646,7 @@ final class StreamCoordinator {
         let sessionID = UUID()
         activeSessionID = sessionID
         playbackPower.begin()
+        transitionPower.end()
         let startTime = min(max(requestedTime, 0), max(duration - 0.5, 0))
         currentTime = startTime
         isPreparing = true
@@ -1573,6 +1743,7 @@ final class StreamCoordinator {
                     preparationName: "MP4 HDR con subtítulos"
                 )
                 build.closePipes()
+                try self.requireCurrentStreamSession(sessionID)
                 if self.activeSessionID == sessionID {
                     self.ffmpegProcess = nil
                     self.ffmpegLog = nil
@@ -1592,6 +1763,7 @@ final class StreamCoordinator {
                 self.detail = "Verificando duración, vídeo, audio y pista de texto dentro del MP4."
                 self.preparationProgress = 0.96
                 let prepared = try await MediaProbeService.probe(url: outputURL)
+                try self.requireCurrentStreamSession(sessionID)
                 if info.isDolbyVision, !prepared.isDolbyVision {
                     throw AirCillerError.invalidVODPackage(
                         "El MP4 preparado no conserva los metadatos Dolby Vision."
@@ -1636,10 +1808,13 @@ final class StreamCoordinator {
 
                 let item = AVPlayerItem(url: playbackURL)
                 item.preferredForwardBufferDuration = 12
-                guard try await item.asset.load(.isPlayable) else {
+                let isPlayable = try await item.asset.load(.isPlayable)
+                try self.requireCurrentStreamSession(sessionID)
+                guard isPlayable else {
                     throw AirCillerError.invalidVODPackage("AVPlayer no reconoce el MP4 HDR como reproducible.")
                 }
                 let playerDuration = try await item.asset.load(.duration).seconds
+                try self.requireCurrentStreamSession(sessionID)
                 guard playerDuration.isFinite,
                     abs(playerDuration - prepared.duration) <= max(2.5, info.duration * 0.002)
                 else {
@@ -1651,6 +1826,7 @@ final class StreamCoordinator {
                     else {
                         throw AirCillerError.invalidVODPackage("AVPlayer no encuentra el subtítulo dentro del MP4.")
                     }
+                    try self.requireCurrentStreamSession(sessionID)
                     item.select(option, in: group)
                 }
                 self.observe(item: item)
@@ -1658,6 +1834,7 @@ final class StreamCoordinator {
                 let playableStartTime = min(startTime, max(0, prepared.duration - 0.5))
                 self.currentTime = playableStartTime
                 if playableStartTime > 0.05 { await self.seekPlayer(to: playableStartTime) }
+                try self.requireCurrentStreamSession(sessionID)
                 self.player.pause()
 
                 self.status = L10n.format(
@@ -1669,9 +1846,11 @@ final class StreamCoordinator {
                     duration: prepared.duration,
                     title: self.selectedURL?.deletingPathExtension().lastPathComponent
                 )
+                try self.requireCurrentStreamSession(sessionID)
                 self.status = "Confirmando el stream en el Apple TV…"
                 self.detail = "Esperando la primera petición real de vídeo del receptor."
                 try await self.waitForReceiverMediaRequest(sessionID: sessionID)
+                try self.requireCurrentStreamSession(sessionID)
                 self.authorizationRetryPolicy.reset()
 
                 self.duration = prepared.duration
@@ -1704,6 +1883,13 @@ final class StreamCoordinator {
                 self.presentError(title: "No se pudo iniciar HDR con subtítulos", detail: error.localizedDescription)
             }
         }
+    }
+
+    /// Asset loads and seeks can finish after Stop or a replacement movie.
+    /// Revalidate ownership before touching the shared player or its observers.
+    private func requireCurrentStreamSession(_ sessionID: UUID) throws {
+        try Task.checkCancellation()
+        guard activeSessionID == sessionID else { throw CancellationError() }
     }
 
     private func beginStreaming(url: URL, info: MediaProbe, requestedTime: Double) {
@@ -2043,12 +2229,14 @@ final class StreamCoordinator {
     }
 
     private func playbackFinished() {
+        guard activeSessionID != nil else { return }
         currentTime = duration
         saveCurrentPosition(force: true)
         if let selectedURL, let index = queueItems.firstIndex(where: { $0.path == selectedURL.path }) {
             queueItems[index].watched = true
             HistoryStore.saveQueue(queueItems)
         }
+        transitionPower.begin()
         cleanupRuntime()
         isStreaming = false
         isPlaying = false
@@ -2057,15 +2245,23 @@ final class StreamCoordinator {
             queueItems.indices.contains(currentIndex + 1)
         {
             let next = queueItems[currentIndex + 1]
-            guard libraryFileExists(next.url, offerToLocate: false) else { return }
-            loadVideo(next.url, autoStart: true)
+            guard libraryFileExists(next.url, offerToLocate: false) else {
+                transitionPower.end()
+                playlistAudioConsent.reset()
+                return
+            }
+            loadVideo(next.url, autoStart: true, continuingPlaylist: true)
         } else {
+            transitionPower.end()
+            playlistAudioConsent.reset()
             status = "Reproducción terminada"
             detail = "No hay otro título después en la playlist."
         }
     }
 
     private func playbackStoppedByReceiver() {
+        playlistAudioConsent.reset()
+        transitionPower.end()
         saveCurrentPosition(force: true)
         cleanupRuntime()
         isPreparing = false
@@ -2083,7 +2279,7 @@ final class StreamCoordinator {
         }
         queueItems = updated
         HistoryStore.saveQueue(queueItems)
-        if !urls.isEmpty, !isStreaming, !isPreparing, !isAnalyzing {
+        if !urls.isEmpty, !commandAvailability.canStop {
             status = "Playlist actualizada"
             detail =
                 queueItems.count == 1
@@ -2141,6 +2337,7 @@ final class StreamCoordinator {
     }
 
     private func presentError(title: String, detail: String) {
+        transitionPower.end()
         hasError = true
         status = title
         self.detail = detail
@@ -2177,6 +2374,7 @@ final class StreamCoordinator {
         detail = L10n.format(
             "Introduce aquí el código que aparecerá en el televisor. AirCiller volverá a intentarlo después. %@",
             message)
+        authorizationRenewalSessionID = remoteControlSessionID
         airPlay.beginPairing(resumePlayback: true)
     }
 

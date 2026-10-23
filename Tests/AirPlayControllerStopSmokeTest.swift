@@ -7,6 +7,7 @@ struct AirPlayControllerStopSmokeTest {
             try await localStop(silently: silently)
         }
         try await remoteStop()
+        try await receiverObservations()
         print("AirPlay Stop: local ACK stays silent, remote final timeline is preserved, no late callbacks: OK")
     }
 
@@ -75,6 +76,50 @@ struct AirPlayControllerStopSmokeTest {
         precondition(updates.count == 2 && callbacks == ["update", "stopped"])
         controller.endEventTestSession(sessionID)
         precondition(!controller.isSessionActive && errors == 0, "Remote Stop lost its terminal-event marker")
+    }
+
+    @MainActor private static func receiverObservations() async throws {
+        let controller = AirPlayController()
+        let sessionID = controller.beginEventTestSession(position: 25, duration: 64.922)
+        var observations: [AirPlayReceiverObservation] = []
+        var updates = 0
+        controller.onReceiverPlaybackUpdate = { observations.append($0) }
+        controller.onPlaybackUpdate = { _, _, _ in updates += 1 }
+
+        emit("playing", to: controller, sessionID: sessionID)
+        precondition(observations.count == 1 && observations[0].position == 25)
+        let firstObservationDate = observations[0].at
+        try await Task.sleep(for: .milliseconds(650))
+        precondition(updates > 1, "The UI clock must remain responsive between receiver events")
+        precondition(
+            observations.count == 1 && observations[0].at == firstObservationDate,
+            "The Mac clock incorrectly renewed receiver evidence")
+
+        for event in ["paused", "resumed", "seeked"] {
+            let json = "{\"event\":\"\(event)\",\"source\":\"command\",\"position\":40,\"duration\":64.922}\n"
+            controller.receiveEventTestOutput(Data(json.utf8), sessionID: sessionID)
+        }
+        precondition(observations.count == 1, "Command ACKs cannot confirm receiver state or position")
+
+        controller.receiveEventTestOutput(
+            Data("{\"event\":\"paused\",\"source\":\"receiver\"}\n".utf8), sessionID: sessionID)
+        precondition(observations.count == 2 && !observations[1].playing)
+        precondition(
+            observations[1].position == nil && observations[1].duration == nil,
+            "Missing receiver timing must not inherit the interpolated clock or seek target")
+
+        controller.receiveEventTestOutput(
+            Data("{\"event\":\"status\",\"position\":41.25,\"duration\":64.922,\"playing\":true}\n".utf8),
+            sessionID: sessionID)
+        precondition(observations.count == 3 && observations[2].position == 41.25 && observations[2].playing)
+        controller.stop(silently: true)
+        emit("status", to: controller, sessionID: sessionID)
+        controller.endEventTestSession(sessionID)
+        let nextSession = controller.beginEventTestSession(position: 0, duration: 60)
+        emit("playing", to: controller, sessionID: sessionID)
+        precondition(observations.count == 3, "Stopped or retired sessions cannot renew receiver evidence")
+        controller.stop(silently: true)
+        controller.endEventTestSession(nextSession)
     }
 
     @MainActor private static func emit(_ event: String, to controller: AirPlayController, sessionID: UUID) {

@@ -8,10 +8,11 @@ enum BoundedHTTPResponse {
     static func data(
         for request: URLRequest,
         using session: URLSession,
-        maximumBytes: Int
+        maximumBytes: Int,
+        delegate: (any URLSessionTaskDelegate)? = nil
     ) async throws -> (Data, URLResponse) {
         try Task.checkCancellation()
-        let (bytes, response) = try await session.bytes(for: request)
+        let (bytes, response) = try await session.bytes(for: request, delegate: delegate)
         defer { bytes.task.cancel() }
         guard maximumBytes >= 0, response.expectedContentLength <= Int64(maximumBytes) else {
             throw Failure.tooLarge

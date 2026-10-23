@@ -20,6 +20,15 @@ struct AirPlayDevice: Identifiable, Codable, Hashable {
     }
 }
 
+/// A receiver event, distinct from the interpolated UI clock and command ACKs.
+/// Missing timing stays missing instead of borrowing an estimated position.
+struct AirPlayReceiverObservation {
+    let at: Date
+    let position: Double?
+    let duration: Double?
+    let playing: Bool
+}
+
 #if AIRCILLER_CONTROLLER_TESTS
     extension AirPlayController {
         // Exercise the real event decoder, handler and teardown without launching a helper.
@@ -120,12 +129,14 @@ final class AirPlayController {
     private(set) var authorizationState: AirPlayAuthorizationState = .unknown
 
     @ObservationIgnored var onPlaybackUpdate: ((Double, Double, Bool) -> Void)?
+    @ObservationIgnored var onReceiverPlaybackUpdate: ((AirPlayReceiverObservation) -> Void)?
     @ObservationIgnored var onPlaybackWaiting: ((Bool) -> Void)?
     @ObservationIgnored var onPlaybackEnded: (() -> Void)?
     @ObservationIgnored var onPlaybackStopped: (() -> Void)?
     @ObservationIgnored var onPlaybackError: ((String) -> Void)?
     @ObservationIgnored var onAuthorizationRequired: ((String) -> Void)?
     @ObservationIgnored var onPairingSucceeded: ((Bool) -> Void)?
+    @ObservationIgnored var onPairingCancelled: (() -> Void)?
     #if AIRCILLER_PLAYBACK_CHECKS
         // Raw helper events, before the interpolated UI clock. Never include credentials or messages.
         @ObservationIgnored var onPlaybackCheckEvent: ((String, String?, Double?, Double?, Bool?, String?) -> Void)?
@@ -133,6 +144,20 @@ final class AirPlayController {
 
     var selectedDevice: AirPlayDevice? {
         devices.first(where: { $0.id == selectedDeviceID })
+    }
+
+    // No Keychain access or pairing from remote discovery. Devices with cached
+    // credentials have already passed the app's existing credential boundary.
+    var remotelyConfiguredDevices: [AirPlayDevice] {
+        devices.filter { !$0.requiresPassword && ($0.pairing != "Mandatory" || credentialCache[$0.id] != nil) }
+    }
+
+    func selectConfiguredDeviceForRemote(_ id: String) -> Bool {
+        guard playbackProcess == nil, remotelyConfiguredDevices.contains(where: { $0.id == id }) else { return false }
+        selectedDeviceID = id
+        authorizationState = .authorized
+        validatedAuthorizationDeviceID = nil
+        return true
     }
 
     var isSessionActive: Bool { playbackProcess != nil }
@@ -648,6 +673,7 @@ final class AirPlayController {
         }
         pairingState = .idle
         if closeSheet { isPairingPresented = false }
+        onPairingCancelled?()
     }
 
     private func cancelRunningPairingForRestart() {
@@ -855,6 +881,7 @@ final class AirPlayController {
                 duration: event.duration,
                 playing: true
             )
+            publishReceiverObservation(event, playing: true)
             finishPendingStart()
         case "status":
             applyTimelineEvent(
@@ -862,6 +889,7 @@ final class AirPlayController {
                 duration: event.duration,
                 playing: event.playing ?? true
             )
+            publishReceiverObservation(event, playing: event.playing ?? true)
         case "paused":
             status = L10n.format("En pausa en %@", playbackDeviceName ?? "Apple TV")
             if event.source == "command" {
@@ -874,6 +902,7 @@ final class AirPlayController {
                 duration: event.duration,
                 playing: false
             )
+            publishReceiverObservation(event, playing: false)
         case "resumed":
             status = L10n.format("Reproduciendo en %@", playbackDeviceName ?? "Apple TV")
             if event.source == "command" {
@@ -886,6 +915,7 @@ final class AirPlayController {
                 duration: event.duration,
                 playing: true
             )
+            publishReceiverObservation(event, playing: true)
         case "seeked":
             if let position = event.position,
                 seekReconciliation.acknowledge(
@@ -1062,6 +1092,16 @@ final class AirPlayController {
 
     private func publishTimeline() {
         onPlaybackUpdate?(timelinePosition, timelineDuration, timelineIsPlaying)
+    }
+
+    private func publishReceiverObservation(_ event: AirPlayHelperEvent, playing: Bool) {
+        guard event.source != "command" else { return }
+        onReceiverPlaybackUpdate?(
+            AirPlayReceiverObservation(
+                at: Date(),
+                position: event.position.flatMap { $0.isFinite && $0 >= 0 ? $0 : nil },
+                duration: event.duration.flatMap { $0.isFinite && $0 > 0 ? $0 : nil },
+                playing: playing))
     }
 
     private func startTimelineTaskIfNeeded() {

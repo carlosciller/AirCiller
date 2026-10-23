@@ -60,6 +60,7 @@ struct StreamDiagnosticsSmokeTest {
             throw NSError(domain: "StreamDiagnosticsSmokeTest.Progress", code: 4)
         }
         try adjustedRenditionDemand()
+        try differentUnadjustedSegmentBoundaries()
 
         print("Six-second peak, selected audio, network margin, and preparation ETA: OK")
     }
@@ -108,5 +109,35 @@ struct StreamDiagnosticsSmokeTest {
             abs((result.peakBitsPerSecond ?? 0) - 9600) < 0.001,
             result.windowDuration == 6
         else { throw NSError(domain: "StreamDiagnosticsSmokeTest.AdjustedRenditions", code: 8) }
+    }
+
+    private static func differentUnadjustedSegmentBoundaries() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        func rendition(_ kind: String, durations: [Int], sizes: [Int]) throws {
+            var lines = ["#EXTM3U", "#EXT-X-VERSION:7", "#EXT-X-PLAYLIST-TYPE:VOD"]
+            for (index, duration) in durations.enumerated() {
+                let name = "\(kind)-\(index).m4s"
+                try Data(repeating: 0, count: sizes[index]).write(to: directory.appendingPathComponent(name))
+                lines += ["#EXTINF:\(duration),", name]
+            }
+            lines.append("#EXT-X-ENDLIST")
+            try lines.joined(separator: "\n").write(
+                to: directory.appendingPathComponent("\(kind).m3u8"), atomically: true, encoding: .utf8)
+        }
+        // Keyframes produce ten-second video segments; audio segments stay at
+        // five seconds. The largest audio segment occurs after the video index ends.
+        try rendition("video", durations: [10, 10], sizes: [10_000, 10_000])
+        try rendition("audio", durations: [5, 5, 5, 5], sizes: [1_000, 1_000, 1_000, 10_000])
+        let profile = try StreamDemandAnalyzer.packagedHLSProfile(outputDirectory: directory, hasSeparateAudio: true)
+        guard abs(profile.averageBitsPerSecond - 13_200) < 0.001,
+            abs((profile.peakBitsPerSecond ?? 0) - 21_600) < 0.001,
+            profile.peakTime == 14, profile.windowDuration == 6
+        else {
+            throw NSError(
+                domain: "StreamDiagnosticsSmokeTest.UnalignedRenditions", code: 9,
+                userInfo: [NSLocalizedDescriptionKey: String(describing: profile)])
+        }
     }
 }
