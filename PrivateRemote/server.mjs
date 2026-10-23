@@ -3,6 +3,7 @@ import { createServer as httpsServer } from 'node:https';
 import { readFileSync, statSync } from 'node:fs';
 import { Relay } from './relay.mjs';
 import { mcpHandler, agentHandler } from './http.mjs';
+import { resolveAgentAddress } from './listener-address.mjs';
 
 // Private configuration is supplied by the installer, never committed. Runtime
 // requires no administrator privileges and does not alter any other service.
@@ -30,8 +31,9 @@ for (const server of [mcp, agent]) {
   server.timeout = 35000;
   server.on('error', () => { process.stderr.write('AirCiller relay listener failed\n'); process.exit(1); });
 }
+const agentAddress = await resolveAgentAddress(config.agentHost);
 mcp.listen(config.mcpPort, '127.0.0.1');
-agent.listen(config.agentPort, config.agentHost);
+agent.listen(config.agentPort, agentAddress);
 let closing = false;
 function stop() {
   if (closing) return;
