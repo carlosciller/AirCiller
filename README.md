@@ -38,11 +38,28 @@ hidden files and symbolic links are skipped. Repeating a folder adds new movies
 without duplicating existing entries. Removing a movie or season from Playlist
 does not delete its files. [Library details](Docs/LIBRARY_SEASONS.md).
 
+## Optional private control
+
+A separately provisioned connector lets ChatGPT control AirCiller from another
+device. It can find library items, change tracks, control playback and open or
+close the app while the Mac is awake and logged in, including with its screen
+locked. It does not wake or unlock the Mac.
+
+This is an opt-in integration for your own relay and credentials. AirCiller does
+not include a hosted service or connect an account automatically.
+[Setup, privacy and limitations](Docs/PRIVATE_REMOTE_CONTROL.md).
+
 ## On your Mac
 
 AirCiller has no advertising or analytics. Movies stay on the local network, originals are never changed, and the playback server closes when the session ends. Subtitle recognition runs on the Mac.
 
-Internet access is used for updates and OpenSubtitles searches you request. OpenSubtitles receives search information, never the movie. Credentials stay in the macOS Keychain. [Privacy details](PRIVACY.md).
+Internet access is used for updates and OpenSubtitles searches you request.
+OpenSubtitles receives search information, never the movie. AirPlay and subtitle
+service credentials stay in the macOS Keychain. If you enable private control,
+commands and necessary titles, tracks, progress and errors also pass through your
+relay and the ChatGPT connection. Its separate configuration is stored in
+owner-only files. Movies, audio and subtitle contents are not sent through it.
+[Privacy details](PRIVACY.md).
 
 ## About
 
