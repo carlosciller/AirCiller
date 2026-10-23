@@ -35,19 +35,25 @@ its experimental warm result used an isolated 32 GiB limit. See the
 [measurement and decision record](Docs/LIBRARY_STARTUP_MEASUREMENT.md), including
 CPU, sampled RSS, the corrected wrapper and measurement limits.
 
-**Next, if warranted: a paired direct-route scheduling experiment.** Measure
-whether full-file demand analysis competes with direct preparation before
-changing cancellation. HLS already cancels that analysis at startup. Do not add
-the separately measured analysis time to Play delay or repeat the HLS baseline
-without a changed hypothesis. Apply a small optimization only when repeated
-measurements demonstrate an avoidable cost and output equivalence.
+**Completed: paired direct-route demand-analysis experiment.** The corrected
+12-sample campaign found a 3.964 to 10.439 s preparation penalty in all three
+pairs for one large HDR movie, with byte-identical output. A smaller HDR episode
+showed no consistent penalty. An initial biased harness run is retained and
+excluded from performance conclusions. See the
+[direct-demand record](Docs/DIRECT_DEMAND_MEASUREMENT.md).
+
+**Next: scope postponing unfinished demand analysis during direct preparation.**
+Retain an already computed profile and truthful diagnostic estimates; check task
+ownership, cancellation and source changes. HLS already cancels this analysis at
+startup. The potential benefit applies only while analysis is still running
+when Play is pressed. Production scheduling is unchanged so far.
 
 1. Retain the completed preparation baseline and its raw samples. Refresh only
    for a changed hypothesis or relevant production input; historical subtitle
    output is not byte-equivalent after the seek repair.
-2. Compare direct preparation with and without concurrent full-file demand
-   analysis on equivalent media. Keep integrity checks, finalized VOD and
-   original audio/video quality. Profile individual cache operations only for a
+2. Use the completed direct comparison to scope the scheduling change. Keep
+   integrity checks, finalized VOD and original audio/video quality. Profile
+   individual cache operations only for a
    specific alternative; the link-API comparison provides no basis for a rewrite.
 3. Return to transport measurements only with a specific new hypothesis. The
    recorded 3.31 s accepted-to-playing interval is not an established removable
