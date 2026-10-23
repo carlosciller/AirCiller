@@ -4,7 +4,7 @@ set -euo pipefail
 project_dir="${0:A:h:h}"
 build_dir="$project_dir/.build"
 python_version="3.13.15"
-pip_version="26.2.1"
+pip_version="26.2.2"
 pip_tools_version="7.6.1"
 tools_root="$build_dir/dependencies/requirements-tools-python-$python_version-pip-$pip_version-pip-tools-$pip_tools_version"
 mode="${1:-check}"
@@ -42,7 +42,8 @@ fi
 mkdir -p "$build_dir/dependencies"
 if [[ ! -x "$tools_root/bin/python" ]]; then
   staged_tools="$(mktemp -d "$build_dir/dependencies/requirements-tools.staged.XXXXXX")"
-  "$python_path" -m venv "$staged_tools"
+  "$python_path" -m venv --without-pip "$staged_tools"
+  "$staged_tools/bin/python" -I -B "$project_dir/Scripts/build_pip.py" --install-self
   "$staged_tools/bin/python" -m pip install \
     --disable-pip-version-check \
     "pip==$pip_version" \
