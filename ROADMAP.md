@@ -4,17 +4,17 @@ AirCiller should stay quick to open and dependable through a whole movie.
 This is a priority list, not a release schedule. Shipped features belong in the
 [release notes](CHANGELOG.md); validation belongs in [Testing](TESTING.md).
 
-## Current candidate: reliability and clear controls
+## Shipped: 0.18.0 reliability and private control
 
 The [October review](Docs/REVIEW_2026_10.md) owns the findings and acceptance ledger.
 Its selected fixes are implemented and validated: cancelled direct startup,
 sample-table-based direct HDR extraction, fresh receiver state, playlist admission
 and selection, credential redirects, safe local installation and private-control
 retry handling. The final strict gate, directed native checks, both video routes
-and Stop/replay checks passed with the limits recorded there. Next is an explicitly
-authorized installation/publication handoff, not another feature block.
-Preparation is not publication or replacement of the installed app; private
-service-source changes also need a separate deployment.
+and Stop/replay checks passed with the limits recorded there. Version 0.18.0 is
+published and installed; its public download, signatures and native Sparkle
+update passed. The private service corrections were separately deployed and
+checked through the connected tools. [Release record](Docs/RELEASE_0.18.0.md).
 
 The identified certifi and multidict advisories were addressed with targeted locked
 updates. Keep the separate build-time pip trust bundle visible in the security
@@ -77,7 +77,7 @@ Do not reopen them as new features. [Current compatibility](COMPATIBILITY.md).
 
 - **Private-control expansion:** opening and closing the installed app with the
   Mac awake and screen locked passed on 23 October through the connected MCP.
-  Deploying the reviewed service corrections is separate. Bounded/paginated
+  The reviewed service corrections are now deployed. Bounded/paginated
   library search and a separately maintained service runtime are follow-ups; no generic system-control
   tools, remote unlock or media upload are planned.
 - **DTS-HD MA lossless:** damaged extensions can decode successfully while
