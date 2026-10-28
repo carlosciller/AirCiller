@@ -6,6 +6,8 @@ import Foundation
 final class MediaAnalysisTasks {
     private(set) var primary: Task<Void, Never>?
     private(set) var demand: Task<Void, Never>?
+    private var retiringDemand: Task<Void, Never>?
+    private var retirementID: UUID?
 
     func replacePrimary(with task: Task<Void, Never>) {
         primary?.cancel()
@@ -13,7 +15,7 @@ final class MediaAnalysisTasks {
     }
 
     func replaceDemand(with task: Task<Void, Never>) {
-        demand?.cancel()
+        cancelDemand()
         demand = task
     }
 
@@ -23,8 +25,22 @@ final class MediaAnalysisTasks {
         primary = nil
     }
 
-    func cancelDemand() {
-        demand?.cancel()
+    @discardableResult
+    func cancelDemand() -> Task<Void, Never>? {
+        guard let cancelled = demand else { return retiringDemand }
+        cancelled.cancel()
         demand = nil
+        let previous = retiringDemand
+        let id = UUID()
+        retirementID = id
+        let retirement = Task { [weak self] in
+            await previous?.value
+            await cancelled.value
+            guard let self, self.retirementID == id else { return }
+            self.retiringDemand = nil
+            self.retirementID = nil
+        }
+        retiringDemand = retirement
+        return retirement
     }
 }
