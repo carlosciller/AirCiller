@@ -1,114 +1,104 @@
 # Roadmap
 
 AirCiller should stay quick to open and dependable through a whole movie.
-This is a priority list, not a release schedule. Shipped features belong in the
-[release notes](CHANGELOG.md); validation belongs in [Testing](TESTING.md).
+These are priorities, not a release schedule. New work needs a useful case and
+a way to verify the result. [Compatibility](COMPATIBILITY.md) describes what
+works today; [release notes](CHANGELOG.md) describe shipped changes.
 
-## Shipped: 0.18.0 reliability and private control
+## Published
 
-The [October review](Docs/REVIEW_2026_10.md) owns the findings and acceptance ledger.
-Its selected fixes are implemented and validated: cancelled direct startup,
-sample-table-based direct HDR extraction, fresh receiver state, playlist admission
-and selection, credential redirects, safe local installation and private-control
-retry handling. The final strict gate, directed native checks, both video routes
-and Stop/replay checks passed with the limits recorded there. Version 0.18.0 is
-published and installed; its public download, signatures and native Sparkle
-update passed. The private service corrections were separately deployed and
-checked through the connected tools. [Release record](Docs/RELEASE_0.18.0.md).
+- **0.18.1:** smaller bundle without unused Python installers, verified build-time
+  installer, and the reviewed zeroconf update. No playback-engine change.
+  [Build maintenance](Docs/BUILD_PIP_MAINTENANCE.md).
+- **0.18.0:** HDR startup and cancellation fixes, episode continuity, Playlist
+  controls, track-panel corrections and opt-in private control.
+  [Release record](Docs/RELEASE_0.18.0.md).
+- Season folders, watched progress, OpenSubtitles search, TS/MTS/M2TS, supported
+  FLAC soundtracks, local PGS/VobSub OCR and bounded media caches already exist.
+  They are not future features.
 
-The identified certifi and multidict advisories were addressed with targeted locked
-updates. The separate [build-time pip correction](Docs/BUILD_PIP_MAINTENANCE.md)
-uses a verified installer and excludes unused installers from future app bundles.
-It is not part of the installed 0.18.0 package; its packaging checks and release
-boundary are recorded separately.
+**0.18.2 is in publication:** stop and join unfinished bitrate analysis before
+direct preparation, clean up cancelled analysis, and label estimated peaks.
+The candidate has passed local and directed receiver checks. Publication status
+is tracked in the [release record](Docs/RELEASE_0.18.2.md).
+
+## Next: bounded library recovery
+
+Keep one local recovery snapshot before resetting malformed library data, with
+a clear way to inspect or restore it. Test repeated corruption, maximum storage
+and failed recovery. Never touch original media.
+
+The current reset behavior is tested; this is protection against potential loss
+of ordering and progress, not a newly observed corruption incident. It offers
+more practical value than another format expansion without a useful sample.
+
+## After that, when there is a concrete need
+
+| Work | Reason to start | Scope and limits |
+| --- | --- | --- |
+| Dependency maintenance | A security fix, compatibility fix or useful upstream change | Review callers and lock together; keep engines pinned and bundled |
+| Bounded remote search | A real library becomes slow or responses become too large | Limit or paginate private-control results; no background index or media upload |
+| Further startup work | A repeatable bottleneck and a specific alternative | Measure before changing code; preserve complete VOD and original media |
+| Audio coverage | A useful unsupported file with a trustworthy reference | Qualify PCM precision/rates/layouts; full-length TrueHD 7.1 and 16-bit coverage remain incomplete |
+| Subtitle coverage | A useful TTML/IMSC1, DVB or XSUB sample | Local, selectable output; specialized in-cue WebVTT timestamps still need seek coverage |
+
+Dependency review on 28 October: [PR #44](https://github.com/carlosciller/AirCiller/pull/44)
+updates multidict's input pin without its lock and fails CI. [PR #43](https://github.com/carlosciller/AirCiller/pull/43)
+updates setup-node to a new major and passes CI. Both need independent review;
+neither is included in 0.18.2. Keep protobuf 6.33.6 until a major update has a
+concrete benefit and serialization/control evidence.
 
 ## Faster playback startup
 
-**Next: select one measured local bottleneck, without redesigning AirPlay.**
+The baseline and first targeted correction are complete. A large HDR sample
+saved 6.729-10.206 seconds of local preparation when unfinished bitrate analysis
+was stopped first. A smaller episode showed a variable benefit. Output bytes
+were identical. These are preparation measurements, not time to first picture.
+[Candidate evidence](Docs/REVIEW_2026_10_28.md).
 
-1. Keep a current, reproducible preparation baseline with disabled, empty and
-   warm app caches. Compare equivalent served output, pinned engines and the
-   same machine; historical subtitle output is not byte-equivalent after the
-   seek repair. Retain raw samples and identify the exact reference revision.
-2. Measure repeated cache-metadata reads and concurrent full-file demand analysis
-   before changing them. Rank opportunities by observed time, risk and effort.
-   Keep integrity checks, finalized VOD and original audio/video quality.
-3. Return to transport measurements only with a specific new hypothesis. The
-   recorded 3.31 s accepted-to-playing interval is not an established removable
-   delay. Capture added about 1.28 s in one matched campaign; it is not a universal
-   correction. The maintainer reports Wi-Fi 6 on the receiver; no settings change
-   or new network tour is required. Continuous audiovisual onset remains
-   unverified where capture had gaps. Do not repeat unchanged measurement runs.
+Warm HLS preparation measured 0.566-2.279 seconds in three private-library
+samples. One exceeded the ordinary 16 GiB cache and needed an isolated larger
+limit for that experiment. A link-API alternative had no reliable worthwhile
+saving, so it was not adopted. [Cache record](Docs/LIBRARY_STARTUP_MEASUREMENT.md)
+and [direct-analysis baseline](Docs/DIRECT_DEMAND_MEASUREMENT.md).
 
-The [current measurement record](Docs/STARTUP_MEASUREMENT_2026_10.md) separates
-fresh local/live observations from historical evidence and measurement gaps.
-The first optimization shipped in 0.13.0; its
-[historical record](Docs/STARTUP_OPTIMIZATION.md) is not the current task list.
+The recorded 3.31-second receiver interval is not an established removable
+delay. Capture added about 1.28 seconds in one comparison, not a universal
+correction. Continuous audiovisual onset remains unverified where capture had
+gaps. The receiver uses Wi-Fi 6 according to the maintainer; another network tour
+or unchanged measurement run is not needed.
+[Transport record](Docs/STARTUP_MEASUREMENT_2026_10.md).
 
-The maintainer readiness checkpoint is complete. The current review is authorized
-to measure and implement justified small improvements. A deeper engine or
-packager redesign is a separately scoped follow-up: notify the maintainer before
-it starts so they can select the requested model and effort. Do not silently
-switch models. Keep preparation/implementation separate from tests/publication.
-
-Preserve complete VOD, duration, seeking, original media, HDR/Dolby Vision and
-selectable subtitles. Change at most one packager per delivery. Do not trade
-these invariants for progressive startup or claim newer libraries are faster
-without measurement. Include external storage and bitrate peaks only in an
-explicitly scoped follow-up; they remain unmeasured otherwise.
-
-## Compatibility when a real collection needs it
-
-- **Lossless audio:** extend PCM/LPCM precision, rates and layouts only with
-  preservation tests and representative samples. TrueHD 7.1 needs a valid
-  playback-length source for receiver coverage; 16-bit TrueHD remains unverified.
-  FLAC channel-mask overrides must not silently relabel speakers.
-  [Audio scope](Docs/AUDIO_EXPANSION.md) and [FLAC limits](Docs/FLAC_AUDIO.md).
-- **Subtitles:** investigate TTML/IMSC1, DVB or XSUB only with useful examples.
-  OCR stays local and selectable. Specialized in-cue WebVTT timestamps remain
-  unverified after seeking; ordinary text cues have the 0.17.3 repair.
-  [Seek record](Docs/HLS_SUBTITLE_SEEK.md).
-
-TS/MTS/M2TS, supported FLAC soundtracks, PGS and VobSub are already available.
-Do not reopen them as new features. [Current compatibility](COMPATIBILITY.md).
+A deeper engine or packager redesign needs a separate scope. Notify the
+maintainer first so they can choose model and effort. Keep implementation
+separate from testing/publication, and change at most one packager per delivery.
+Preserve final duration, seeking, HDR/Dolby Vision, selectable subtitles and
+original quality. External storage and bitrate peaks need their own hypothesis.
+The [0.13.0 optimization record](Docs/STARTUP_OPTIMIZATION.md) is historical.
 
 <a id="deferred-apple-shortcuts"></a>
 
 ## Parked or blocked
 
-- **Private-control expansion:** opening and closing the installed app with the
-  Mac awake and screen locked passed on 23 October through the connected MCP.
-  The reviewed service corrections are now deployed. Bounded/paginated
-  library search and a separately maintained service runtime are follow-ups; no generic system-control
-  tools, remote unlock or media upload are planned.
-- **DTS-HD MA lossless:** damaged extensions can decode successfully while
-  changing samples. Resume only with a decoder guarantee or full qualification
-  and an independent reference. No silent DTS-core fallback or promised DTS:X
-  object preservation. [Investigation](Docs/AUDIO_EXPANSION.md).
-- **AV1/VP9, MPEG-2 and DCP:** no current demonstrated need for the maintainer's
-  third-generation Apple TV 4K workflow. No video transcoder is planned.
-- **Apple Shortcuts:** public ad hoc registration failed on the tested Mac.
-  Resume after the signing/distribution decision and remaining handoff checks.
-  [Shortcuts record](Docs/SHORTCUTS.md).
-- **iPhone title/artwork:** remote controls work; metadata on the Apple TV-owned
-  Lock Screen card is not reliable. Defer further work until it has clear value.
-- **Developer ID and notarization:** blocked until Apple Developer Program
-  membership is available. Sparkle signatures do not replace notarization.
+| Work | What would justify returning to it |
+| --- | --- |
+| DTS-HD MA lossless | Decoder guarantees or full qualification against an independent reference; damaged extensions can change samples without a hard failure. No silent core fallback or DTS:X promise |
+| AV1/VP9, MPEG-2 and DCP | A demonstrated need for the maintainer's third-generation Apple TV 4K workflow; no video transcoder is planned |
+| Apple Shortcuts | A signing/distribution decision: public ad hoc registration failed on the tested Mac. [Evidence](Docs/SHORTCUTS.md) |
+| iPhone title and artwork | A reliable way to populate the Apple TV-owned Lock Screen card. Playback controls already work |
+| Developer ID and notarization | Apple Developer Program membership. Sparkle signatures do not replace notarization |
 
-## Maintenance rules
+Private control already opens and closes the app with the Mac awake, logged in
+and screen locked. Remote wake/unlock and generic system-control tools are not
+planned. [Scope](Docs/PRIVATE_REMOTE_CONTROL.md).
 
-- Keep engines pinned and bundled. Update for a concrete fix or security need,
-  regenerate dependency locks and select checks by the affected boundary.
-- zeroconf PR #30 is merged with a separate [lock and discovery review](Docs/ZEROCONF_MAINTENANCE.md);
-  it is not part of the published 0.18.0 package. Keep protobuf 6.33.6 until
-  a major update has a concrete benefit and serialization/control evidence.
-- Retain the 165 MB logical bundle budget. Trim only with measured savings and
-  applicable checks; do not remove runtime files just to lower the number.
-- Use [risk-based testing](TESTING.md#choose-checks-from-the-change), not the whole
-  receiver catalogue for every release. Publication and native updating retain
-  their separate [distribution gates](DISTRIBUTION.md).
+## Working limits
 
-No analytics, cloud library, background indexing or silent conversion. The
-explicitly provisioned private-control relay/lifecycle service is the only
-permanent-service exception; it carries commands and necessary metadata, not
-media. Preserve originals and keep credentials/private media out of Git.
+- Preserve original files and ask before audio conversion. No telemetry, cloud
+  library or background indexing. The separately configured private-control
+  relay/lifecycle agent is the only permanent-service exception.
+- Keep the 165 MB logical bundle budget. Remove runtime files only with measured
+  savings and applicable checks.
+- Use [risk-based testing](TESTING.md#choose-checks-from-the-change). Reuse valid
+  evidence, and reserve Apple TV sessions for affected behavior. Publication and
+  installation have separate [distribution gates](DISTRIBUTION.md).

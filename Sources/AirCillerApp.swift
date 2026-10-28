@@ -262,6 +262,9 @@ struct PlaybackInformationView: View {
         guard let ratio = capacityRatio else {
             return L10n.text("AirCiller calculará el margen cuando el Apple TV empiece a descargar la película.")
         }
+        if demand?.isMeasured == false, coordinator.streamHealthLevel != .error {
+            return L10n.text("El margen usa un pico estimado. Los picos reales de la película pueden ser mayores.")
+        }
         switch coordinator.streamHealthLevel {
         case .excellent:
             return L10n.format(
@@ -280,8 +283,10 @@ struct PlaybackInformationView: View {
     }
 
     private var demandText: String {
-        guard let peak = demand?.peakBitsPerSecond else { return L10n.text("Analizando…") }
-        return L10n.format("%@ en el pico", bitrate(peak))
+        guard let demand, let peak = demand.peakBitsPerSecond else { return L10n.text("Pico no disponible") }
+        return demand.isMeasured
+            ? L10n.format("%@ en el pico", bitrate(peak))
+            : L10n.format("%@ de pico estimado", bitrate(peak))
     }
 
     private var capacityText: String {

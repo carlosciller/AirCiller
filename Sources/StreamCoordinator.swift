@@ -1660,6 +1660,9 @@ final class StreamCoordinator {
     }
 
     private func beginDirectHDRSubtitleStreaming(url: URL, info: MediaProbe, requestedTime: Double) {
+        // Capture ownership before suspending. A new selection may start its own
+        // analysis while this session waits for the old ffprobe process to exit.
+        let cancelledDemand = mediaAnalysisTasks.cancelDemand()
         let session = prepareStreamSession(
             requestedTime: requestedTime,
             duration: info.duration,
@@ -1681,6 +1684,9 @@ final class StreamCoordinator {
             var sessionServer: LocalHTTPServer?
             var sessionProcess: Process?
             do {
+                await cancelledDemand?.value
+                try Task.checkCancellation()
+                guard self.activeSessionID == sessionID else { throw CancellationError() }
                 let directory = FileManager.default.temporaryDirectory
                     .appendingPathComponent("AirCiller-\(UUID().uuidString)", isDirectory: true)
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

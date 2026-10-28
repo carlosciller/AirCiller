@@ -1,8 +1,111 @@
+import Darwin
 import Foundation
 
 @main
 struct StreamDiagnosticsSmokeTest {
-    static func main() throws {
+    static func pipeIdentity(_ descriptor: Int32) throws -> UInt64? {
+        var info = pipe_fdinfo()
+        errno = 0
+        let size = proc_pidfdinfo(
+            getpid(), descriptor, PROC_PIDFDPIPEINFO, &info, Int32(MemoryLayout<pipe_fdinfo>.size))
+        if size == MemoryLayout<pipe_fdinfo>.size { return info.pipeinfo.pipe_handle }
+        if size == 0 && errno == EBADF { return nil }
+        throw NSError(domain: "StreamDiagnosticsSmokeTest.PipeInspection", code: Int(errno))
+    }
+
+    @MainActor
+    static func cancelledAnalysisClosesPipes() async throws {
+        guard let engine = ProcessInfo.processInfo.environment["AIRCILLER_TEST_FFPROBE"] else {
+            throw NSError(domain: "StreamDiagnosticsSmokeTest.Engine", code: 10)
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("AirCiller-DemandCancel-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fifo = root.appendingPathComponent("input.mkv")
+        guard mkfifo(fifo.path, 0o600) == 0 else {
+            throw NSError(domain: "StreamDiagnosticsSmokeTest.FIFO", code: 11)
+        }
+        let watchdog = DispatchWorkItem { _exit(2) }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 15, execute: watchdog)
+        defer { watchdog.cancel() }
+        for _ in 0..<3 {
+            let started = AsyncStream<(Process, FileHandle, FileHandle)>.makeStream()
+            let task = Task {
+                try await StreamDemandAnalyzer.analyze(
+                    url: fifo, duration: 60, ffprobeURL: URL(fileURLWithPath: engine),
+                    onStarted: { process in
+                        let output = process.standardOutput as! Pipe
+                        let errors = process.standardError as! Pipe
+                        started.continuation.yield(
+                            (
+                                process, output.fileHandleForReading,
+                                errors.fileHandleForReading
+                            ))
+                    })
+            }
+            var iterator = started.stream.makeAsyncIterator()
+            guard let (process, outputReader, errorReader) = await iterator.next(), process.isRunning else {
+                throw NSError(domain: "StreamDiagnosticsSmokeTest.NotRunning", code: 12)
+            }
+            let outputFD = outputReader.fileDescriptor
+            let errorFD = errorReader.fileDescriptor
+            // Pin the pipe identities while checking the original descriptors.
+            // A reused descriptor cannot identify a leak, and the anchors keep
+            // the original kernel pipe identities from being recycled.
+            let outputAnchor = dup(outputFD)
+            let errorAnchor = dup(errorFD)
+            defer {
+                if outputAnchor >= 0 { close(outputAnchor) }
+                if errorAnchor >= 0 { close(errorAnchor) }
+            }
+            guard outputAnchor >= 0, errorAnchor >= 0,
+                let outputIdentity = try pipeIdentity(outputAnchor),
+                let errorIdentity = try pipeIdentity(errorAnchor)
+            else { throw NSError(domain: "StreamDiagnosticsSmokeTest.PipeAnchors", code: 16) }
+            let began = ContinuousClock.now
+            task.cancel()
+            do {
+                _ = try await task.value
+                throw NSError(domain: "StreamDiagnosticsSmokeTest.Uncancelled", code: 13)
+            } catch is CancellationError {}
+            started.continuation.finish()
+            // Foundation retires an active readability source asynchronously.
+            // Keep the original three-second bound for child and pipe cleanup;
+            // inspect pinned identities so unrelated reused descriptors are safe.
+            while began.duration(to: .now) < .seconds(3) {
+                let outputRetired = try pipeIdentity(outputFD) != outputIdentity
+                let errorRetired = try pipeIdentity(errorFD) != errorIdentity
+                if outputRetired && errorRetired { break }
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            let running = process.isRunning
+            let elapsed = began.duration(to: .now)
+            let outputClosed = try pipeIdentity(outputFD) != outputIdentity
+            let errorClosed = try pipeIdentity(errorFD) != errorIdentity
+            guard !running, elapsed < .seconds(3), outputClosed, errorClosed
+            else {
+                throw NSError(
+                    domain: "StreamDiagnosticsSmokeTest.LeakedProcessOrPipe", code: 14,
+                    userInfo: [
+                        NSLocalizedDescriptionKey:
+                            "running=\(running), elapsed=\(elapsed), outputClosed=\(outputClosed), errorClosed=\(errorClosed)"
+                    ])
+            }
+        }
+        print("Demand cancellation reaps real ffprobe and closes both read pipes: OK")
+    }
+
+    @MainActor
+    static func main() async throws {
+        try await cancelledAnalysisClosesPipes()
+        let preparedFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data(repeating: 0, count: 6000).write(to: preparedFile)
+        defer { try? FileManager.default.removeItem(at: preparedFile) }
+        let estimated = try StreamDemandAnalyzer.directFileProfile(fileURL: preparedFile, duration: 6, peakRatio: nil)
+        let measured = try StreamDemandAnalyzer.directFileProfile(fileURL: preparedFile, duration: 6, peakRatio: 2)
+        guard !estimated.isMeasured, estimated.peakTime == nil, estimated.peakBitsPerSecond == 12_000,
+            measured.isMeasured, measured.peakBitsPerSecond == 16_000
+        else { throw NSError(domain: "StreamDiagnosticsSmokeTest.EstimateProvenance", code: 15) }
         let analysis = MediaDemandAnalysis(
             duration: 18,
             windowDuration: 6,

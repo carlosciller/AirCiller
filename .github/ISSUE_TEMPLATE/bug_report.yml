@@ -12,7 +12,7 @@ body:
     id: version
     attributes:
       label: AirCiller version
-      placeholder: "0.10.1 (build 41)"
+      placeholder: "Copy the version and build from AirCiller > About AirCiller"
     validations:
       required: true
   - type: input

@@ -187,6 +187,19 @@ its strict parity failure must not be suppressed or used for a speedup claim.
 The [October review](Docs/REVIEW_PLAYBACK_2026_10.md#benchmark-reference-repair)
 records the baseline repair and current small-fixture samples.
 
+For a private HLS preparation campaign, run
+`zsh Scripts/benchmark_library.sh /absolute/movie ...`. It uses three paired
+empty/warm isolated caches (32 GiB), original compatible audio and no subtitles.
+Probe and full-file bitrate analysis are measured separately before preparation;
+this does not simulate their overlap with playback startup. Served inventories
+must match byte for byte across all repetitions. CPU and sampled RSS are retained
+with stage timings. Originals and ordinary app caches are not modified. Private
+paths and inventories stay in the ignored, storage-guarded run. The guard retains
+reports and removes generated payloads. `--self-test` checks the complete wrapper
+with an existing synthetic fixture generator; `--links-only` measures link APIs.
+See the [real-library measurement](Docs/LIBRARY_STARTUP_MEASUREMENT.md) for scope,
+the initial wrapper failure and why no production optimization was adopted.
+
 ## Validation records
 
 Read the record relevant to the change, not every previous run. Each records its

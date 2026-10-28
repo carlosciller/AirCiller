@@ -90,6 +90,9 @@
 "La red ofrece %@ el caudal del pico más exigente de la película." = "The network provides %@ the throughput of the movie's most demanding peak.";
 "Analizando…" = "Analyzing…";
 "%@ en el pico" = "%@ at Peak";
+"%@ de pico estimado" = "%@ Estimated Peak";
+"Pico no disponible" = "Peak Unavailable";
+"El margen usa un pico estimado. Los picos reales de la película pueden ser mayores." = "The margin uses an estimated peak. The movie's actual peaks may be higher.";
 "Se medirá al reproducir" = "Measured During Playback";
 "Pendiente" = "Pending";
 "%lld completadas" = "%lld Completed";

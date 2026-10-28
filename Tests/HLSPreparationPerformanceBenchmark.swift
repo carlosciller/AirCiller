@@ -182,6 +182,19 @@ struct HLSPreparationPerformanceBenchmark {
         let arguments = Array(CommandLine.arguments.dropFirst())
         guard let command = arguments.first else { throw Failure("Missing benchmark command") }
         switch command {
+        case "cache-links":
+            guard arguments.count == 2 else { throw Failure("cache-links DIRECTORY") }
+            try measureCacheLinks(directory: URL(fileURLWithPath: arguments[1]))
+        #if !STARTUP_BASELINE
+            case "library":
+                guard arguments.count == 4 else { throw Failure("library OUTPUT_DIRECTORY MOVIE REPETITIONS") }
+                guard let repetitions = Int(arguments[3]), (3...5).contains(repetitions) else {
+                    throw Failure("Use three to five repetitions")
+                }
+                try await measureLibrary(
+                    directory: URL(fileURLWithPath: arguments[1]),
+                    input: URL(fileURLWithPath: arguments[2]), repetitions: repetitions)
+        #endif
         case "resource-self-test":
             guard arguments.count == 2 else { throw Failure("resource-self-test OUTPUT_JSON") }
             let monitor = try ResourceMonitor()
@@ -233,6 +246,131 @@ struct HLSPreparationPerformanceBenchmark {
         default: throw Failure("Unknown benchmark command")
         }
     }
+
+    private static func measureCacheLinks(directory: URL) throws {
+        let manager = FileManager.default
+        guard !manager.fileExists(atPath: directory.path) else { throw Failure("Fresh directory required") }
+        try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let source = directory.appendingPathComponent("source")
+        try Data(repeating: 42, count: 4096).write(to: source)
+        var samples: [String: [Double]] = ["foundation": [], "posix": []]
+        for repetition in 0..<5 {
+            for mode in repetition.isMultiple(of: 2) ? ["foundation", "posix"] : ["posix", "foundation"] {
+                let target = directory.appendingPathComponent("targets")
+                try manager.createDirectory(at: target, withIntermediateDirectories: false)
+                let start = ContinuousClock.now
+                for index in 0..<2647 {
+                    let file = target.appendingPathComponent("segment-\(index).m4s")
+                    if mode == "foundation" {
+                        try manager.linkItem(at: source, to: file)
+                    } else {
+                        let status = source.withUnsafeFileSystemRepresentation { original in
+                            file.withUnsafeFileSystemRepresentation { destination in
+                                Darwin.link(original!, destination!)
+                            }
+                        }
+                        guard status == 0 else { throw Failure("POSIX link failed") }
+                    }
+                }
+                let elapsed = start.duration(to: .now)
+                samples[mode, default: []].append(
+                    Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18)
+                for file in try manager.contentsOfDirectory(at: target, includingPropertiesForKeys: nil) {
+                    guard try Data(contentsOf: file) == Data(contentsOf: source) else {
+                        throw Failure("Link changed bytes")
+                    }
+                }
+                try manager.removeItem(at: target)
+            }
+        }
+        try manager.removeItem(at: source)
+        try writeJSON(samples, to: directory.appendingPathComponent("samples.json"))
+    }
+
+    #if !STARTUP_BASELINE
+        private struct LibrarySample: Codable {
+            let repetition: Int
+            let mode: String
+            let probeSeconds: Double
+            let demandSeconds: Double
+            let demandResources: Resources
+            let preparationResources: Resources
+            let usedCache: Bool
+            let trace: PlaybackStartupTrace.Snapshot
+            let files: [InventoryItem]
+        }
+
+        @MainActor
+        private static func measureLibrary(directory: URL, input: URL, repetitions: Int) async throws {
+            guard !FileManager.default.fileExists(atPath: directory.path), BundledEngine.isRequired,
+                let ffprobe = Executables.find("ffprobe"), let ffmpeg = Executables.find("ffmpeg")
+            else { throw Failure("Fresh isolated output and pinned bundled engine required") }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let original = try input.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+            var reference: [InventoryItem]?
+            for repetition in 0..<repetitions {
+                let cacheRoot = directory.appendingPathComponent("cache-\(repetition)")
+                let cache = PreparedMediaCache(rootDirectory: cacheRoot, limitBytes: 32 * 1_024 * 1_024 * 1_024)
+                for mode in ["empty", "warm"] {
+                    let start = ContinuousClock.now
+                    let probe = try await MediaProbeService.probe(url: input, ffprobeURL: ffprobe)
+                    let probeSeconds = seconds(start.duration(to: .now))
+                    guard
+                        let audio = probe.audioTracks.first(where: {
+                            ["aac", "eac3", "ac3", "flac"].contains($0.codec)
+                        })
+                    else { throw Failure("No compatible original audio track") }
+                    let demandMonitor = try ResourceMonitor()
+                    let demandStart = ContinuousClock.now
+                    _ = try await StreamDemandAnalyzer.analyze(url: input, duration: probe.duration)
+                    let demandSeconds = seconds(demandStart.duration(to: .now))
+                    let demandResources = try await demandMonitor.finish()
+                    let served = directory.appendingPathComponent("served-\(repetition)-\(mode)")
+                    try FileManager.default.createDirectory(at: served, withIntermediateDirectories: false)
+                    let monitor = try ResourceMonitor()
+                    let recorder = Recorder()
+                    let result = try await HLSPreparationService.prepare(
+                        input: input, probe: probe, audio: audio, outputMode: .original,
+                        audioDelay: 0, subtitle: nil, subtitleDelay: 0, outputDirectory: served,
+                        ffmpegURL: ffmpeg, cache: cache,
+                        observer: { event in
+                            switch event {
+                            case .began(let stage): recorder.begin(stage)
+                            case .ended(let stage): recorder.end(stage)
+                            default: break
+                            }
+                        })
+                    recorder.trace.finish(.prepared, sessionID: recorder.trace.sessionID)
+                    let resources = try await monitor.finish()
+                    guard result.usedCache == (mode == "warm") else { throw Failure("Unexpected cache state") }
+                    let files = try inventory(served)
+                    if let reference {
+                        guard files == reference else { throw Failure("Served output changed") }
+                    } else {
+                        reference = files
+                    }
+                    try writeJSON(
+                        LibrarySample(
+                            repetition: repetition, mode: mode, probeSeconds: probeSeconds,
+                            demandSeconds: demandSeconds, demandResources: demandResources,
+                            preparationResources: resources, usedCache: result.usedCache,
+                            trace: recorder.trace.snapshot(), files: files),
+                        to: directory.appendingPathComponent("\(repetition)-\(mode).json"))
+                    print(
+                        "library \(repetition) \(mode): probe=\(probeSeconds) demand=\(demandSeconds) prepare=\(recorder.trace.snapshot().elapsedSeconds)"
+                    )
+                    try FileManager.default.removeItem(at: served)
+                }
+                try FileManager.default.removeItem(at: cacheRoot)
+            }
+            let final = try input.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+            guard original.fileSize == final.fileSize, original.contentModificationDate == final.contentModificationDate
+            else { throw Failure("Original changed during measurement") }
+        }
+        private static func seconds(_ duration: Duration) -> Double {
+            Double(duration.components.seconds) + Double(duration.components.attoseconds) / 1e18
+        }
+    #endif
 
     @MainActor
     private static func measure(

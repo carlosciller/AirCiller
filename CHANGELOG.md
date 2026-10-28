@@ -2,6 +2,20 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.18.2 (28 October 2026)
+
+- Stop unfinished bitrate analysis before direct MP4 preparation, so the two
+  tasks do not compete for the same file. Completed analysis is retained.
+  Large HDR files can take less time to prepare when analysis is still running
+  at Play; this is not a promise of faster first picture for every movie.
+- Close analysis processes and readers on cancellation, and wait for their
+  cleanup before an immediate retry or change of movie.
+- Distinguish estimated bitrate peaks from measured ones in playback information,
+  and show when a peak is unavailable.
+
+Formats, engines and audio/video quality are unchanged.
+[Measurements and validation](Docs/REVIEW_2026_10_28.md).
+
 ## 0.18.1 (23 October 2026)
 
 - Remove unused Python package installers from the app. Playback dependencies
