@@ -7,6 +7,9 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Published
 
+- **0.18.3:** bounded library recovery with explicit restoration, duplicate-import
+  feedback and correct mixed-import counts. Published and installed through
+  Sparkle; [release checks](Docs/RELEASE_0.18.3.md) passed.
 - **0.18.2:** stop and join unfinished bitrate analysis before direct preparation,
   clean up cancelled analysis, and label estimated peaks. Published download,
   signatures and CI verified. [Release record](Docs/RELEASE_0.18.2.md).
@@ -22,21 +25,17 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Implemented, not published
 
-- Library recovery candidate: preserve unreadable lists, retain bounded local
-  recovery records and offer explicit restoration without changing original media.
-  Local storage, coordinator, native checks and the strict gate pass.
-  [PR #47 and CI](https://github.com/carlosciller/AirCiller/pull/47).
-  [Candidate record](Docs/LIBRARY_RELIABILITY_REVIEW.md).
-- Import receipts: count standalone files together with folder additions and
-  explain duplicate imports. Production-coordinator and native receipt checks
-  pass in the same candidate.
+None in the completed library-recovery scope. PR #47 is merged and shipped in
+0.18.3. Its [candidate record](Docs/LIBRARY_RELIABILITY_REVIEW.md) retains the
+original scope, alternatives and native evidence.
 
 ## Next
 
-Review the scoped library candidate and its PR checks. Publication and daily
-installation are separate decisions. Do not add another format or engine change
-to this delivery. The recovery work addresses a demonstrated reset path, not a
-reported incident of corruption in the maintainer's library.
+Start a separately scoped product review: identify demonstrated everyday
+friction, compare a small set of useful improvements, then select one principal
+change and at most two related refinements. Do not assume that more formats or
+settings are the next useful step. The recovery work addresses a demonstrated
+reset path, not a reported incident of corruption in the maintainer's library.
 
 ## After that, when there is a concrete need
 
