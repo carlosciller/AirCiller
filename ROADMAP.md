@@ -7,6 +7,9 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Published
 
+- **0.18.2:** stop and join unfinished bitrate analysis before direct preparation,
+  clean up cancelled analysis, and label estimated peaks. Published download,
+  signatures and CI verified. [Release record](Docs/RELEASE_0.18.2.md).
 - **0.18.1:** smaller bundle without unused Python installers, verified build-time
   installer, and the reviewed zeroconf update. No playback-engine change.
   [Build maintenance](Docs/BUILD_PIP_MAINTENANCE.md).
@@ -16,11 +19,6 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 - Season folders, watched progress, OpenSubtitles search, TS/MTS/M2TS, supported
   FLAC soundtracks, local PGS/VobSub OCR and bounded media caches already exist.
   They are not future features.
-
-**0.18.2 is in publication:** stop and join unfinished bitrate analysis before
-direct preparation, clean up cancelled analysis, and label estimated peaks.
-The candidate has passed local and directed receiver checks. Publication status
-is tracked in the [release record](Docs/RELEASE_0.18.2.md).
 
 ## Next: bounded library recovery
 
