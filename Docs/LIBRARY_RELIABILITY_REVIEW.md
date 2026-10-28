@@ -2,7 +2,8 @@
 
 Started 28 October 2026 from main `09bb3ee`, after the 0.18.2 publication.
 This work permits a candidate and PR, not a release, daily installation or
-private-service deployment. Status: local and native checks complete; PR CI pending.
+private-service deployment. Local and native checks are complete.
+[PR #47](https://github.com/carlosciller/AirCiller/pull/47) tracks review and CI.
 
 ## Selected validation
 
@@ -12,7 +13,8 @@ changed. Use isolated preferences and temporary synthetic libraries. Required
 checks are focused storage/coordinator regressions, native recovery/import
 interaction, both languages, and the strict full local gate on the final code.
 No Apple TV session is selected. Reassess if a change actually reaches playback.
-Local and native acceptance are recorded below. PR CI remains separate.
+Local and native acceptance are recorded below. The PR's required build-and-test
+check is the authoritative CI result; it is separate from local acceptance.
 
 ## Findings and decisions
 

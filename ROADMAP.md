@@ -24,15 +24,16 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 - Library recovery candidate: preserve unreadable lists, retain bounded local
   recovery records and offer explicit restoration without changing original media.
-  Local storage, coordinator, native checks and the strict gate pass; PR CI is
-  pending. [Candidate record](Docs/LIBRARY_RELIABILITY_REVIEW.md).
+  Local storage, coordinator, native checks and the strict gate pass.
+  [PR #47 and CI](https://github.com/carlosciller/AirCiller/pull/47).
+  [Candidate record](Docs/LIBRARY_RELIABILITY_REVIEW.md).
 - Import receipts: count standalone files together with folder additions and
   explain duplicate imports. Production-coordinator and native receipt checks
   pass in the same candidate.
 
 ## Next
 
-Finish the scoped library candidate and review its PR. Publication and daily
+Review the scoped library candidate and its PR checks. Publication and daily
 installation are separate decisions. Do not add another format or engine change
 to this delivery. The recovery work addresses a demonstrated reset path, not a
 reported incident of corruption in the maintainer's library.
