@@ -20,15 +20,23 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
   FLAC soundtracks, local PGS/VobSub OCR and bounded media caches already exist.
   They are not future features.
 
-## Next: bounded library recovery
+## Implemented, not published
 
-Keep one local recovery snapshot before resetting malformed library data, with
-a clear way to inspect or restore it. Test repeated corruption, maximum storage
-and failed recovery. Never touch original media.
+- Library recovery candidate: preserve unreadable lists, retain bounded local
+  recovery records and offer explicit restoration without changing original media.
+  Local storage, coordinator, native checks and the strict gate pass.
+  [PR #47 and CI](https://github.com/carlosciller/AirCiller/pull/47).
+  [Candidate record](Docs/LIBRARY_RELIABILITY_REVIEW.md).
+- Import receipts: count standalone files together with folder additions and
+  explain duplicate imports. Production-coordinator and native receipt checks
+  pass in the same candidate.
 
-The current reset behavior is tested; this is protection against potential loss
-of ordering and progress, not a newly observed corruption incident. It offers
-more practical value than another format expansion without a useful sample.
+## Next
+
+Review the scoped library candidate and its PR checks. Publication and daily
+installation are separate decisions. Do not add another format or engine change
+to this delivery. The recovery work addresses a demonstrated reset path, not a
+reported incident of corruption in the maintainer's library.
 
 ## After that, when there is a concrete need
 

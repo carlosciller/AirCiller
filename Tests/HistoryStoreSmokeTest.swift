@@ -112,16 +112,26 @@ struct HistoryStoreSmokeTest {
 
         defaults.set(Data("not-json".utf8), forKey: HistoryStore.queueKey)
         guard HistoryStore.loadQueue(defaults: defaults).isEmpty,
-            defaults.object(forKey: HistoryStore.queueKey) == nil
+            defaults.data(forKey: HistoryStore.queueKey) == Data("not-json".utf8)
         else { throw NSError(domain: "HistoryStoreSmokeTest.QueueCorruption", code: 10) }
 
         defaults.set(Data("not-json".utf8), forKey: HistoryStore.recentKey)
         guard HistoryStore.loadRecent(defaults: defaults).isEmpty,
-            defaults.object(forKey: HistoryStore.recentKey) == nil
+            defaults.data(forKey: HistoryStore.recentKey) == Data("not-json".utf8)
         else {
             throw NSError(domain: "HistoryStoreSmokeTest.Corruption", code: 3)
         }
 
+        HistoryStore.saveQueue([], defaults: defaults)
+        HistoryStore.saveRecent([], defaults: defaults)
+        HistoryStore.saveSeasons([], defaults: defaults)
+        for key in [HistoryStore.queueKey, HistoryStore.recentKey, HistoryStore.seasonsKey] {
+            guard defaults.data(forKey: key) == Data("not-json".utf8) else {
+                throw NSError(domain: "HistoryStoreSmokeTest.RefuseCorruptOverwrite", code: 16)
+            }
+        }
+        // The following independent limit scenario starts with valid storage.
+        defaults.set(Data("[]".utf8), forKey: HistoryStore.recentKey)
         let recent = (0..<35).map { index in
             RecentMediaItem(
                 path: existingURL.path + "-\(index)",

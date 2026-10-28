@@ -2,6 +2,16 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## Unreleased
+
+- Keep unreadable Playlist, Recents and season data instead of clearing it.
+  Review recovery from the library notice, then explicitly restore a dated copy
+  or start the affected list empty. Original movies are never changed.
+- Explain when an added file is already in Playlist, and include standalone
+  files in the count when importing them alongside a season folder.
+
+[Scope and checks](Docs/LIBRARY_RELIABILITY_REVIEW.md).
+
 ## 0.18.2 (28 October 2026)
 
 - Stop unfinished bitrate analysis before direct MP4 preparation, so the two

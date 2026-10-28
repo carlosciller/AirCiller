@@ -254,6 +254,16 @@ compile_and_run component-manager \
   "$project_dir/Sources/ManagedComponentModels.swift" \
   "$project_dir/Sources/ComponentManager.swift" \
   "$project_dir/Tests/ComponentManagerSmokeTest.swift"
+compile_and_run library-recovery-archive \
+  "$project_dir/Sources/LibraryRecoveryArchive.swift" \
+  "$project_dir/Tests/LibraryRecoveryArchiveSmokeTest.swift"
+compile_and_run library-recovery \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/HistoryStore.swift" \
+  "$project_dir/Sources/LibraryRecoveryArchive.swift" \
+  "$project_dir/Sources/LibraryRecovery.swift" \
+  "$project_dir/Tests/LibraryRecoverySmokeTest.swift"
 compile_and_run history-store \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \

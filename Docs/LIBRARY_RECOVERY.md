@@ -1,6 +1,30 @@
 # Library recovery
 
-Implemented for 0.12.6. This change removes automatic deletion of missing files from Playlist and Recents, both when loading stored lists and when attempting playback. Missing storage is not treated as a request to delete an entry. The existing explicit Remove and Clear actions remain available.
+## Unreadable saved lists (unreleased)
+
+Unreadable Playlist, Recents and season data is retained. Ordinary saves cannot
+replace it with an empty fallback. A library notice opens recovery options;
+there is no automatic restore or startup alert. Restoring requires confirmation
+of the affected list and copy date. Starting an empty list also requires explicit
+confirmation and preservation of its failed data. Other lists and media files
+are not replaced. Editing waits until unreadable data has been resolved.
+
+Recovery records live in Application Support under the app's bundle identifier,
+in `Library Recovery`. Each collection has a valid checkpoint and up to two
+incident records, capped at 4 MiB each (36 MiB retained in total, plus a temporary
+atomic write). A checkpoint is refreshed at startup or an explicit retry; it is
+not a continuous backup. Unresolved incidents cannot overwrite each other.
+After resolution, the next incident retains its predecessor; only the oldest
+resolved incident ages out. Oversized or inaccessible data is never truncated.
+
+The interface distinguishes unreadable JSON, an unrecognized format, unsupported
+recovery versions, permission failures and archive read/write errors. Recovery
+uses the current UserDefaults library representation, which has no transactional
+disk-write acknowledgement. See [candidate checks and limits](LIBRARY_RELIABILITY_REVIEW.md).
+
+## Missing files (0.12.6)
+
+This change removed automatic deletion of missing files from Playlist and Recents, both when loading stored lists and when attempting playback. Missing storage is not treated as a request to delete an entry. The existing explicit Remove and Clear actions remain available.
 
 ## Behavior
 
@@ -9,7 +33,7 @@ Implemented for 0.12.6. This change removes automatic deletion of missing files 
 - The app does not guess that a similarly named file is the same movie. It refuses to merge with an existing destination entry. Cancel leaves the library and playback unchanged.
 - A movie currently preparing or streaming cannot be relocated. Relocating another entry leaves that session alone. An idle selected movie is analyzed again at the explicit replacement path without starting playback.
 - A missing next Playlist file stops automatic advancement with an explanation. It is not removed or silently skipped. No authorization or video packaging changes are included.
-- Entries removed by older versions cannot be reconstructed automatically. Corrupt stored JSON retains the existing reset behavior; a valid record with unavailable storage is no longer treated as corrupt.
+- Entries removed by older versions cannot be reconstructed automatically. The former corrupt-JSON reset behavior is replaced by the unreleased recovery change above; unavailable storage is not treated as corrupt data.
 
 ## Validation
 

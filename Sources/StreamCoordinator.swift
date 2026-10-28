@@ -78,6 +78,10 @@ final class StreamCoordinator {
     private(set) var recentItems: [RecentMediaItem] = HistoryStore.loadRecent()
     private(set) var queueItems: [QueueMediaItem] = HistoryStore.loadQueue()
     private(set) var seasonFolders: [SeasonFolder] = HistoryStore.loadSeasons()
+    private(set) var libraryRecoveryIssues: [LibraryRecovery.Issue] = []
+    private(set) var libraryRecoveryMessage = ""
+    private(set) var libraryNeedsRecovery = false
+    @ObservationIgnored private let libraryRecovery: LibraryRecovery?
     private(set) var isImportingLibrary = false
     private(set) var importedFileCount = 0
     private(set) var libraryImportMessage = ""
@@ -200,7 +204,9 @@ final class StreamCoordinator {
     @ObservationIgnored private var activeSessionID: UUID?
     @ObservationIgnored private var lastRebufferEvent = Date.distantPast
 
-    init() {
+    init(libraryRecovery: LibraryRecovery? = LibraryRecovery.production()) {
+        self.libraryRecovery = libraryRecovery
+        refreshLibraryRecovery()
         seasonFolders = HistoryStore.recoveringSeasons(queue: queueItems, stored: seasonFolders)
         #if !AIRCILLER_PLAYBACK_CHECKS && !AIRCILLER_UI_CHECKS
             Self.cleanupStaleBuffers()
@@ -611,7 +617,71 @@ final class StreamCoordinator {
         UserDefaults.standard.set(preference.rawValue, forKey: "preferredSubtitleKind")
     }
 
+    func refreshLibraryRecovery() {
+        guard let libraryRecovery else { return }
+        libraryRecoveryIssues = libraryRecovery.inspect()
+        libraryNeedsRecovery = libraryRecoveryIssues.contains {
+            !HistoryStore.canWrite(LibraryRecovery.key($0.collection), defaults: libraryRecovery.defaults)
+        }
+    }
+
+    var canRestoreLibrary: Bool {
+        !isAnalyzing && !isPreparing && !isStreaming && !isImportingLibrary && !isWaitingToStart
+    }
+
+    func restoreLibrary(_ issue: LibraryRecovery.Issue, useCheckpoint: Bool) {
+        guard canRestoreLibrary, let libraryRecovery else { return }
+        do {
+            try libraryRecovery.restore(issue, useCheckpoint: useCheckpoint)
+            // Restoration is scoped to one collection. Never reload unaffected
+            // lists over their current in-memory progress or selection.
+            switch issue.collection {
+            case .queue:
+                queueItems = HistoryStore.loadQueue(defaults: libraryRecovery.defaults)
+                focusedQueueItemID = nil
+                focusedQueueSeasonID = nil
+            case .recent:
+                recentItems = HistoryStore.loadRecent(defaults: libraryRecovery.defaults)
+                focusedRecentItemID = nil
+            case .seasons:
+                seasonFolders = HistoryStore.loadSeasons(defaults: libraryRecovery.defaults)
+            }
+            libraryUndoManager?.removeAllActions(withTarget: self)
+            libraryRecoveryMessage = L10n.format(
+                "Se ha recuperado %@. Las demás listas y los archivos originales no han cambiado.",
+                LibraryRecovery.collectionName(issue.collection))
+        } catch {
+            libraryRecoveryMessage = L10n.text(
+                "No se ha restaurado la lista. Los datos han cambiado o no se ha podido conservar la copia. Revisa la recuperación e inténtalo de nuevo."
+            )
+        }
+        refreshLibraryRecovery()
+    }
+
+    func confirmLibraryRestore(_ issue: LibraryRecovery.Issue, useCheckpoint: Bool) {
+        guard canRestoreLibrary else { return }
+        let alert = NSAlert()
+        alert.messageText = L10n.format("¿Restaurar %@?", LibraryRecovery.collectionName(issue.collection))
+        alert.informativeText =
+            useCheckpoint
+            ? L10n.format(
+                "Se sustituirá únicamente esta lista por la copia del %@. Los cambios posteriores a esa copia no se recuperarán. Se conservarán los datos dañados y no se tocarán tus películas.",
+                issue.checkpoint?.savedAt.formatted(date: .abbreviated, time: .shortened) ?? "")
+            : L10n.text(
+                "Esta lista empezará vacía. Se conservarán los datos dañados para su revisión. Las demás listas y tus películas no se modificarán."
+            )
+        alert.addButton(withTitle: L10n.text(useCheckpoint ? "Restaurar copia" : "Empezar vacía"))
+        alert.addButton(withTitle: L10n.text("Cancelar"))
+        if alert.runModal() == .alertFirstButtonReturn { restoreLibrary(issue, useCheckpoint: useCheckpoint) }
+    }
+
+    func showLibraryRecoveryFiles() {
+        guard let directory = libraryRecovery?.archive.directory else { return }
+        NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: directory.path)
+    }
+
     func chooseVideos() {
+        guard !libraryNeedsRecovery else { return }
         let panel = NSOpenPanel()
         panel.title = L10n.text("Elegir películas")
         panel.prompt = L10n.text("Abrir")
@@ -625,6 +695,7 @@ final class StreamCoordinator {
     }
 
     func addToQueue() {
+        guard !libraryNeedsRecovery else { return }
         let panel = NSOpenPanel()
         panel.title = L10n.text("Añadir a la playlist")
         panel.prompt = L10n.text("Añadir")
@@ -637,6 +708,7 @@ final class StreamCoordinator {
     }
 
     func handleURLs(_ urls: [URL], analyzeFirst: Bool = true) {
+        guard !libraryNeedsRecovery else { return }
         libraryImportIssues = urls.filter {
             !MediaFileTypes.accepts($0)
                 && !($0.isFileURL && (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true)
@@ -660,7 +732,21 @@ final class StreamCoordinator {
             )
             return
         }
+        let previousCount = queueItems.count
         enqueue(videos)
+        let addedCount = queueItems.count - previousCount
+        if isImportingLibrary {
+            importedFileCount += addedCount
+        } else {
+            importedFileCount = addedCount
+            let receipt =
+                addedCount == 0
+                ? L10n.text("No hay archivos nuevos que añadir")
+                : L10n.format(
+                    addedCount == 1 ? "%lld archivo añadido" : "%lld archivos añadidos", Int64(addedCount))
+            libraryImportMessage =
+                libraryImportIssues.isEmpty ? receipt : "\(receipt); \(libraryImportMessage)"
+        }
         guard analyzeFirst, !commandAvailability.canStop else { return }
         loadVideo(first, autoStart: false)
     }
@@ -675,6 +761,7 @@ final class StreamCoordinator {
     }
 
     private func importLibraryFolders(_ urls: [URL]) {
+        let previousCount = queueItems.count
         enqueue(
             urls.filter {
                 MediaFileTypes.accepts($0)
@@ -684,11 +771,15 @@ final class StreamCoordinator {
             contentsOf: urls.filter {
                 $0.isFileURL && (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
             })
-        guard !isImportingLibrary else { return }
+        let addedCount = queueItems.count - previousCount
+        guard !isImportingLibrary else {
+            importedFileCount += addedCount
+            return
+        }
         let importID = UUID()
         libraryImportID = importID
         isImportingLibrary = true
-        importedFileCount = 0
+        importedFileCount = addedCount
         libraryImportMessage = L10n.text("Añadiendo archivos…")
         // Standalone files are admitted immediately, independently of folder enumeration.
         libraryImportTask = Task { [weak self] in
@@ -789,12 +880,14 @@ final class StreamCoordinator {
     }
 
     func setSeasonExpanded(_ id: String, expanded: Bool) {
+        guard !libraryNeedsRecovery else { return }
         guard let index = seasonFolders.firstIndex(where: { $0.id == id }) else { return }
         seasonFolders[index].isExpanded = expanded
         HistoryStore.saveSeasons(seasonFolders)
     }
 
     func setWatched(_ item: QueueMediaItem, watched: Bool) {
+        guard !libraryNeedsRecovery else { return }
         guard let index = queueItems.firstIndex(where: { $0.id == item.id }) else { return }
         guard queueItems[index].watched != watched else { return }
         registerWatchedUndo(
@@ -818,6 +911,7 @@ final class StreamCoordinator {
     }
 
     func removeSeason(_ id: String) {
+        guard !libraryNeedsRecovery else { return }
         let previousItems = queueItems
         let previousFocus = focusedQueueItemID
         queueItems.removeAll { $0.seasonID == id }
@@ -867,6 +961,7 @@ final class StreamCoordinator {
         _ url: URL, autoStart: Bool, startingAt requestedStart: Double? = nil,
         continuingPlaylist: Bool = false
     ) {
+        guard !libraryNeedsRecovery else { return }
         #if AIRCILLER_PLAYBACK_CHECKS
             onPlaybackCheckLoad?(url)
         #endif
@@ -1309,6 +1404,7 @@ final class StreamCoordinator {
     }
 
     func removeQueueItem(_ item: QueueMediaItem) {
+        guard !libraryNeedsRecovery else { return }
         guard let removedIndex = queueItems.firstIndex(where: { $0.id == item.id }) else { return }
         let previousItems = queueItems
         let previousFocus = focusedQueueItemID
@@ -1437,6 +1533,7 @@ final class StreamCoordinator {
 
     @discardableResult
     func moveFocusedQueueItem(by offset: Int) -> Bool {
+        guard !libraryNeedsRecovery else { return false }
         if let root = focusedSeasonRoot, let season = focusedQueueSeasonID {
             guard offset != 0 else { return false }
             let destination = min(max(root.index + offset, 0), root.items.count - 1)
@@ -1485,6 +1582,7 @@ final class StreamCoordinator {
     }
 
     func moveQueueItems(fromOffsets: IndexSet, toOffset: Int) {
+        guard !libraryNeedsRecovery else { return }
         let previousItems = queueItems
         queueItems = QueueOrdering.moving(queueItems, fromOffsets: fromOffsets, toOffset: toOffset)
         normalizeSeasonOrder()
@@ -1493,6 +1591,7 @@ final class StreamCoordinator {
     }
 
     func moveQueueItems(ids: [String], before destinationID: String?) {
+        guard !libraryNeedsRecovery else { return }
         let offsets = IndexSet(
             ids.compactMap { id in
                 queueItems.firstIndex(where: { $0.id == id })
@@ -1505,6 +1604,7 @@ final class StreamCoordinator {
     }
 
     func clearQueue() {
+        guard !libraryNeedsRecovery else { return }
         playlistAudioConsent.reset()
         let previousItems = queueItems
         let previousFocus = focusedQueueItemID
@@ -1516,6 +1616,7 @@ final class StreamCoordinator {
     }
 
     func removeRecent(_ item: RecentMediaItem) {
+        guard !libraryNeedsRecovery else { return }
         guard let removedIndex = recentItems.firstIndex(where: { $0.id == item.id }) else { return }
         let previousItems = recentItems
         let previousFocus = focusedRecentItemID
@@ -1530,6 +1631,7 @@ final class StreamCoordinator {
     }
 
     func clearRecent() {
+        guard !libraryNeedsRecovery else { return }
         let previousItems = recentItems
         let previousFocus = focusedRecentItemID
         recentItems.removeAll()
@@ -1564,6 +1666,7 @@ final class StreamCoordinator {
     }
 
     func locateLibraryFile(_ oldURL: URL) {
+        guard !libraryNeedsRecovery else { return }
         guard !(selectedURL?.path == oldURL.path && (isPreparing || isStreaming)) else {
             let alert = NSAlert()
             alert.messageText = L10n.text("Detén esta película antes de localizar su archivo")
@@ -2278,6 +2381,7 @@ final class StreamCoordinator {
     }
 
     private func enqueue(_ urls: [URL]) {
+        guard !libraryNeedsRecovery else { return }
         var knownPaths = Set(queueItems.map(\.path))
         var updated = queueItems
         for url in urls where MediaFileTypes.accepts(url) && knownPaths.insert(url.path).inserted {

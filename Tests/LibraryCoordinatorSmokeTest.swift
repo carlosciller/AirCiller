@@ -384,7 +384,75 @@ struct LibraryCoordinatorSmokeTest {
             try await Task.sleep(for: .milliseconds(500))
             print("Private remote TLS integration: OK")
         }
+        try await verifyImportReceipts()
+        try verifyRecoveryIntegration()
         print("Production coordinator library Undo/Redo, selection, persistence and session-state preservation: OK")
+    }
+
+    @MainActor
+    private static func verifyRecoveryIntegration() throws {
+        let defaults = UserDefaults.standard
+        let root = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+            .appendingPathComponent("RecoveryCoordinator-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let item = QueueMediaItem(path: "/synthetic/Episode.mkv", title: "Episode", lastPosition: 123)
+        HistoryStore.saveQueue([item])
+        let recovery = LibraryRecovery(defaults: defaults, archive: .init(directory: root))
+        try require(recovery.inspect().isEmpty, "valid coordinator library has recovery copy")
+        let damaged = Data("broken".utf8)
+        defaults.set(damaged, forKey: HistoryStore.queueKey)
+        let coordinator = StreamCoordinator(libraryRecovery: recovery)
+        try require(coordinator.libraryNeedsRecovery && coordinator.queueItems.isEmpty, "startup exposes recovery")
+        coordinator.handleURLs([URL(fileURLWithPath: "/synthetic/New.mkv")], analyzeFirst: false)
+        coordinator.clearQueue()
+        coordinator.loadVideo(item.url, autoStart: false)
+        try require(
+            coordinator.queueItems.isEmpty && coordinator.selectedURL == nil
+                && defaults.data(forKey: HistoryStore.queueKey) == damaged,
+            "imports, clear and activation cannot conceal unresolved recovery")
+        let issue = coordinator.libraryRecoveryIssues.first { $0.collection == .queue }!
+        coordinator.isPreparing = true
+        coordinator.restoreLibrary(issue, useCheckpoint: true)
+        try require(coordinator.libraryNeedsRecovery, "busy restore is refused")
+        coordinator.isPreparing = false
+        coordinator.restoreLibrary(issue, useCheckpoint: true)
+        try require(
+            !coordinator.libraryNeedsRecovery && coordinator.queueItems == [item]
+                && !coordinator.libraryRecoveryMessage.isEmpty,
+            "explicit idle restore updates real coordinator and reports scope")
+        try require(!coordinator.isAnalyzing && !coordinator.isStreaming, "recovery does not start playback")
+    }
+
+    @MainActor
+    private static func verifyImportReceipts() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("ImportReceipt-\(UUID())")
+        let folder = root.appendingPathComponent("Season")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let movie = root.appendingPathComponent("Movie.mkv")
+        let episode = folder.appendingPathComponent("Episode.mkv")
+        try Data("fixture".utf8).write(to: movie)
+        try Data("fixture".utf8).write(to: episode)
+        let coordinator = StreamCoordinator()
+        coordinator.clearQueue()
+        coordinator.handleURLs([movie, folder], analyzeFirst: false)
+        let deadline = Date().addingTimeInterval(10)
+        while coordinator.isImportingLibrary, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        try require(!coordinator.isImportingLibrary, "mixed import completes")
+        let mixedCount = coordinator.importedFileCount
+        let mixedMessage = coordinator.libraryImportMessage
+        let mixedItems = coordinator.queueItems
+        coordinator.handleURLs([movie], analyzeFirst: false)
+        let duplicateMessage = coordinator.libraryImportMessage
+        print("Import receipts: mixed count=\(mixedCount), mixed=\(mixedMessage), duplicate=\(duplicateMessage)")
+        try require(
+            mixedItems.count == 2 && mixedCount == 2
+                && duplicateMessage == L10n.text("No hay archivos nuevos que añadir")
+                && coordinator.queueItems == mixedItems,
+            "mixed receipt counts files and episodes; duplicate receipt explains unchanged membership")
+        try require(!coordinator.isAnalyzing && !coordinator.isStreaming, "receipt does not start media work")
     }
 
     @MainActor

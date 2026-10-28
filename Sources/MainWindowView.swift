@@ -72,6 +72,7 @@ struct ContentView: View {
                             Label("Abrir película", systemImage: "plus")
                         }
                         .help("Abrir película")
+                        .disabled(coordinator.libraryNeedsRecovery)
                         Button {
                             showingStreamInfo.toggle()
                         } label: {
@@ -272,6 +273,7 @@ struct ContentView: View {
                 Text("Tus películas se quedan en tus dispositivos.").foregroundStyle(.secondary)
                 Button("Abrir película…") { coordinator.chooseVideos() }
                     .buttonStyle(.borderedProminent).focused($focusedControl, equals: .open)
+                    .disabled(coordinator.libraryNeedsRecovery)
             case .analyzing, .waiting, .preparing:
                 if presentation == .preparing,
                     coordinator.preparationProgress > 0, coordinator.preparationProgress < 1

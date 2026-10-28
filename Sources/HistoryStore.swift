@@ -19,13 +19,13 @@ enum HistoryStore {
     ) -> [RecentMediaItem] {
         guard let data = defaults.data(forKey: recentKey) else { return [] }
         guard let items = try? JSONDecoder().decode([RecentMediaItem].self, from: data) else {
-            defaults.removeObject(forKey: recentKey)
             return []
         }
         return Array(items.prefix(maximumRecentItems))
     }
 
     static func saveRecent(_ items: [RecentMediaItem], defaults: UserDefaults = .standard) {
+        guard canWrite(recentKey, defaults: defaults) else { return }
         let trimmed = Array(items.prefix(maximumRecentItems))
         guard let data = try? JSONEncoder().encode(trimmed) else { return }
         defaults.set(data, forKey: recentKey)
@@ -36,13 +36,13 @@ enum HistoryStore {
     ) -> [QueueMediaItem] {
         guard let data = defaults.data(forKey: queueKey) else { return [] }
         guard let items = try? JSONDecoder().decode([QueueMediaItem].self, from: data) else {
-            defaults.removeObject(forKey: queueKey)
             return []
         }
         return items
     }
 
     static func saveQueue(_ items: [QueueMediaItem], defaults: UserDefaults = .standard) {
+        guard canWrite(queueKey, defaults: defaults) else { return }
         guard let data = try? JSONEncoder().encode(items) else { return }
         defaults.set(data, forKey: queueKey)
     }
@@ -56,8 +56,26 @@ enum HistoryStore {
     }
 
     static func saveSeasons(_ groups: [SeasonFolder], defaults: UserDefaults = .standard) {
+        guard canWrite(seasonsKey, defaults: defaults) else { return }
         guard let data = try? JSONEncoder().encode(groups) else { return }
         defaults.set(data, forKey: seasonsKey)
+    }
+
+    /// An empty in-memory fallback is never permission to overwrite unreadable
+    /// preferences. Recovery is a separate, explicit operation.
+    static func canWrite(_ key: String, defaults: UserDefaults = .standard) -> Bool {
+        guard defaults.object(forKey: key) != nil else { return true }
+        guard let data = defaults.data(forKey: key) else { return false }
+        return validates(data, key: key)
+    }
+
+    static func validates(_ data: Data, key: String) -> Bool {
+        switch key {
+        case queueKey: return (try? JSONDecoder().decode([QueueMediaItem].self, from: data)) != nil
+        case recentKey: return (try? JSONDecoder().decode([RecentMediaItem].self, from: data)) != nil
+        case seasonsKey: return (try? JSONDecoder().decode([SeasonFolder].self, from: data)) != nil
+        default: return false
+        }
     }
 
     static func recoveringSeasons(queue: [QueueMediaItem], stored: [SeasonFolder]) -> [SeasonFolder] {

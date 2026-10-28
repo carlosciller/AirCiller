@@ -6,7 +6,7 @@ import SwiftUI
 // property-wrapper type explicitly so standalone builds do not depend on it.
 private typealias AirCillerState<Value> = SwiftUI.State<Value>
 
-#if !AIRCILLER_PLAYBACK_CHECKS
+#if !AIRCILLER_PLAYBACK_CHECKS && !AIRCILLER_LIBRARY_UI_CHECKS
     @main
 #endif
 struct AirCillerApp: App {
@@ -38,8 +38,10 @@ struct AirCillerApp: App {
             CommandGroup(replacing: .newItem) {
                 Button("Abrir película…") { coordinator.chooseVideos() }
                     .keyboardShortcut("o", modifiers: .command)
+                    .disabled(coordinator.libraryNeedsRecovery)
                 Button("Añadir a la playlist…") { coordinator.addToQueue() }
                     .keyboardShortcut("o", modifiers: [.command, .shift])
+                    .disabled(coordinator.libraryNeedsRecovery)
             }
             CommandMenu("Reproducción") {
                 Button(L10n.text(coordinator.isPlaying ? "Pausa" : "Reproducir")) {
@@ -363,6 +365,7 @@ struct LibrarySidebar: View {
     @Binding var selectedRecentID: String?
     @AirCillerState private var confirmingClearQueue = false
     @AirCillerState private var confirmingClearRecent = false
+    @AirCillerState private var showingLibraryRecovery = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -386,11 +389,25 @@ struct LibrarySidebar: View {
             .padding(.top, 8)
             .padding(.bottom, 7)
 
-            if selectedTab == .recent {
-                recentList
-            } else {
-                playlistView
+            if !coordinator.libraryRecoveryIssues.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("La biblioteca necesita atención").font(.callout)
+                    Button("Revisar recuperación…") { showingLibraryRecovery = true }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
             }
+            Group {
+                if selectedTab == .recent {
+                    recentList
+                } else {
+                    playlistView
+                }
+            }
+            .disabled(coordinator.libraryNeedsRecovery)
+        }
+        .sheet(isPresented: $showingLibraryRecovery) {
+            LibraryRecoveryView(coordinator: coordinator)
         }
         .onChange(of: selectedTab) { _, tab in
             if tab == .recent { coordinator.clearQueueFocus() }
