@@ -92,6 +92,9 @@
 "La red ofrece %@ el caudal del pico más exigente de la película." = "La red ofrece %@ el caudal del pico más exigente de la película.";
 "Analizando…" = "Analizando…";
 "%@ en el pico" = "%@ en el pico";
+"%@ de pico estimado" = "%@ de pico estimado";
+"Pico no disponible" = "Pico no disponible";
+"El margen usa un pico estimado. Los picos reales de la película pueden ser mayores." = "El margen usa un pico estimado. Los picos reales de la película pueden ser mayores.";
 "Se medirá al reproducir" = "Se medirá al reproducir";
 "Pendiente" = "Pendiente";
 "%lld completadas" = "%lld completadas";

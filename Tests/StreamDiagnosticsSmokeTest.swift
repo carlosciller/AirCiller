@@ -56,6 +56,14 @@ struct StreamDiagnosticsSmokeTest {
     @MainActor
     static func main() async throws {
         try await cancelledAnalysisClosesPipes()
+        let preparedFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data(repeating: 0, count: 6000).write(to: preparedFile)
+        defer { try? FileManager.default.removeItem(at: preparedFile) }
+        let estimated = try StreamDemandAnalyzer.directFileProfile(fileURL: preparedFile, duration: 6, peakRatio: nil)
+        let measured = try StreamDemandAnalyzer.directFileProfile(fileURL: preparedFile, duration: 6, peakRatio: 2)
+        guard !estimated.isMeasured, estimated.peakTime == nil, estimated.peakBitsPerSecond == 12_000,
+            measured.isMeasured, measured.peakBitsPerSecond == 16_000
+        else { throw NSError(domain: "StreamDiagnosticsSmokeTest.EstimateProvenance", code: 15) }
         let analysis = MediaDemandAnalysis(
             duration: 18,
             windowDuration: 6,
