@@ -71,9 +71,12 @@ struct MediaDemandAnalysis: Sendable {
 enum StreamDemandAnalyzer {
     static let windowDuration = 6.0
 
-    static func analyze(url: URL, duration: Double) async throws -> MediaDemandAnalysis {
+    static func analyze(
+        url: URL, duration: Double, ffprobeURL: URL? = nil,
+        onStarted: (@Sendable (Process) -> Void)? = nil
+    ) async throws -> MediaDemandAnalysis {
         do {
-            guard let ffprobeURL = Executables.find("ffprobe") else {
+            guard let ffprobeURL = ffprobeURL ?? Executables.find("ffprobe") else {
                 throw AirCillerError.ffprobeMissing
             }
 
@@ -102,9 +105,18 @@ enum StreamDemandAnalyzer {
             }
             process.standardOutput = output
             process.standardError = errors
+            defer {
+                output.fileHandleForReading.readabilityHandler = nil
+                errors.fileHandleForReading.readabilityHandler = nil
+                try? output.fileHandleForReading.close()
+                try? errors.fileHandleForReading.close()
+                try? output.fileHandleForWriting.close()
+                try? errors.fileHandleForWriting.close()
+            }
             let status = try await CancellableProcess(process).run {
                 try? output.fileHandleForWriting.close()
                 try? errors.fileHandleForWriting.close()
+                onStarted?(process)
             }
             output.fileHandleForReading.readabilityHandler = nil
             errors.fileHandleForReading.readabilityHandler = nil

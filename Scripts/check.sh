@@ -353,6 +353,7 @@ compile_and_run subtitle-ocr-cancellation \
   "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
   "$project_dir/Sources/SubtitleOCRService.swift" \
   "$project_dir/Tests/SubtitleOCRCancellationSmokeTest.swift"
+export AIRCILLER_TEST_FFPROBE="$engine_path/ffmpeg/bin/ffprobe"
 compile_and_run stream-diagnostics \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
@@ -372,6 +373,7 @@ compile_and_run stream-diagnostics \
   "$project_dir/Sources/SubtitleOCRTextNormalizer.swift" \
   "$project_dir/Sources/AirCillerStorage.swift" \
   "$project_dir/Tests/StreamDiagnosticsSmokeTest.swift"
+unset AIRCILLER_TEST_FFPROBE
 compile_and_run http-server \
   -D AIRCILLER_HTTP_TESTS \
   -framework Network \

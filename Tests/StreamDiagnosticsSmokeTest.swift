@@ -1,8 +1,61 @@
+import Darwin
 import Foundation
 
 @main
 struct StreamDiagnosticsSmokeTest {
-    static func main() throws {
+    @MainActor
+    static func cancelledAnalysisClosesPipes() async throws {
+        guard let engine = ProcessInfo.processInfo.environment["AIRCILLER_TEST_FFPROBE"] else {
+            throw NSError(domain: "StreamDiagnosticsSmokeTest.Engine", code: 10)
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("AirCiller-DemandCancel-\(UUID())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fifo = root.appendingPathComponent("input.mkv")
+        guard mkfifo(fifo.path, 0o600) == 0 else {
+            throw NSError(domain: "StreamDiagnosticsSmokeTest.FIFO", code: 11)
+        }
+        let watchdog = DispatchWorkItem { _exit(2) }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 15, execute: watchdog)
+        defer { watchdog.cancel() }
+        for _ in 0..<3 {
+            let started = AsyncStream<(Process, Int32, Int32)>.makeStream()
+            let task = Task {
+                try await StreamDemandAnalyzer.analyze(
+                    url: fifo, duration: 60, ffprobeURL: URL(fileURLWithPath: engine),
+                    onStarted: { process in
+                        let output = process.standardOutput as! Pipe
+                        let errors = process.standardError as! Pipe
+                        started.continuation.yield(
+                            (
+                                process, output.fileHandleForReading.fileDescriptor,
+                                errors.fileHandleForReading.fileDescriptor
+                            ))
+                    })
+            }
+            var iterator = started.stream.makeAsyncIterator()
+            guard let (process, outputFD, errorFD) = await iterator.next(), process.isRunning else {
+                throw NSError(domain: "StreamDiagnosticsSmokeTest.NotRunning", code: 12)
+            }
+            let began = ContinuousClock.now
+            task.cancel()
+            do {
+                _ = try await task.value
+                throw NSError(domain: "StreamDiagnosticsSmokeTest.Uncancelled", code: 13)
+            } catch is CancellationError {}
+            started.continuation.finish()
+            guard !process.isRunning, began.duration(to: .now) < .seconds(3),
+                fcntl(outputFD, F_GETFD) == -1, fcntl(errorFD, F_GETFD) == -1
+            else {
+                throw NSError(domain: "StreamDiagnosticsSmokeTest.LeakedProcessOrPipe", code: 14)
+            }
+        }
+        print("Demand cancellation reaps real ffprobe and closes both read pipes: OK")
+    }
+
+    @MainActor
+    static func main() async throws {
+        try await cancelledAnalysisClosesPipes()
         let analysis = MediaDemandAnalysis(
             duration: 18,
             windowDuration: 6,
