@@ -20,6 +20,28 @@ new receiver session. See the review for sample limits and report identities.
 The full local release gate is required after versioning. PR, main, tag, public
 archive and signed-feed verification will be recorded after they complete.
 
+### CI cancellation-check repair
+
+The first [PR CI run](https://github.com/carlosciller/AirCiller/actions/runs/40728253831)
+failed in StreamDiagnosticsSmokeTest with LeakedProcessOrPipe, despite the local
+gate passing. Publication stopped. Repeated local executions reproduced it:
+the child had exited in under a millisecond, but a reader descriptor was still
+open at the immediate assertion. A pinned kernel pipe identity confirmed that
+Foundation can finish retiring a readability source after the async task returns.
+Descriptor numbers alone are also unsafe once another resource reuses them.
+
+The test now pins each pipe identity with a temporary duplicate, checks retirement
+of the original descriptors, and keeps the existing three-second total bound
+for process and reader cleanup. It fails closed if inspection is unavailable.
+The duplicate anchors close at the end of each iteration. Production code,
+timeouts and cancellation behavior are unchanged.
+
+Two hundred local test executions passed, covering 600 real bundled FFprobe
+cancellations. A separately compiled negative control removed the cleanup defer:
+the corrected test failed after 3.000 seconds with both original readers still
+open. This is a checker repair with a demonstrated failing control, not an
+unchanged rerun or removal of the leak assertion. The first failed CI is retained.
+
 ## GitHub audit, 28 October
 
 | Finding | Evidence and decision | Verification |

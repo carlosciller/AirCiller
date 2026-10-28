@@ -3,6 +3,16 @@ import Foundation
 
 @main
 struct StreamDiagnosticsSmokeTest {
+    static func pipeIdentity(_ descriptor: Int32) throws -> UInt64? {
+        var info = pipe_fdinfo()
+        errno = 0
+        let size = proc_pidfdinfo(
+            getpid(), descriptor, PROC_PIDFDPIPEINFO, &info, Int32(MemoryLayout<pipe_fdinfo>.size))
+        if size == MemoryLayout<pipe_fdinfo>.size { return info.pipeinfo.pipe_handle }
+        if size == 0 && errno == EBADF { return nil }
+        throw NSError(domain: "StreamDiagnosticsSmokeTest.PipeInspection", code: Int(errno))
+    }
+
     @MainActor
     static func cancelledAnalysisClosesPipes() async throws {
         guard let engine = ProcessInfo.processInfo.environment["AIRCILLER_TEST_FFPROBE"] else {
@@ -19,7 +29,7 @@ struct StreamDiagnosticsSmokeTest {
         DispatchQueue.global().asyncAfter(deadline: .now() + 15, execute: watchdog)
         defer { watchdog.cancel() }
         for _ in 0..<3 {
-            let started = AsyncStream<(Process, Int32, Int32)>.makeStream()
+            let started = AsyncStream<(Process, FileHandle, FileHandle)>.makeStream()
             let task = Task {
                 try await StreamDemandAnalyzer.analyze(
                     url: fifo, duration: 60, ffprobeURL: URL(fileURLWithPath: engine),
@@ -28,15 +38,30 @@ struct StreamDiagnosticsSmokeTest {
                         let errors = process.standardError as! Pipe
                         started.continuation.yield(
                             (
-                                process, output.fileHandleForReading.fileDescriptor,
-                                errors.fileHandleForReading.fileDescriptor
+                                process, output.fileHandleForReading,
+                                errors.fileHandleForReading
                             ))
                     })
             }
             var iterator = started.stream.makeAsyncIterator()
-            guard let (process, outputFD, errorFD) = await iterator.next(), process.isRunning else {
+            guard let (process, outputReader, errorReader) = await iterator.next(), process.isRunning else {
                 throw NSError(domain: "StreamDiagnosticsSmokeTest.NotRunning", code: 12)
             }
+            let outputFD = outputReader.fileDescriptor
+            let errorFD = errorReader.fileDescriptor
+            // Pin the pipe identities while checking the original descriptors.
+            // A reused descriptor cannot identify a leak, and the anchors keep
+            // the original kernel pipe identities from being recycled.
+            let outputAnchor = dup(outputFD)
+            let errorAnchor = dup(errorFD)
+            defer {
+                if outputAnchor >= 0 { close(outputAnchor) }
+                if errorAnchor >= 0 { close(errorAnchor) }
+            }
+            guard outputAnchor >= 0, errorAnchor >= 0,
+                let outputIdentity = try pipeIdentity(outputAnchor),
+                let errorIdentity = try pipeIdentity(errorAnchor)
+            else { throw NSError(domain: "StreamDiagnosticsSmokeTest.PipeAnchors", code: 16) }
             let began = ContinuousClock.now
             task.cancel()
             do {
@@ -44,10 +69,27 @@ struct StreamDiagnosticsSmokeTest {
                 throw NSError(domain: "StreamDiagnosticsSmokeTest.Uncancelled", code: 13)
             } catch is CancellationError {}
             started.continuation.finish()
-            guard !process.isRunning, began.duration(to: .now) < .seconds(3),
-                fcntl(outputFD, F_GETFD) == -1, fcntl(errorFD, F_GETFD) == -1
+            // Foundation retires an active readability source asynchronously.
+            // Keep the original three-second bound for child and pipe cleanup;
+            // inspect pinned identities so unrelated reused descriptors are safe.
+            while began.duration(to: .now) < .seconds(3) {
+                let outputRetired = try pipeIdentity(outputFD) != outputIdentity
+                let errorRetired = try pipeIdentity(errorFD) != errorIdentity
+                if outputRetired && errorRetired { break }
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            let running = process.isRunning
+            let elapsed = began.duration(to: .now)
+            let outputClosed = try pipeIdentity(outputFD) != outputIdentity
+            let errorClosed = try pipeIdentity(errorFD) != errorIdentity
+            guard !running, elapsed < .seconds(3), outputClosed, errorClosed
             else {
-                throw NSError(domain: "StreamDiagnosticsSmokeTest.LeakedProcessOrPipe", code: 14)
+                throw NSError(
+                    domain: "StreamDiagnosticsSmokeTest.LeakedProcessOrPipe", code: 14,
+                    userInfo: [
+                        NSLocalizedDescriptionKey:
+                            "running=\(running), elapsed=\(elapsed), outputClosed=\(outputClosed), errorClosed=\(errorClosed)"
+                    ])
             }
         }
         print("Demand cancellation reaps real ffprobe and closes both read pipes: OK")
