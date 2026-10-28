@@ -42,16 +42,21 @@ showed no consistent penalty. An initial biased harness run is retained and
 excluded from performance conclusions. See the
 [direct-demand record](Docs/DIRECT_DEMAND_MEASUREMENT.md).
 
-**Next: scope postponing unfinished demand analysis during direct preparation.**
-Retain an already computed profile and truthful diagnostic estimates; check task
-ownership, cancellation and source changes. HLS already cancels this analysis at
-startup. The potential benefit applies only while analysis is still running
-when Play is pressed. Production scheduling is unchanged so far.
+**Validated local candidate: cancel and join unfinished analysis before direct preparation.**
+Completed profiles are retained; diagnostics distinguish estimates from measured
+peaks. The candidate also closes analysis pipes on cancellation and retains a
+retirement barrier for immediate retries. The paired prototype measurement found
+6.729-10.206 s less preparation time for the large HDR movie, with identical
+output bytes. This applies only when analysis is still running at Play, and is
+not a first-picture measurement. Strict local checks, directed digital output on
+both routes, cancellation, Stop/replay and native diagnostic text checks passed.
+See the [candidate review](Docs/REVIEW_2026_10_28.md) for scope and evidence limits.
+It is not published or installed.
 
 1. Retain the completed preparation baseline and its raw samples. Refresh only
    for a changed hypothesis or relevant production input; historical subtitle
    output is not byte-equivalent after the seek repair.
-2. Use the completed direct comparison to scope the scheduling change. Keep
+2. Review this candidate for the separate publication phase before another optimization. Keep
    integrity checks, finalized VOD and original audio/video quality. Profile
    individual cache operations only for a
    specific alternative; the link-API comparison provides no basis for a rewrite.
@@ -78,6 +83,14 @@ selectable subtitles. Change at most one packager per delivery. Do not trade
 these invariants for progressive startup or claim newer libraries are faster
 without measurement. Include external storage and bitrate peaks only in an
 explicitly scoped follow-up; they remain unmeasured otherwise.
+
+## Next small reliability improvement
+
+Preserve one bounded local recovery snapshot before resetting malformed library
+JSON. Decide how the user can inspect or restore it, test repeated corruption and
+storage limits, and keep media originals untouched. The current reset behavior
+is tested and unchanged; this is a data-protection improvement, not evidence of
+a new corruption incident. Keep it separate from the validated startup candidate.
 
 ## Compatibility when a real collection needs it
 

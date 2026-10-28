@@ -131,6 +131,10 @@ The independently verified `comparison.json` hashes to
 
 ## Decision and next candidate
 
+The subsequent [28 October candidate review](REVIEW_2026_10_28.md) records the
+implemented cancellation/join change, new comparisons and scoped acceptance.
+The measurements below remain the original experiment, not a current release claim.
+
 Concurrent full-file analysis can compete materially with direct preparation
 for the tested large movie. A scoped follow-up should cancel or postpone only
 unfinished demand analysis at direct preparation, while retaining an already
