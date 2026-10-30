@@ -12,7 +12,32 @@ struct AirPlayControllerStopSmokeTest {
         try await cancelledReplacementCannotContinue()
         try await stoppedReplacementCannotContinue()
         try await supersededReplacementCannotContinue()
+        try await retiredCancellationCannotCancelReplacement()
         print("AirPlay Stop: timeline ownership, helper exit ordering and cancelled replacements: OK")
+    }
+
+    @MainActor private static func retiredCancellationCannotCancelReplacement() async throws {
+        let controller = AirPlayController()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["0.4"]
+        let retiredSessionID = try controller.beginProcessTestSession(process)
+        defer { if process.isRunning { process.terminate() } }
+        let replacement = Task { try await controller.prepareReplacementTestSession() }
+        try await waitForReplacement(controller)
+        // The old start task's MainActor cancellation callback can arrive while
+        // its already-stopping helper is still being joined by the next start.
+        controller.cancelProcessTestSession(UUID())
+        controller.cancelProcessTestSession(retiredSessionID)
+        try await replacement.value
+        precondition(!process.isRunning && !controller.isSessionActive)
+
+        let activeSessionID = controller.beginEventTestSession(position: 0, duration: 60)
+        emit("playing", to: controller, sessionID: activeSessionID)
+        controller.cancelProcessTestSession(activeSessionID)
+        emit("stopped", to: controller, sessionID: activeSessionID)
+        controller.endEventTestSession(activeSessionID)
+        precondition(!controller.isConnected && !controller.isSessionActive)
     }
 
     @MainActor private static func cancelledReplacementCannotContinue() async throws {

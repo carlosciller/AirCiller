@@ -32,12 +32,25 @@ it is not proof that the overlap caused the earlier receiver timeout.
 
 ## Completed checks
 
-- Full strict local gate passed once after versioning: Swift 6,
-  warnings-as-errors, regressions, bundle and publication checks. Retained log:
-  `.build/release-0.18.4-local-check.log`.
+- The initial strict gate passed after versioning and is retained as
+  `.build/release-0.18.4-local-check.log`. Final review then exposed a cancellation
+  interaction introduced by the new asynchronous wait: the predecessor's deferred
+  callback could invalidate the replacement while joining that predecessor.
+  A separate regression failed with `CancellationError` before the guard and
+  passed afterward (`replay-retirement-cancel-before.log` / `-after.log` in
+  `.build`). Cancellation now stops only its own active helper when no replacement
+  already owns retirement. An explicit Stop still invalidates the replacement.
+- The final strict gate passed with that executable change, retained in
+  `.build/release-0.18.4-final-check-2.log`. The preceding attempt in
+  `release-0.18.4-final-check.log` stopped at the public-prose guard before the
+  application build; its flagged comparison phrase was rewritten. No validation
+  rule was changed, and neither earlier attempt substitutes for the final pass.
+  The intermediate CI run `41079150056` was requested to stop because that
+  candidate was superseded, not because its tests established an application fault.
 - Real-process regressions cover exit-before-replacement, task cancellation,
-  Stop invalidation, superseding a waiting start, repeated Stop and an empty
-  prior session. Existing late-event and timeline tests remain in place.
+  Stop invalidation, superseding a waiting start, repeated Stop, an empty prior
+  session, and a retired start's delayed cancellation during replacement.
+  Existing late-event and timeline tests remain in place.
 - A single directed two-route batch passed after repairing the private check
   bundle's credential-service metadata. The previous attempt failed before
   playback because that copy omitted the required client-version field. No
@@ -82,18 +95,27 @@ the controller source SHA-256 was
 `df326b3097eb9b587478995c4100bbf64053ed5e04c644cd5fa8675ff5cb5df7`.
 The private entry point is not shipped in the ordinary app.
 
+The process regression covers the final cancellation guard. No additional
+television batch was run. It only changes the callback of a cancelled pending
+start. Both captured Stop actions happened after confirmed startup had returned,
+outside that callback's lifetime; the replacement wait and both packagers,
+helpers, runtimes, fixture tracks and control sequence are unchanged. Those
+captured checks are retained with this explicit input comparison, not described
+as fresh checks of the later binary. Final controller source SHA-256:
+`39c11758d29329013b3a7618a3497f3efc2fdd9b8540ac52c7ccd2b953f9970b`.
+
 ## Prepared distribution and remaining steps
 
-The accepted ordinary app is 146,016,857 logical bytes, within the 165,000,000-byte
+The accepted ordinary app is 146,017,017 logical bytes, within the 165,000,000-byte
 budget. Deep strict signature verification passes. The audit retains the expected
 public ad hoc limitations: no Developer ID, Hardened Runtime, notarization ticket
 or Gatekeeper acceptance. This is not a notarized build.
 
 - Ordinary executable SHA-256:
-  `6d1781a79c43074bf1a874d5ddd63cbb7f08646c07a3111311ec2d1fee33bcfc`.
+  `7468f56c611c0f9293c4c19f978d226d202a92414f3f22494a06c4bf41754466`.
 - Local archive: `.build/releases/AirCiller-0.18.4-73.zip`.
 - Archive SHA-256:
-  `29005f5f1d10a22ecf520e09e386476d22edba956235f0e68b36d9bb128a4b00`.
+  `ebaa5fb4d08e0e882e3fcfe46569c30b0502e8f487b9fd6a2f8556f8a7f0e746`.
 - Versioned notes and CHANGELOG describe the same two user-facing changes.
 - Daily 0.18.3/build 72 executable and complete saved preferences remained
   byte-identical across QA. Its idle window was restored. No installed app,

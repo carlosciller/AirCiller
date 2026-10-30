@@ -51,7 +51,8 @@ struct AirPlayReceiverObservation {
             processTerminated(sessionID: sessionID, status: 0, stderr: Data())
         }
 
-        func beginProcessTestSession(_ process: Process) throws {
+        @discardableResult
+        func beginProcessTestSession(_ process: Process) throws -> UUID {
             precondition(playbackProcess == nil)
             let sessionID = UUID()
             playbackSessionID = sessionID
@@ -62,6 +63,7 @@ struct AirPlayReceiverObservation {
                 }
             }
             try process.run()
+            return sessionID
         }
 
         func prepareReplacementTestSession() async throws {
@@ -69,6 +71,10 @@ struct AirPlayReceiverObservation {
         }
 
         var isReplacementWaitingTest: Bool { playbackReplacementID != nil }
+
+        func cancelProcessTestSession(_ sessionID: UUID) {
+            cancelPlayback(sessionID: sessionID)
+        }
     }
 #endif
 
@@ -557,10 +563,16 @@ final class AirPlayController {
             }
         } onCancel: {
             Task { @MainActor [weak self] in
-                guard let self, self.playbackSessionID == sessionID else { return }
-                self.stop(silently: true)
+                self?.cancelPlayback(sessionID: sessionID)
             }
         }
+    }
+
+    private func cancelPlayback(sessionID: UUID) {
+        // A replacement already requested this helper's Stop. Its predecessor's
+        // deferred cancellation must not invalidate the replacement's exit wait.
+        guard playbackSessionID == sessionID, playbackReplacementID == nil else { return }
+        stop(silently: true)
     }
 
     func beginPairing(resumePlayback: Bool = false) {
