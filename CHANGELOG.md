@@ -2,6 +2,15 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.18.4 (unreleased)
+
+- Choose a fallback subtitle language in Settings > Playback. AirCiller tries
+  it when the primary language has no selectable track matching the chosen type.
+  Automatic subtitles remain off when disabled. The preference takes effect
+  when you open a movie; changing it does not switch the current track.
+- Wait for the previous AirPlay helper to close before starting its replacement
+  after Stop or a playback change. Cancelled starts cannot continue afterward.
+
 ## 0.18.3 (28 October 2026)
 
 - Keep unreadable Playlist, Recents and season data instead of clearing it.

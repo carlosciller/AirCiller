@@ -25,17 +25,34 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Implemented, not published
 
-None in the completed library-recovery scope. PR #47 is merged and shipped in
-0.18.3. Its [candidate record](Docs/LIBRARY_RELIABILITY_REVIEW.md) retains the
-original scope, alternatives and native evidence.
+- **0.18.4 candidate:** optional fallback subtitle language in Settings > Playback. Selection and
+  isolated-coordinator regressions pass; the actual Settings view was inspected
+  in English and Spanish. The strict local gate and short captured checks on both
+  routes passed. Replacement AirPlay starts now wait for the retired helper's
+  exit, with cancellation and supersession regressions. A directed Stop/replay
+  capture passed on both routes. Local release archive and notes are prepared;
+  no publication or installation has occurred. [Release evidence](Docs/RELEASE_0.18.4.md).
 
 ## Next
 
-Start a separately scoped product review: identify demonstrated everyday
-friction, compare a small set of useful improvements, then select one principal
-change and at most two related refinements. Do not assume that more formats or
-settings are the next useful step. The recovery work addresses a demonstrated
-reset path, not a reported incident of corruption in the maintainer's library.
+Review the 0.18.4 candidate and its PR's exact-commit CI.
+Publication and installation are separate decisions. No packager, engine or
+private-control deployment belongs in that delivery.
+
+Retain the original manual HDR Stop/replay timeout as an unexplained historical
+failure. The independently reproduced helper-overlap defect is corrected, and
+the directed digital replay checks pass. Do not claim that this proves the cause
+of the earlier timeout. Investigate further if it recurs with new evidence;
+there is no reason to repeat an unchanged passing batch now.
+
+Next product candidates, in order:
+
+1. Local opening/recap actions, only with a useful file carrying explicit chapter
+   labels. Generic Chapter N entries do not establish safe skip intervals.
+2. A season-level Continue action, after defining resume, watched/special episodes
+   and manual-order behavior without changing selection or playback on navigation.
+3. Readable episode titles, if concrete filenames justify parsing and correction.
+   External artwork/metadata needs a separate privacy, provider and cache decision.
 
 ## After that, when there is a concrete need
 

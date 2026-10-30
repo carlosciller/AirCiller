@@ -19,6 +19,7 @@ struct LibraryCoordinatorSmokeTest {
             throw Failure(message: "Refusing to overwrite an existing preferences domain")
         }
         defer { defaults.removePersistentDomain(forName: domain) }
+        try SubtitlePreferenceCoordinatorCheck.run()
         try await DirectStartupCancellationCheck.run()
         let queue = ["a", "b", "c"].map {
             QueueMediaItem(path: "/synthetic-library/\($0).mkv", title: $0)

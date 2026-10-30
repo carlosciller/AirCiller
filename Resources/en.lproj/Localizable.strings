@@ -555,6 +555,9 @@
 "Pista predeterminada del archivo" = "File's Default Track";
 "Si el idioma no está disponible, AirCiller usa la pista marcada como predeterminada en el archivo." = "If the language is unavailable, AirCiller uses the track marked as default in the file.";
 "Idioma de subtítulos" = "Subtitle Language";
+"Idioma alternativo de subtítulos" = "Fallback Subtitle Language";
+"Sin idioma alternativo" = "None";
+"Se usa si no hay una pista del idioma principal que cumpla el tipo elegido. Se aplica al abrir otra película; no cambia la pista actual." = "Used when the primary language has no track matching the selected type. Applies when opening another movie; the current track stays unchanged.";
 "AirCiller prefiere una pista normal y usa SDH si es la única opción del idioma elegido." = "AirCiller prefers a standard track and uses SDH when it is the only option in the selected language.";
 "Tipo de subtítulo" = "Subtitle Type";
 "Normales" = "Standard";

@@ -565,7 +565,17 @@ enum SubtitleTrackSelection {
     static func preferredTrack(
         in tracks: [SubtitleTrack],
         language: String,
-        preference: SubtitleTrackPreference = .standard
+        preference: SubtitleTrackPreference = .standard,
+        fallbackLanguage: String = ""
+    ) -> SubtitleTrack? {
+        // An alternative never enables subtitles when automatic selection is off.
+        guard !language.isEmpty else { return nil }
+        return preferredTrackForLanguage(in: tracks, language: language, preference: preference)
+            ?? preferredTrackForLanguage(in: tracks, language: fallbackLanguage, preference: preference)
+    }
+
+    private static func preferredTrackForLanguage(
+        in tracks: [SubtitleTrack], language: String, preference: SubtitleTrackPreference
     ) -> SubtitleTrack? {
         let matching =
             tracks

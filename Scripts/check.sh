@@ -317,6 +317,10 @@ compile_and_run track-metadata \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Tests/TrackMetadataSmokeTest.swift"
+compile_and_run subtitle-fallback \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Tests/SubtitleFallbackSmokeTest.swift"
 compile_and_run vod-command-builder \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/MediaModels.swift" \

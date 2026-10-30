@@ -55,6 +55,7 @@ xcrun swiftc \
   -Xlinker -rpath -Xlinker "$sparkle_distribution" \
   "${check_sources[@]}" \
   "$project_dir/Tests/DirectStartupCancellationCheck.swift" \
+  "$project_dir/Tests/SubtitlePreferenceCoordinatorCheck.swift" \
   "$project_dir/Tests/LibraryCoordinatorSmokeTest.swift" \
   -o "$fixture_binary"
 
