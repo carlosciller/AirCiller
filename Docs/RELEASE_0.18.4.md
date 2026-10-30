@@ -1,6 +1,7 @@
-# AirCiller 0.18.4 candidate
+# AirCiller 0.18.4 release record
 
-Prepared version: 0.18.4, build 73. Not merged, tagged, published or installed.
+Published and installed: 0.18.4, build 73, on 30 October 2026.
+[Release](https://github.com/carlosciller/AirCiller/releases/tag/v0.18.4).
 
 ## Scope and validation selection
 
@@ -104,7 +105,7 @@ captured checks are retained with this explicit input comparison, not described
 as fresh checks of the later binary. Final controller source SHA-256:
 `39c11758d29329013b3a7618a3497f3efc2fdd9b8540ac52c7ccd2b953f9970b`.
 
-## Prepared distribution and remaining steps
+## Accepted distribution
 
 The accepted ordinary app is 146,017,017 logical bytes, within the 165,000,000-byte
 budget. Deep strict signature verification passes. The audit retains the expected
@@ -117,12 +118,47 @@ or Gatekeeper acceptance. This is not a notarized build.
 - Archive SHA-256:
   `ebaa5fb4d08e0e882e3fcfe46569c30b0502e8f487b9fd6a2f8556f8a7f0e746`.
 - Versioned notes and CHANGELOG describe the same two user-facing changes.
-- Daily 0.18.3/build 72 executable and complete saved preferences remained
+- Before publication, daily 0.18.3/build 72 executable and complete saved preferences remained
   byte-identical across QA. Its idle window was restored. No installed app,
   original movie or private connector deployment was modified.
 
-PR CI must be accepted for its exact final commit before merge. Publication,
-tag/main CI, Sparkle feed/archive signing, public-download verification and native
-installation remain separate authorized steps under DISTRIBUTION.md. The existing
-local archive is prepared, not published or offered by the updater. No further
-Apple TV batch is needed merely to merge/version the unchanged accepted inputs.
+## Publication and native installation
+
+- PR #49 passed [full CI](https://github.com/carlosciller/AirCiller/actions/runs/41081831445)
+  at `22b5e402d0fce380ae0e19375225f3dd007616d3`. It merged as
+  `efb5ba1891af7ce7464fc53e63ddf1b750bc7e98`; both Git trees are identical.
+- [Main CI](https://github.com/carlosciller/AirCiller/actions/runs/41087637816)
+  passed in reuse mode, linking that immutable full-check evidence. Its hosted
+  image matched the PR's `20261013.0424.1`.
+- Tag `v0.18.4` points to the merged release commit.
+  [Tag CI](https://github.com/carlosciller/AirCiller/actions/runs/41087830885)
+  passed a full check on image `20261026.0455.2`. The different hosted image had
+  no matching accepted evidence, so automatic reuse correctly did not apply.
+  No local rebuild or additional Apple TV batch was performed during publication.
+- Sparkle generated and signed the feed, full archive enclosure and five deltas.
+  Its public key matches the accepted bundle. Generation warned about differing
+  code-signing identities across ad hoc builds; both inspected apps retain the
+  expected ad hoc identifier/signing policy. No identity protection was bypassed.
+- Published feed, full ZIP, all five deltas and notes match the accepted local
+  bytes. Feed and enclosure signatures verify. The latest-release feed resolves
+  to 0.18.4, and the GitHub body matches the versioned notes. The extracted public
+  bundle passes deep strict signature checks and has the accepted executable hash.
+  The temporary extracted verification copy was removed afterward.
+- Native Sparkle offered 0.18.4 from the daily 0.18.3, downloaded the 211 KB delta,
+  reached Ready to Install, and completed Install and Relaunch. About displays
+  **0.18.4 (73)**. Exactly one daily process was observed at the installed path;
+  the executable matches the accepted public hash and passes signature checks.
+- Playlist, Recents, seasons and every functional preference remain identical.
+  The strict comparison initially flagged two changed saved values: Sparkle's
+  last-check date and a one-point vertical shift in the main window frame. A
+  separate offline review confirms that only that coordinate changed in the frame,
+  with all other preferences equal. The original comparison is retained; this is
+  not a claim that the complete preferences file is byte-identical.
+- A recovery app and pre-update preferences are retained in
+  `.build/rollback-0.18.3-to-0.18.4`, outside generated-test cleanup. Native library
+  watched flags and saved positions remained visible after relaunch. No movie,
+  original subtitle or private-service deployment was changed.
+
+Publication/download records, CI logs and native update observations are retained
+under `.build/release-0.18.4-verification`. This follow-up updates release records
+only; it does not alter or rebuild the published binary, signed notes or feed.
