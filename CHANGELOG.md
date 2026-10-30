@@ -2,7 +2,7 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
-## 0.18.4 (unreleased)
+## 0.18.4 (30 October 2026)
 
 - Choose a fallback subtitle language in Settings > Playback. AirCiller tries
   it when the primary language has no selectable track matching the chosen type.

@@ -7,6 +7,10 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Published
 
+- **0.18.4:** optional fallback subtitle language and ordered AirPlay helper
+  shutdown before replacement playback. Published and installed through Sparkle;
+  [release checks](Docs/RELEASE_0.18.4.md) include retained digital replay evidence,
+  exact-commit CI, signed downloads and preserved library data.
 - **0.18.3:** bounded library recovery with explicit restoration, duplicate-import
   feedback and correct mixed-import counts. Published and installed through
   Sparkle; [release checks](Docs/RELEASE_0.18.3.md) passed.
@@ -23,21 +27,7 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
   FLAC soundtracks, local PGS/VobSub OCR and bounded media caches already exist.
   They are not future features.
 
-## Implemented, not published
-
-- **0.18.4 candidate:** optional fallback subtitle language in Settings > Playback. Selection and
-  isolated-coordinator regressions pass; the actual Settings view was inspected
-  in English and Spanish. The strict local gate and short captured checks on both
-  routes passed. Replacement AirPlay starts now wait for the retired helper's
-  exit, with cancellation and supersession regressions. A directed Stop/replay
-  capture passed on both routes. Local release archive and notes are prepared;
-  no publication or installation has occurred. [Release evidence](Docs/RELEASE_0.18.4.md).
-
 ## Next
-
-Review the 0.18.4 candidate and its PR's exact-commit CI.
-Publication and installation are separate decisions. No packager, engine or
-private-control deployment belongs in that delivery.
 
 Retain the original manual HDR Stop/replay timeout as an unexplained historical
 failure. The independently reproduced helper-overlap defect is corrected, and
