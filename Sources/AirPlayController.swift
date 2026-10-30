@@ -50,6 +50,25 @@ struct AirPlayReceiverObservation {
         func endEventTestSession(_ sessionID: UUID) {
             processTerminated(sessionID: sessionID, status: 0, stderr: Data())
         }
+
+        func beginProcessTestSession(_ process: Process) throws {
+            precondition(playbackProcess == nil)
+            let sessionID = UUID()
+            playbackSessionID = sessionID
+            playbackProcess = process
+            process.terminationHandler = { [weak self] process in
+                Task { @MainActor [weak self] in
+                    self?.processTerminated(sessionID: sessionID, status: process.terminationStatus, stderr: Data())
+                }
+            }
+            try process.run()
+        }
+
+        func prepareReplacementTestSession() async throws {
+            try await finishPreviousPlayback()
+        }
+
+        var isReplacementWaitingTest: Bool { playbackReplacementID != nil }
     }
 #endif
 
@@ -192,6 +211,7 @@ final class AirPlayController {
     @ObservationIgnored private var pendingStart: CheckedContinuation<Void, Error>?
     @ObservationIgnored private var startTimeoutTask: Task<Void, Never>?
     @ObservationIgnored private var stopping = false
+    @ObservationIgnored private var playbackReplacementID: UUID?
     @ObservationIgnored private var receivedTerminalEvent = false
     @ObservationIgnored private var confirmedPlayback = false
     @ObservationIgnored private var timelineTask: Task<Void, Never>?
@@ -427,7 +447,7 @@ final class AirPlayController {
             credential = nil
         }
         try Task.checkCancellation()
-        stop(silently: true)
+        try await finishPreviousPlayback()
         resetTimeline(position: position, duration: duration)
         playbackDeviceID = selectedDevice.id
         playbackDeviceName = selectedDevice.name
@@ -709,7 +729,29 @@ final class AirPlayController {
         return true
     }
 
+    private func finishPreviousPlayback() async throws {
+        stop(silently: true)
+        let requestID = UUID()
+        playbackReplacementID = requestID
+        defer {
+            if playbackReplacementID == requestID { playbackReplacementID = nil }
+        }
+        let previousProcess = playbackProcess
+        let previousSessionID = playbackSessionID
+        // Stop is asynchronous: do not overlap the retired helper's queue removal
+        // and connection teardown with the replacement session's SETUP/RECORD.
+        // The existing Stop deadline still terminates an unresponsive helper.
+        while previousProcess?.isRunning == true {
+            try await Task.sleep(for: .milliseconds(20))
+            guard playbackReplacementID == requestID else { throw CancellationError() }
+        }
+        try Task.checkCancellation()
+        guard playbackReplacementID == requestID else { throw CancellationError() }
+        if let previousSessionID { clearProcess(sessionID: previousSessionID) }
+    }
+
     func stop(silently: Bool = false) {
+        playbackReplacementID = nil
         stopTimeline()
         failPendingStart(CancellationError())
         guard let process = playbackProcess else {

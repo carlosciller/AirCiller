@@ -8,7 +8,91 @@ struct AirPlayControllerStopSmokeTest {
         }
         try await remoteStop()
         try await receiverObservations()
-        print("AirPlay Stop: local ACK stays silent, remote final timeline is preserved, no late callbacks: OK")
+        try await replacementWaitsForExit()
+        try await cancelledReplacementCannotContinue()
+        try await stoppedReplacementCannotContinue()
+        try await supersededReplacementCannotContinue()
+        print("AirPlay Stop: timeline ownership, helper exit ordering and cancelled replacements: OK")
+    }
+
+    @MainActor private static func cancelledReplacementCannotContinue() async throws {
+        let controller = AirPlayController()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["0.4"]
+        try controller.beginProcessTestSession(process)
+        defer { if process.isRunning { process.terminate() } }
+        let replacement = Task { try await controller.prepareReplacementTestSession() }
+        try await waitForReplacement(controller)
+        controller.stop(silently: true)
+        replacement.cancel()
+        do {
+            try await replacement.value
+            preconditionFailure("Cancelled replacement continued")
+        } catch is CancellationError {}
+        // A later explicit Play may still finish retirement normally.
+        try await controller.prepareReplacementTestSession()
+        precondition(!process.isRunning && !controller.isSessionActive)
+    }
+
+    @MainActor private static func supersededReplacementCannotContinue() async throws {
+        let controller = AirPlayController()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["0.4"]
+        try controller.beginProcessTestSession(process)
+        defer { if process.isRunning { process.terminate() } }
+        let first = Task { try await controller.prepareReplacementTestSession() }
+        try await waitForReplacement(controller)
+        try await controller.prepareReplacementTestSession()
+        do {
+            try await first.value
+            preconditionFailure("Superseded replacement continued")
+        } catch is CancellationError {}
+        precondition(!process.isRunning && !controller.isSessionActive)
+        // No helper and repeated Stop are both safe and need no grace-period sleep.
+        controller.stop(silently: true)
+        controller.stop(silently: true)
+        try await controller.prepareReplacementTestSession()
+    }
+
+    @MainActor private static func stoppedReplacementCannotContinue() async throws {
+        let controller = AirPlayController()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["0.4"]
+        try controller.beginProcessTestSession(process)
+        defer { if process.isRunning { process.terminate() } }
+        let replacement = Task { try await controller.prepareReplacementTestSession() }
+        try await waitForReplacement(controller)
+        controller.stop(silently: true)
+        do {
+            try await replacement.value
+            preconditionFailure("Stop did not invalidate a waiting replacement")
+        } catch is CancellationError {}
+        try await controller.prepareReplacementTestSession()
+        precondition(!process.isRunning && !controller.isSessionActive)
+    }
+
+    @MainActor private static func waitForReplacement(_ controller: AirPlayController) async throws {
+        let deadline = Date().addingTimeInterval(2)
+        while !controller.isReplacementWaitingTest {
+            precondition(Date() < deadline, "Replacement did not reach the retirement barrier")
+            try await Task.sleep(for: .milliseconds(1))
+        }
+    }
+
+    @MainActor private static func replacementWaitsForExit() async throws {
+        let controller = AirPlayController()
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        process.arguments = ["0.4"]
+        try controller.beginProcessTestSession(process)
+        defer { if process.isRunning { process.terminate() } }
+        controller.stop(silently: true)
+        try await controller.prepareReplacementTestSession()
+        precondition(!process.isRunning, "Replacement started while the retired AirPlay helper was still running")
+        precondition(!controller.isSessionActive, "Retired helper references survived replacement readiness")
     }
 
     @MainActor private static func localStop(silently: Bool) async throws {

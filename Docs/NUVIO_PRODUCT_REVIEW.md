@@ -141,7 +141,10 @@ the changed boundary; no native Apple TV overlay or new Dot command was added.
   automation. The comparison therefore used the real coordinator directly,
   retaining separate baseline and candidate records. Both matched control runs
   passed. This narrows the observation but does not establish the cause of the
-  earlier manual timeout or prove it fixed. It remains a scoped follow-up.
+  earlier manual timeout or prove it fixed. A subsequent
+  [scoped investigation](RELEASE_0.18.4.md) reproduced and corrected overlapping
+  helper retirement and passed a directed digital Stop/replay check on both
+  paths. The original receiver timeout is still not root-caused.
 - One bounded final HDR capture separated the short output observation from
   replay diagnosis and completed within the unchanged limit. No capture bound,
   assertion, source policy or application timeout was increased.

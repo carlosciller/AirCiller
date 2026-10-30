@@ -25,21 +25,25 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Implemented, not published
 
-- Optional fallback subtitle language in Settings > Playback. Selection and
+- **0.18.4 candidate:** optional fallback subtitle language in Settings > Playback. Selection and
   isolated-coordinator regressions pass; the actual Settings view was inspected
   in English and Spanish. The strict local gate and short captured checks on both
-  routes passed; the review record retains a separate, unreproduced replay timeout.
-  [Selection and evidence](Docs/NUVIO_PRODUCT_REVIEW.md).
+  routes passed. Replacement AirPlay starts now wait for the retired helper's
+  exit, with cancellation and supersession regressions. A directed Stop/replay
+  capture passed on both routes. Local release archive and notes are prepared;
+  no publication or installation has occurred. [Release evidence](Docs/RELEASE_0.18.4.md).
 
 ## Next
 
-Finish the subtitle-language candidate's required checks and review its PR.
+Review the 0.18.4 candidate and its PR's exact-commit CI.
 Publication and installation are separate decisions. No packager, engine or
 private-control deployment belongs in that delivery.
 
-Retain the recorded manual HDR Stop/replay timeout for scoped follow-up before
-unrelated playback work. Matched receiver-only checks of 0.18.3 and the candidate
-both resumed successfully; the original failure is not explained or claimed fixed.
+Retain the original manual HDR Stop/replay timeout as an unexplained historical
+failure. The independently reproduced helper-overlap defect is corrected, and
+the directed digital replay checks pass. Do not claim that this proves the cause
+of the earlier timeout. Investigate further if it recurs with new evidence;
+there is no reason to repeat an unchanged passing batch now.
 
 Next product candidates, in order:
 
