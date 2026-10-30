@@ -55,6 +55,8 @@ final class StreamCoordinator {
         UserDefaults.standard.string(forKey: "preferredAudioLanguage") ?? ""
     private(set) var preferredSubtitleLanguage: String =
         UserDefaults.standard.string(forKey: "preferredSubtitleLanguage") ?? ""
+    private(set) var fallbackSubtitleLanguage: String =
+        UserDefaults.standard.string(forKey: "fallbackSubtitleLanguage") ?? ""
     private var remoteSessionAudioLanguage: String?
     private var remoteSessionSubtitleLanguage: String?
     var effectiveAudioLanguage: String { remoteSessionAudioLanguage ?? preferredAudioLanguage }
@@ -612,6 +614,18 @@ final class StreamCoordinator {
         UserDefaults.standard.set(language, forKey: "preferredSubtitleLanguage")
     }
 
+    func setFallbackSubtitleLanguage(_ language: String) {
+        fallbackSubtitleLanguage = language
+        UserDefaults.standard.set(language, forKey: "fallbackSubtitleLanguage")
+    }
+
+    func automaticSubtitleTrack(in tracks: [SubtitleTrack]) -> SubtitleTrack? {
+        SubtitleTrackSelection.preferredTrack(
+            in: tracks, language: effectiveSubtitleLanguage, preference: preferredSubtitleKind,
+            // A remote session's explicit language must not inherit a different saved fallback.
+            fallbackLanguage: remoteSessionSubtitleLanguage == nil ? fallbackSubtitleLanguage : "")
+    }
+
     func setPreferredSubtitleKind(_ preference: SubtitleTrackPreference) {
         preferredSubtitleKind = preference
         UserDefaults.standard.set(preference.rawValue, forKey: "preferredSubtitleKind")
@@ -1031,11 +1045,7 @@ final class StreamCoordinator {
                             })?.id
                     } else if !self.effectiveSubtitleLanguage.isEmpty {
                         self.selectedSubtitleID =
-                            SubtitleTrackSelection.preferredTrack(
-                                in: info.subtitleTracks,
-                                language: self.effectiveSubtitleLanguage,
-                                preference: self.preferredSubtitleKind
-                            )?.id
+                            self.automaticSubtitleTrack(in: info.subtitleTracks)?.id
                     }
                     self.duration = info.duration
                     if self.currentTime >= max(0, info.duration - 30) {

@@ -25,17 +25,30 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Implemented, not published
 
-None in the completed library-recovery scope. PR #47 is merged and shipped in
-0.18.3. Its [candidate record](Docs/LIBRARY_RELIABILITY_REVIEW.md) retains the
-original scope, alternatives and native evidence.
+- Optional fallback subtitle language in Settings > Playback. Selection and
+  isolated-coordinator regressions pass; the actual Settings view was inspected
+  in English and Spanish. The strict local gate and short captured checks on both
+  routes passed; the review record retains a separate, unreproduced replay timeout.
+  [Selection and evidence](Docs/NUVIO_PRODUCT_REVIEW.md).
 
 ## Next
 
-Start a separately scoped product review: identify demonstrated everyday
-friction, compare a small set of useful improvements, then select one principal
-change and at most two related refinements. Do not assume that more formats or
-settings are the next useful step. The recovery work addresses a demonstrated
-reset path, not a reported incident of corruption in the maintainer's library.
+Finish the subtitle-language candidate's required checks and review its PR.
+Publication and installation are separate decisions. No packager, engine or
+private-control deployment belongs in that delivery.
+
+Retain the recorded manual HDR Stop/replay timeout for scoped follow-up before
+unrelated playback work. Matched receiver-only checks of 0.18.3 and the candidate
+both resumed successfully; the original failure is not explained or claimed fixed.
+
+Next product candidates, in order:
+
+1. Local opening/recap actions, only with a useful file carrying explicit chapter
+   labels. Generic Chapter N entries do not establish safe skip intervals.
+2. A season-level Continue action, after defining resume, watched/special episodes
+   and manual-order behavior without changing selection or playback on navigation.
+3. Readable episode titles, if concrete filenames justify parsing and correction.
+   External artwork/metadata needs a separate privacy, provider and cache decision.
 
 ## After that, when there is a concrete need
 

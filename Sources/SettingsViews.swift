@@ -362,6 +362,26 @@ struct PlaybackSettingsView: View {
                 }
 
                 Picker(
+                    "Idioma alternativo de subtítulos",
+                    selection: Binding(
+                        get: { coordinator.fallbackSubtitleLanguage },
+                        set: { coordinator.setFallbackSubtitleLanguage($0) }
+                    )
+                ) {
+                    Text("Sin idioma alternativo").tag("")
+                    ForEach(LanguageNames.subtitlePreferenceOptions) { option in
+                        Text(L10n.text(option.name)).tag(option.code)
+                    }
+                }
+                .disabled(coordinator.preferredSubtitleLanguage.isEmpty)
+
+                Text(
+                    "Se usa si no hay una pista del idioma principal que cumpla el tipo elegido. Se aplica al abrir otra película; no cambia la pista actual."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                Picker(
                     "Tipo de subtítulo",
                     selection: Binding(
                         get: { coordinator.preferredSubtitleKind },
