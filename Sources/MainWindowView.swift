@@ -175,10 +175,17 @@ struct ContentView: View {
     private var mainContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                sessionHeader
-                    .padding(.bottom, 28)
-                session
-                    .frame(maxWidth: .infinity, minHeight: 220)
+                if coordinator.selectedURL != nil || selectedSeason == nil {
+                    sessionHeader.padding(.bottom, 28)
+                }
+                if let season = selectedSeason {
+                    seasonContinuation(season)
+                        .padding(.bottom, 24)
+                    Divider().padding(.bottom, 24)
+                }
+                if coordinator.selectedURL != nil || selectedSeason == nil {
+                    session.frame(maxWidth: .infinity, minHeight: 220)
+                }
                 if let selectedLibraryURL {
                     Divider().padding(.top, 30).padding(.bottom, 16)
                     selectionDetail(selectedLibraryURL)
@@ -485,6 +492,42 @@ struct ContentView: View {
             return coordinator.queueItems.first { $0.id == coordinator.focusedQueueItemID }?.url
         }
         return coordinator.recentItems.first { $0.id == coordinator.focusedRecentItemID }?.url
+    }
+
+    private var selectedSeason: SeasonFolder? {
+        guard libraryTab == .playlist, let id = coordinator.focusedQueueSeasonID else { return nil }
+        return coordinator.seasonFolders.first { $0.id == id }
+    }
+
+    private func seasonContinuation(_ season: SeasonFolder) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Temporada seleccionada").font(.caption).foregroundStyle(.secondary)
+            Text(season.title.softWrappedFilename)
+                .font(.headline)
+                .fixedSize(horizontal: false, vertical: true)
+            if let target = coordinator.continuation(forSeason: season.id) {
+                Text(target.item.title.softWrappedFilename)
+                    .font(.subheadline)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                Text(
+                    target.position > 0
+                        ? L10n.format("Continuar en %@", TimeFormatting.duration(target.position))
+                        : L10n.text("Desde el principio")
+                )
+                .font(.subheadline).foregroundStyle(.secondary)
+                Button {
+                    if coordinator.continueSeason(season.id) { focusedControl = .play }
+                } label: {
+                    Label("Continuar temporada", systemImage: "play.fill")
+                }
+                .disabled(!coordinator.canContinueSeason)
+            } else {
+                Text("Temporada completada")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 
     private func selectionDetail(_ url: URL) -> some View {

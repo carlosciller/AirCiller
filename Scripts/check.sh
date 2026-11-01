@@ -282,6 +282,11 @@ compile_and_run season-folder \
   "$project_dir/Sources/MediaFileTypes.swift" \
   "$project_dir/Sources/SeasonFolder.swift" \
   "$project_dir/Tests/SeasonFolderSmokeTest.swift"
+compile_and_run season-continuation \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/SeasonContinuation.swift" \
+  "$project_dir/Tests/SeasonContinuationSmokeTest.swift"
 "$project_dir/Scripts/check_library_coordinator.sh"
 # The HTTPS fixture starts only its isolated coordinator and loopback servers.
 # It never invokes provisioners, Keychain, launch agents or media receivers.

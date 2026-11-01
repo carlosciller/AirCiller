@@ -228,6 +228,10 @@ struct NativeSeasonOutline: NSViewRepresentable {
                     menu, movie.watched == true ? "Marcar como pendiente" : "Marcar como visto",
                     #selector(toggleWatched))
             } else {
+                if let group = node.group {
+                    add(menu, "Continuar temporada", #selector(continueSeason)).isEnabled =
+                        owner.canContinueSeason && owner.continuation(forSeason: group.id) != nil
+                }
                 add(menu, "Reproducir", #selector(play))
                 add(menu, "Marcar como visto", #selector(markGroupWatched))
                 add(menu, "Marcar como pendiente", #selector(markGroupPending))
@@ -254,6 +258,9 @@ struct NativeSeasonOutline: NSViewRepresentable {
             }
         }
         @objc private func restart() { if let movie = contextual?.movie { owner.playQueueItemFromBeginning(movie) } }
+        @objc private func continueSeason() {
+            if let group = contextual?.group { owner.continueSeason(group.id) }
+        }
         @objc private func locate() { if let movie = contextual?.movie { owner.locateLibraryFile(movie.url) } }
         @objc private func toggleWatched() {
             if let movie = contextual?.movie { owner.setWatched(movie, watched: movie.watched != true) }

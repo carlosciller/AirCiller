@@ -780,3 +780,7 @@
 "La carpeta de recuperación contiene un archivo no válido. Revísala en Finder; no se ha sustituido ningún dato." = "The recovery folder contains an invalid file. Review it in Finder; no data has been replaced.";
 "No se ha podido leer la copia de recuperación. Comprueba que la carpeta esté disponible y vuelve a intentarlo." = "The recovery copy could not be read. Check that its folder is available and try again.";
 "No se ha podido guardar la copia de recuperación. Comprueba el espacio libre y vuelve a intentarlo. Los datos actuales siguen intactos." = "The recovery copy could not be saved. Check free space and try again. Current data is still intact.";
+"Continuar temporada" = "Continue Season";
+"Temporada seleccionada" = "Selected Season";
+"Desde el principio" = "From the Beginning";
+"Temporada completada" = "Season Completed";

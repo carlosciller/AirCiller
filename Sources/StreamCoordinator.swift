@@ -1003,8 +1003,8 @@ final class StreamCoordinator {
         let queued = queueItems.first(where: { $0.path == url.path })
         currentTime =
             requestedStart
-            ?? (queued?.watched == true || queued?.progress == 1 ? 0 : queued?.lastPosition)
-            ?? recentItems.first(where: { $0.path == url.path })?.lastPosition ?? 0
+            ?? SeasonContinuation.resumePosition(
+                queued: queued, recent: recentItems.first(where: { $0.path == url.path }))
         hasError = false
         status = "Analizando la película…"
         detail = "Comprobando duración, Dolby Vision, HDR, audio, subtítulos y capítulos."
@@ -1401,6 +1401,28 @@ final class StreamCoordinator {
     func playQueueItem(_ item: QueueMediaItem) {
         guard libraryFileExists(item.url) else { return }
         loadVideo(item.url, autoStart: true)
+    }
+
+    func continuation(forSeason id: String) -> SeasonContinuation? {
+        guard seasonFolders.contains(where: { $0.id == id }) else { return nil }
+        return SeasonContinuation.target(seasonID: id, items: queueItems, recent: recentItems)
+    }
+
+    var canContinueSeason: Bool {
+        !libraryNeedsRecovery && !isAnalyzing && !isPreparing && !isWaitingToStart
+            && airPlay.authorizationState != .checking && !airPlay.isPairingPresented && !showConversionAlert
+    }
+
+    @discardableResult
+    func continueSeason(_ id: String) -> Bool {
+        guard canContinueSeason, let target = continuation(forSeason: id) else { return false }
+        if selectedURL == target.item.url, isStreaming {
+            if !isPlaying { togglePlayback() }
+            return true
+        }
+        guard libraryFileExists(target.item.url) else { return false }
+        loadVideo(target.item.url, autoStart: true, startingAt: target.position)
+        return true
     }
 
     func playQueueItemFromBeginning(_ item: QueueMediaItem) {
