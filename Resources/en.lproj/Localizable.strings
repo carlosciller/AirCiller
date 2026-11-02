@@ -784,3 +784,6 @@
 "Temporada seleccionada" = "Selected Season";
 "Desde el principio" = "From the Beginning";
 "Temporada completada" = "Season Completed";
+"Saltar introducción" = "Skip Intro";
+"Saltar resumen" = "Skip Recap";
+"Marcador del archivo: %@. Saltar a %@." = "File marker: %@. Seek to %@.";

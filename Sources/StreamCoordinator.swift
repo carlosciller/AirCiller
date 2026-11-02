@@ -1361,6 +1361,18 @@ final class StreamCoordinator {
         seek(to: presentationPosition(forMovie: target))
     }
 
+    var currentChapterSkip: ChapterSkip? {
+        guard isStreaming, commandAvailability.canSeek else { return nil }
+        return ChapterSkip.current(at: moviePosition, chapters: chapters, duration: movieDuration)
+    }
+
+    @discardableResult
+    func skipMarkedChapter() -> Bool {
+        guard let marker = currentChapterSkip else { return false }
+        seek(to: presentationPosition(forMovie: marker.chapter.end))
+        return true
+    }
+
     func stop(resetStatus: Bool = true, preservingPlaylist: Bool = false, preservingTransition: Bool = false) {
         remoteControlSessionID = UUID()
         remoteReceiverObservation = nil

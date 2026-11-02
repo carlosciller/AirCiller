@@ -784,3 +784,6 @@
 "Temporada seleccionada" = "Temporada seleccionada";
 "Desde el principio" = "Desde el principio";
 "Temporada completada" = "Temporada completada";
+"Saltar introducción" = "Saltar introducción";
+"Saltar resumen" = "Saltar resumen";
+"Marcador del archivo: %@. Saltar a %@." = "Marcador del archivo: %@. Saltar a %@.";

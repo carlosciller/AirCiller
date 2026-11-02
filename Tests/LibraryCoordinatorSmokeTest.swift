@@ -22,6 +22,7 @@ struct LibraryCoordinatorSmokeTest {
         try SubtitlePreferenceCoordinatorCheck.run()
         try await DirectStartupCancellationCheck.run()
         try SeasonContinuationCoordinatorCheck.run()
+        ChapterSkipCoordinatorCheck.run()
         let queue = ["a", "b", "c"].map {
             QueueMediaItem(path: "/synthetic-library/\($0).mkv", title: $0)
         }

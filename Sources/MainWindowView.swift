@@ -374,6 +374,18 @@ struct ContentView: View {
                     }
                 }
             }
+            if let marker = coordinator.currentChapterSkip {
+                Button {
+                    coordinator.skipMarkedChapter()
+                } label: {
+                    Label(L10n.text(marker.kind.actionTitle), systemImage: "forward.end")
+                }
+                .buttonStyle(.bordered)
+                .help(
+                    L10n.format(
+                        "Marcador del archivo: %@. Saltar a %@.", marker.chapter.title,
+                        TimeFormatting.duration(marker.chapter.end)))
+            }
         }
     }
 

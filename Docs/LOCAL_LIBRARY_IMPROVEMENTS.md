@@ -10,7 +10,7 @@ the whole goal.
 | Delivery | Required result | Current evidence/status |
 | --- | --- | --- |
 | 1. Continue Season | Visible episode/position; respect manual order, watched state and saved progress | Implemented and locally/native checked; targeted receiver and sampled output passed. [Evidence](SEASON_CONTINUATION.md) |
-| 2. Intro/recap actions | Manual skip only from reliable explicit markers; no invented intervals | Pending implementation/review of actual chapter data. Generic Chapter N entries are not reliable markers |
+| 2. Intro/recap actions | Manual skip only from reliable explicit markers; no invented intervals | Implemented; strict/local/native checks and directed HLS receiver/captured output passed. No qualifying labels in the 17-file queue sample. [Evidence](CHAPTER_SKIPS.md) |
 | 3. Playback information | Distinguish original format, performed conversion and verified output | Pending review of existing presentation and evidence boundaries |
 | 4. Episode presentation | Use concrete filename examples; preserve original name and allow presentation correction | Pending; no original filename or library identity has been changed |
 | 5. Preparation waits | Change only a reproducible measured bottleneck | Pending review of retained measurements/current inputs; no speculative engine optimization |
