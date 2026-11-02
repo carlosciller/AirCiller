@@ -7,6 +7,10 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Published
 
+- **0.19.0:** Continue Season with saved progress/manual order, explicit-chapter
+  intro/recap actions, editable episode display names and scoped playback
+  information. Published with signed downloads and exact-commit CI verified;
+  not installed in the maintainer's daily app. [Release checks](Docs/RELEASE_0.19.0.md).
 - **0.18.4:** optional fallback subtitle language and ordered AirPlay helper
   shutdown before replacement playback. Published and installed through Sparkle;
   [release checks](Docs/RELEASE_0.18.4.md) include retained digital replay evidence,
@@ -34,11 +38,6 @@ failure. The independently reproduced helper-overlap defect is corrected, and
 the directed digital replay checks pass. Do not claim that this proves the cause
 of the earlier timeout. Investigate further if it recurs with new evidence;
 there is no reason to repeat an unchanged passing batch now.
-
-The 0.19.0 candidate completes Continue Season, manual intro/recap actions from
-explicit chapter markers, editable episode names and clearer playback information.
-[Scope and checks](Docs/RELEASE_0.19.0.md) record its distribution status.
-These are no longer unimplemented roadmap items.
 
 Further work needs a concrete case from actual use: a repeated playback failure,
 a slow library query or a useful unsupported file. External artwork/metadata
