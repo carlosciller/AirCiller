@@ -85,8 +85,8 @@ manifest. These are sampled digital observations, not physical speaker, surround
 HDR, frame-accurate synchronization or whole-episode claims. No camera or microphone
 was used. The batch is `.build/playback-checks/capture-run-season-_jeu67lk`.
 
-The coordinator and selection-policy hashes in its identity report match the
-current production source. The check executable hash was
+The coordinator and selection-policy hashes in its identity report matched the
+production source at delivery 1. The check executable hash was
 `d22ed46f27c06437292b52c39b91804016cc12ad908e3b93e577aa292c324ba0`.
 The custom check compiles current production sources with the established
 playback-check isolation; it is not an alternative playback implementation.
