@@ -2,6 +2,25 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.19.0 (2 November 2026)
+
+- Select a season and choose **Continue Season** to resume the first unwatched
+  episode in your manual Playlist order, at its saved position. The episode and
+  position are shown before playback; a completed season does not restart itself.
+- Use **Skip Intro** or **Skip Recap** when the file has an explicitly named,
+  valid chapter. The action jumps to that chapter's exact end. Generic chapter
+  numbers do not produce a skip button.
+- Read shorter episode names for recognized single-episode filenames in season
+  folders. Choose **Edit Display Name** in the episode's context menu to correct
+  or reset a name; Undo is available. Original filenames remain in selection
+  details, and files are not renamed.
+- Playback Information separates the original file, selected preparation,
+  completed local conversion and receiver state. Long details wrap and scroll.
+  These records do not certify the Apple TV's HDMI format or physical Atmos/HDR.
+
+Formats and bundled engines are unchanged.
+[Scope and validation](Docs/RELEASE_0.19.0.md).
+
 ## 0.18.4 (30 October 2026)
 
 - Choose a fallback subtitle language in Settings > Playback. AirCiller tries

@@ -28,6 +28,8 @@ The playback engines are included. There is nothing else to install. Future upda
 - **Selectable subtitles.** Embedded and external text tracks, timing adjustments, and local text recognition for Blu-ray PGS and DVD VobSub subtitles, including `.sup` and `.idx`/`.sub` files.
 - **Language preferences.** Set preferred audio and subtitle languages, including standard, forced or SDH subtitles.
 - **Season folders.** Drop a folder into Playlist to add a season. Expand it to choose an episode, mark episodes watched or unwatched, and continue with the next one. Order and progress are saved between launches.
+- **Continue a season.** Select its folder to see the next unwatched episode and saved position. Continue Season follows your manual order. Episode names can be corrected from their context menu without renaming files.
+- **Chapter skips.** Skip Intro and Skip Recap use explicitly named chapters in the file. Generic chapter numbers are not treated as intro markers.
 - **Playlist and Recents.** Add movies individually or together, reorder them by dragging or keyboard, and undo library edits. Adding files leaves an existing playback session alone.
 - **Optional subtitle search.** Search OpenSubtitles.com, review the matches and choose a download. Your own API key is required; service limits apply.
 
