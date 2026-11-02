@@ -15,6 +15,7 @@ final class StreamCoordinator {
         remoteControlSessionID = UUID()
     }
     private(set) var remoteReceiverObservation: AirPlayReceiverObservation?
+    private(set) var preparedPlaybackInformation: PreparedPlaybackInformation?
     private(set) var selectedURL: URL?
     private(set) var probeInfo: MediaProbe?
     var status = "Listo"
@@ -119,11 +120,12 @@ final class StreamCoordinator {
     private let transitionPower = PlaybackPowerAssertion()
     private var playlistAudioConsent = PlaylistAudioConsent()
     #if AIRCILLER_UI_CHECKS
-        func beginSyntheticPlaybackSessionForChecks() {
+        func beginSyntheticPlaybackSessionForChecks(preparedInformation: PreparedPlaybackInformation? = nil) {
             precondition(CommandLine.arguments.contains("--skip-device-scan"))
             activeSessionID = UUID()
             playbackPower.begin()
             isStreaming = true
+            preparedPlaybackInformation = preparedInformation
         }
         var playbackPowerIsActiveForChecks: Bool { playbackPower.isActive || transitionPower.isActive }
 
@@ -1003,8 +1005,8 @@ final class StreamCoordinator {
         let queued = queueItems.first(where: { $0.path == url.path })
         currentTime =
             requestedStart
-            ?? (queued?.watched == true || queued?.progress == 1 ? 0 : queued?.lastPosition)
-            ?? recentItems.first(where: { $0.path == url.path })?.lastPosition ?? 0
+            ?? SeasonContinuation.resumePosition(
+                queued: queued, recent: recentItems.first(where: { $0.path == url.path }))
         hasError = false
         status = "Analizando la película…"
         detail = "Comprobando duración, Dolby Vision, HDR, audio, subtítulos y capítulos."
@@ -1361,9 +1363,22 @@ final class StreamCoordinator {
         seek(to: presentationPosition(forMovie: target))
     }
 
+    var currentChapterSkip: ChapterSkip? {
+        guard isStreaming, commandAvailability.canSeek else { return nil }
+        return ChapterSkip.current(at: moviePosition, chapters: chapters, duration: movieDuration)
+    }
+
+    @discardableResult
+    func skipMarkedChapter() -> Bool {
+        guard let marker = currentChapterSkip else { return false }
+        seek(to: presentationPosition(forMovie: marker.chapter.end))
+        return true
+    }
+
     func stop(resetStatus: Bool = true, preservingPlaylist: Bool = false, preservingTransition: Bool = false) {
         remoteControlSessionID = UUID()
         remoteReceiverObservation = nil
+        preparedPlaybackInformation = nil
         if !preservingPlaylist {
             playlistAudioConsent.reset()
             remoteSessionAudioLanguage = nil
@@ -1401,6 +1416,28 @@ final class StreamCoordinator {
     func playQueueItem(_ item: QueueMediaItem) {
         guard libraryFileExists(item.url) else { return }
         loadVideo(item.url, autoStart: true)
+    }
+
+    func continuation(forSeason id: String) -> SeasonContinuation? {
+        guard seasonFolders.contains(where: { $0.id == id }) else { return nil }
+        return SeasonContinuation.target(seasonID: id, items: queueItems, recent: recentItems)
+    }
+
+    var canContinueSeason: Bool {
+        !libraryNeedsRecovery && !isAnalyzing && !isPreparing && !isWaitingToStart
+            && airPlay.authorizationState != .checking && !airPlay.isPairingPresented && !showConversionAlert
+    }
+
+    @discardableResult
+    func continueSeason(_ id: String) -> Bool {
+        guard canContinueSeason, let target = continuation(forSeason: id) else { return false }
+        if selectedURL == target.item.url, isStreaming {
+            if !isPlaying { togglePlayback() }
+            return true
+        }
+        guard libraryFileExists(target.item.url) else { return false }
+        loadVideo(target.item.url, autoStart: true, startingAt: target.position)
+        return true
     }
 
     func playQueueItemFromBeginning(_ item: QueueMediaItem) {
@@ -1489,6 +1526,24 @@ final class StreamCoordinator {
         guard queueItems.contains(where: { $0.id == item.id }) else { return }
         focusedQueueItemID = item.id
         focusedQueueSeasonID = nil
+    }
+
+    @discardableResult
+    func setDisplayTitle(_ text: String?, for id: String) -> Bool {
+        guard !libraryNeedsRecovery, !isImportingLibrary,
+            let index = queueItems.firstIndex(where: { $0.id == id })
+        else { return false }
+        let value = text.flatMap(EpisodePresentation.validCorrection)
+        guard text == nil || value != nil else { return false }
+        let previous = queueItems[index].displayTitleOverride
+        guard previous != value else { return true }
+        libraryUndoManager?.registerUndo(withTarget: self) { coordinator in
+            MainActor.assumeIsolated { _ = coordinator.setDisplayTitle(previous, for: id) }
+        }
+        libraryUndoManager?.setActionName(L10n.text("Editar nombre mostrado"))
+        queueItems[index].displayTitleOverride = value
+        HistoryStore.saveQueue(queueItems)
+        return true
     }
 
     func focusQueueSeason(_ id: String) {
@@ -1956,6 +2011,8 @@ final class StreamCoordinator {
                 try self.requireCurrentStreamSession(sessionID)
                 self.player.pause()
 
+                self.preparedPlaybackInformation = PreparedPlaybackInformation(
+                    route: .directMP4, audio: audio, outputMode: outputMode, subtitle: subtitle)
                 self.status = L10n.format(
                     "Conectando con %@…", self.airPlay.selectedDevice?.name ?? "Apple TV")
                 self.detail = "Enviando HDR y la pista de subtítulos integrada por AirPlay 2."
@@ -2135,6 +2192,8 @@ final class StreamCoordinator {
                 self.player.pause()
 
                 self.endStartupStage(.localAsset, sessionID: sessionID)
+                self.preparedPlaybackInformation = PreparedPlaybackInformation(
+                    route: .hls, audio: audio, outputMode: outputMode, subtitle: subtitle)
                 self.beginStartupStage(.airPlay, sessionID: sessionID)
                 self.status = L10n.format(
                     "Conectando con %@…", self.airPlay.selectedDevice?.name ?? "Apple TV")
@@ -2555,6 +2614,7 @@ final class StreamCoordinator {
     }
 
     private func cleanupRuntime() {
+        preparedPlaybackInformation = nil
         if let activeMovieTimeline {
             currentTime = activeMovieTimeline.sourcePosition(forPresentation: currentTime)
             duration = activeMovieTimeline.sourceDuration

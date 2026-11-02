@@ -21,6 +21,10 @@ struct LibraryCoordinatorSmokeTest {
         defer { defaults.removePersistentDomain(forName: domain) }
         try SubtitlePreferenceCoordinatorCheck.run()
         try await DirectStartupCancellationCheck.run()
+        try SeasonContinuationCoordinatorCheck.run()
+        ChapterSkipCoordinatorCheck.run()
+        PreparedPlaybackInformationCheck.run()
+        try EpisodePresentationCheck.run()
         let queue = ["a", "b", "c"].map {
             QueueMediaItem(path: "/synthetic-library/\($0).mkv", title: $0)
         }

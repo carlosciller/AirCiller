@@ -58,6 +58,11 @@ accepted as a lossless substitute.
 
 ## Other limits
 
+Skip Intro and Skip Recap require explicit, valid chapter labels in the file.
+Generic Chapter N labels, ambiguous/overlapping intervals and missing markers
+do not qualify. The actions are manual and use the exact marked end; no online
+markers or assumed intro lengths are used. [Supported labels and checks](Docs/CHAPTER_SKIPS.md).
+
 - Manual SDR audio adjustments are limited to five seconds in either direction. Lossless FLAC conversion requires zero manual adjustment.
 - No video transcoder: unsupported codecs such as AV1, VP9 and MPEG-2 are not converted.
 - No DCP packages, DVD/Blu-ray menus, disc navigation or encrypted media.

@@ -35,14 +35,14 @@ the directed digital replay checks pass. Do not claim that this proves the cause
 of the earlier timeout. Investigate further if it recurs with new evidence;
 there is no reason to repeat an unchanged passing batch now.
 
-Next product candidates, in order:
+The 0.19.0 candidate completes Continue Season, manual intro/recap actions from
+explicit chapter markers, editable episode names and clearer playback information.
+[Scope and checks](Docs/RELEASE_0.19.0.md) record its distribution status.
+These are no longer unimplemented roadmap items.
 
-1. Local opening/recap actions, only with a useful file carrying explicit chapter
-   labels. Generic Chapter N entries do not establish safe skip intervals.
-2. A season-level Continue action, after defining resume, watched/special episodes
-   and manual-order behavior without changing selection or playback on navigation.
-3. Readable episode titles, if concrete filenames justify parsing and correction.
-   External artwork/metadata needs a separate privacy, provider and cache decision.
+Further work needs a concrete case from actual use: a repeated playback failure,
+a slow library query or a useful unsupported file. External artwork/metadata
+still needs a separate privacy, provider and cache decision.
 
 ## After that, when there is a concrete need
 
@@ -54,11 +54,9 @@ Next product candidates, in order:
 | Audio coverage | A useful unsupported file with a trustworthy reference | Qualify PCM precision/rates/layouts; full-length TrueHD 7.1 and 16-bit coverage remain incomplete |
 | Subtitle coverage | A useful TTML/IMSC1, DVB or XSUB sample | Local, selectable output; specialized in-cue WebVTT timestamps still need seek coverage |
 
-Dependency review on 28 October: [PR #44](https://github.com/carlosciller/AirCiller/pull/44)
-updates multidict's input pin without its lock and fails CI. [PR #43](https://github.com/carlosciller/AirCiller/pull/43)
-updates setup-node to a new major and passes CI. Both need independent review;
-neither is included in 0.18.2. Keep protobuf 6.33.6 until a major update has a
-concrete benefit and serialization/control evidence.
+Dependency PRs remain separate from 0.19.0; no engine or dependency update is
+included. Keep protobuf 6.33.6 until a major update has a concrete benefit and
+serialization/control evidence.
 
 ## Faster playback startup
 
@@ -99,6 +97,7 @@ The [0.13.0 optimization record](Docs/STARTUP_OPTIMIZATION.md) is historical.
 | Apple Shortcuts | A signing/distribution decision: public ad hoc registration failed on the tested Mac. [Evidence](Docs/SHORTCUTS.md) |
 | iPhone title and artwork | A reliable way to populate the Apple TV-owned Lock Screen card. Playback controls already work |
 | Developer ID and notarization | Apple Developer Program membership. Sparkle signatures do not replace notarization |
+| Aether spatial-audio components | Physical output and comparative resource/latency evidence through the existing AirPlay route; [component review](Docs/AETHER_COMPONENT_REVIEW.md). No tvOS client or whole-engine replacement |
 
 Private control already opens and closes the app with the Mac awake, logged in
 and screen locked. Remote wake/unlock and generic system-control tools are not

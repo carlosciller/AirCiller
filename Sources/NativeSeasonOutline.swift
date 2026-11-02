@@ -152,8 +152,8 @@ struct NativeSeasonOutline: NSViewRepresentable {
                 cell.symbol.image = NSImage(
                     systemSymbolName: "folder", accessibilityDescription: L10n.text("Temporada"))
             } else if let movie = node.movie {
-                cell.title.stringValue = movie.title
-                cell.title.toolTip = movie.title
+                cell.title.stringValue = movie.displayTitle
+                cell.title.toolTip = movie.url.lastPathComponent
                 cell.subtitle.stringValue =
                     movie.watched == true
                     ? L10n.text("Visto")
@@ -224,10 +224,16 @@ struct NativeSeasonOutline: NSViewRepresentable {
                 add(menu, "Reproducir", #selector(play))
                 add(menu, "Reproducir desde el inicio", #selector(restart))
                 add(menu, "Localizar archivo…", #selector(locate))
+                add(menu, "Editar nombre mostrado…", #selector(editTitle)).isEnabled =
+                    !owner.libraryNeedsRecovery && !owner.isImportingLibrary
                 add(
                     menu, movie.watched == true ? "Marcar como pendiente" : "Marcar como visto",
                     #selector(toggleWatched))
             } else {
+                if let group = node.group {
+                    add(menu, "Continuar temporada", #selector(continueSeason)).isEnabled =
+                        owner.canContinueSeason && owner.continuation(forSeason: group.id) != nil
+                }
                 add(menu, "Reproducir", #selector(play))
                 add(menu, "Marcar como visto", #selector(markGroupWatched))
                 add(menu, "Marcar como pendiente", #selector(markGroupPending))
@@ -254,7 +260,45 @@ struct NativeSeasonOutline: NSViewRepresentable {
             }
         }
         @objc private func restart() { if let movie = contextual?.movie { owner.playQueueItemFromBeginning(movie) } }
+        @objc private func continueSeason() {
+            if let group = contextual?.group { owner.continueSeason(group.id) }
+        }
         @objc private func locate() { if let movie = contextual?.movie { owner.locateLibraryFile(movie.url) } }
+        @objc private func editTitle() {
+            guard let movie = contextual?.movie, let window = outline?.window else { return }
+            presentTitleEditor(movie, in: window, text: movie.displayTitle)
+        }
+        private func presentTitleEditor(
+            _ movie: QueueMediaItem, in window: NSWindow, text: String, explanation: String? = nil
+        ) {
+            let alert = NSAlert()
+            alert.messageText = L10n.text("Editar nombre mostrado")
+            alert.informativeText =
+                movie.url.lastPathComponent + "\n\n"
+                + (explanation
+                    ?? L10n.text(
+                        "Solo cambia el nombre en Playlist. No renombra el archivo ni cambia el orden o el progreso."))
+            let field = NSTextField(string: text)
+            field.frame = NSRect(x: 0, y: 0, width: 380, height: 24)
+            field.setAccessibilityLabel(L10n.text("Nombre mostrado"))
+            alert.accessoryView = field
+            alert.addButton(withTitle: L10n.text("Guardar"))
+            alert.addButton(withTitle: L10n.text("Cancelar"))
+            alert.addButton(withTitle: L10n.text("Restablecer nombre"))
+            alert.window.initialFirstResponder = field
+            alert.beginSheetModal(for: window) { [weak self] response in
+                guard let self else { return }
+                if response == .alertFirstButtonReturn {
+                    if !self.owner.setDisplayTitle(field.stringValue, for: movie.id) {
+                        self.presentTitleEditor(
+                            movie, in: window, text: field.stringValue,
+                            explanation: L10n.text("Escribe un nombre de 1 a 160 caracteres, en una sola línea."))
+                    }
+                } else if response == .alertThirdButtonReturn {
+                    _ = self.owner.setDisplayTitle(nil, for: movie.id)
+                }
+            }
+        }
         @objc private func toggleWatched() {
             if let movie = contextual?.movie { owner.setWatched(movie, watched: movie.watched != true) }
         }

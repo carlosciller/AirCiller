@@ -185,37 +185,67 @@ struct PlaybackInformationView: View {
             }
 
             DisclosureGroup("Detalles técnicos", isExpanded: $showingTechnicalDetails) {
-                VStack(spacing: 9) {
-                    Divider()
-                    ForEach(coordinator.mediaBadges) { badge in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Divider()
+                        Text("Formato del archivo original")
+                            .font(.headline)
+                        ForEach(coordinator.mediaBadges) { badge in
+                            PlaybackInformationRow(
+                                title: badge.label,
+                                value: "\(L10n.text(badge.value)) · \(L10n.text(badge.detail))"
+                            )
+                        }
+                        Divider()
+                        PlaybackInformationRow(title: "Media del archivo", value: bitrate(demand?.averageBitsPerSecond))
                         PlaybackInformationRow(
-                            title: badge.label,
-                            value: "\(L10n.text(badge.value)) · \(L10n.text(badge.detail))"
+                            title: "Objetivo seguro", value: bitrate(demand?.safeTargetBitsPerSecond))
+                        PlaybackInformationRow(
+                            title: "Caudal activo", value: bitrate(coordinator.streamTelemetry.activeBitsPerSecond))
+                        PlaybackInformationRow(
+                            title: "Datos enviados", value: byteCount(coordinator.streamTelemetry.totalBytesSent))
+                        PlaybackInformationRow(
+                            title: "Transferencias",
+                            value: L10n.format(
+                                "%lld completadas", Int64(coordinator.streamTelemetry.completedTransfers)))
+                        PlaybackInformationRow(title: "Esperas", value: "\(coordinator.rebufferEvents)")
+                        Divider()
+                        Text("Preparación elegida")
+                            .font(.headline)
+                        PlaybackInformationRow(title: "Vídeo", value: coordinator.videoPlan)
+                        PlaybackInformationRow(title: "Audio", value: coordinator.audioPlan)
+                        PlaybackInformationRow(title: "Subtítulos", value: coordinator.subtitlePlan)
+                        if let prepared = coordinator.preparedPlaybackInformation {
+                            Divider()
+                            Text("Preparación completada en este Mac")
+                                .font(.headline)
+                            PlaybackInformationRow(title: "Paquete", value: prepared.route.rawValue)
+                            PlaybackInformationRow(title: "Audio preparado", value: prepared.audio)
+                            PlaybackInformationRow(title: "Subtítulo preparado", value: prepared.subtitles)
+                        }
+                        Divider()
+                        PlaybackInformationRow(
+                            title: "Estado del receptor",
+                            value: (coordinator.isStreaming ? coordinator.remoteReceiverObservation : nil).map {
+                                L10n.text($0.playing ? "Comunica reproducción" : "Comunica pausa")
+                            } ?? L10n.text("Sin confirmación de estado"))
+                        Text(
+                            "El formato del archivo y la validación local no confirman HDR, Atmos ni la salida HDMI del Apple TV."
                         )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
-                    Divider()
-                    PlaybackInformationRow(title: "Media del archivo", value: bitrate(demand?.averageBitsPerSecond))
-                    PlaybackInformationRow(title: "Objetivo seguro", value: bitrate(demand?.safeTargetBitsPerSecond))
-                    PlaybackInformationRow(
-                        title: "Caudal activo", value: bitrate(coordinator.streamTelemetry.activeBitsPerSecond))
-                    PlaybackInformationRow(
-                        title: "Datos enviados", value: byteCount(coordinator.streamTelemetry.totalBytesSent))
-                    PlaybackInformationRow(
-                        title: "Transferencias",
-                        value: L10n.format(
-                            "%lld completadas", Int64(coordinator.streamTelemetry.completedTransfers)))
-                    PlaybackInformationRow(title: "Esperas", value: "\(coordinator.rebufferEvents)")
-                    PlaybackInformationRow(title: "Vídeo", value: coordinator.videoPlan)
-                    PlaybackInformationRow(title: "Audio", value: coordinator.audioPlan)
-                    PlaybackInformationRow(title: "Subtítulos", value: coordinator.subtitlePlan)
+                    .padding(.top, 7)
                 }
-                .padding(.top, 7)
+                .frame(maxHeight: 380)
             }
             .font(.callout.weight(.medium))
 
             Text("Mide la red local entre este Mac y el Apple TV; no mide Internet.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(18)
         .frame(width: 430)
@@ -348,6 +378,7 @@ struct PlaybackInformationRow: View {
             Text(L10n.text(value))
                 .multilineTextAlignment(.trailing)
                 .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .font(.callout)
     }

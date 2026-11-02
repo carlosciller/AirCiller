@@ -56,6 +56,10 @@ xcrun swiftc \
   "${check_sources[@]}" \
   "$project_dir/Tests/DirectStartupCancellationCheck.swift" \
   "$project_dir/Tests/SubtitlePreferenceCoordinatorCheck.swift" \
+  "$project_dir/Tests/SeasonContinuationCoordinatorCheck.swift" \
+  "$project_dir/Tests/ChapterSkipCoordinatorCheck.swift" \
+  "$project_dir/Tests/PreparedPlaybackInformationCheck.swift" \
+  "$project_dir/Tests/EpisodePresentationCheck.swift" \
   "$project_dir/Tests/LibraryCoordinatorSmokeTest.swift" \
   -o "$fixture_binary"
 
