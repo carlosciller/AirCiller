@@ -15,6 +15,7 @@ final class StreamCoordinator {
         remoteControlSessionID = UUID()
     }
     private(set) var remoteReceiverObservation: AirPlayReceiverObservation?
+    private(set) var preparedPlaybackInformation: PreparedPlaybackInformation?
     private(set) var selectedURL: URL?
     private(set) var probeInfo: MediaProbe?
     var status = "Listo"
@@ -119,11 +120,12 @@ final class StreamCoordinator {
     private let transitionPower = PlaybackPowerAssertion()
     private var playlistAudioConsent = PlaylistAudioConsent()
     #if AIRCILLER_UI_CHECKS
-        func beginSyntheticPlaybackSessionForChecks() {
+        func beginSyntheticPlaybackSessionForChecks(preparedInformation: PreparedPlaybackInformation? = nil) {
             precondition(CommandLine.arguments.contains("--skip-device-scan"))
             activeSessionID = UUID()
             playbackPower.begin()
             isStreaming = true
+            preparedPlaybackInformation = preparedInformation
         }
         var playbackPowerIsActiveForChecks: Bool { playbackPower.isActive || transitionPower.isActive }
 
@@ -1376,6 +1378,7 @@ final class StreamCoordinator {
     func stop(resetStatus: Bool = true, preservingPlaylist: Bool = false, preservingTransition: Bool = false) {
         remoteControlSessionID = UUID()
         remoteReceiverObservation = nil
+        preparedPlaybackInformation = nil
         if !preservingPlaylist {
             playlistAudioConsent.reset()
             remoteSessionAudioLanguage = nil
@@ -1990,6 +1993,8 @@ final class StreamCoordinator {
                 try self.requireCurrentStreamSession(sessionID)
                 self.player.pause()
 
+                self.preparedPlaybackInformation = PreparedPlaybackInformation(
+                    route: .directMP4, audio: audio, outputMode: outputMode, subtitle: subtitle)
                 self.status = L10n.format(
                     "Conectando con %@…", self.airPlay.selectedDevice?.name ?? "Apple TV")
                 self.detail = "Enviando HDR y la pista de subtítulos integrada por AirPlay 2."
@@ -2169,6 +2174,8 @@ final class StreamCoordinator {
                 self.player.pause()
 
                 self.endStartupStage(.localAsset, sessionID: sessionID)
+                self.preparedPlaybackInformation = PreparedPlaybackInformation(
+                    route: .hls, audio: audio, outputMode: outputMode, subtitle: subtitle)
                 self.beginStartupStage(.airPlay, sessionID: sessionID)
                 self.status = L10n.format(
                     "Conectando con %@…", self.airPlay.selectedDevice?.name ?? "Apple TV")
@@ -2589,6 +2596,7 @@ final class StreamCoordinator {
     }
 
     private func cleanupRuntime() {
+        preparedPlaybackInformation = nil
         if let activeMovieTimeline {
             currentTime = activeMovieTimeline.sourcePosition(forPresentation: currentTime)
             duration = activeMovieTimeline.sourceDuration
