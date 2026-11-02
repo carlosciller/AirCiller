@@ -4,8 +4,9 @@ project_dir="${0:A:h:h}"
 case "${1:-}" in
   chapter-skip) fixture_type=ChapterSkip; fixture_prefix=ChapterSkip; fixture_name="Chapter Check" ;;
   playback-information) fixture_type=PreparedPlaybackInformation; fixture_prefix=PlaybackInformation; fixture_name="Information Check" ;;
+  episode-presentation) fixture_type=EpisodePresentation; fixture_prefix=EpisodePresentation; fixture_name="Episode Check" ;;
   season-continuation) fixture_type=SeasonContinuation; fixture_prefix=SeasonContinuation; fixture_name="Season Check" ;;
-  *) echo 'Usage: build_native_ui_check.sh chapter-skip|season-continuation|playback-information' >&2; exit 2 ;;
+  *) echo 'Usage: build_native_ui_check.sh chapter-skip|season-continuation|playback-information|episode-presentation' >&2; exit 2 ;;
 esac
 fixture_uuid="$(uuidgen)"
 fixture_app="$project_dir/.build/tests/$fixture_prefix-$fixture_uuid.app"

@@ -785,6 +785,12 @@
 "Desde el principio" = "From the Beginning";
 "Temporada completada" = "Season Completed";
 "Saltar introducción" = "Skip Intro";
+"Editar nombre mostrado…" = "Edit Display Name…";
+"Editar nombre mostrado" = "Edit Display Name";
+"Nombre mostrado" = "Display Name";
+"Restablecer nombre" = "Reset Name";
+"Solo cambia el nombre en Playlist. No renombra el archivo ni cambia el orden o el progreso." = "Changes only the name in Playlist. The file, order and playback progress stay unchanged.";
+"Escribe un nombre de 1 a 160 caracteres, en una sola línea." = "Enter a name of 1 to 160 characters on a single line.";
 "%@, sin recodificar" = "%@, without re-encoding";
 "Convertido a E-AC-3 con pérdida (hasta 5.1)" = "Converted to lossy E-AC-3 (up to 5.1)";
 "Convertido a AAC estéreo con pérdida" = "Converted to lossy stereo AAC";

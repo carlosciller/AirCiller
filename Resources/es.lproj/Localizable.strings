@@ -785,6 +785,12 @@
 "Desde el principio" = "Desde el principio";
 "Temporada completada" = "Temporada completada";
 "Saltar introducción" = "Saltar introducción";
+"Editar nombre mostrado…" = "Editar nombre mostrado…";
+"Editar nombre mostrado" = "Editar nombre mostrado";
+"Nombre mostrado" = "Nombre mostrado";
+"Restablecer nombre" = "Restablecer nombre";
+"Solo cambia el nombre en Playlist. No renombra el archivo ni cambia el orden o el progreso." = "Solo cambia el nombre en Playlist. No renombra el archivo ni cambia el orden o el progreso.";
+"Escribe un nombre de 1 a 160 caracteres, en una sola línea." = "Escribe un nombre de 1 a 160 caracteres, en una sola línea.";
 "%@, sin recodificar" = "%@, sin recodificar";
 "Convertido a E-AC-3 con pérdida (hasta 5.1)" = "Convertido a E-AC-3 con pérdida (hasta 5.1)";
 "Convertido a AAC estéreo con pérdida" = "Convertido a AAC estéreo con pérdida";

@@ -1528,6 +1528,24 @@ final class StreamCoordinator {
         focusedQueueSeasonID = nil
     }
 
+    @discardableResult
+    func setDisplayTitle(_ text: String?, for id: String) -> Bool {
+        guard !libraryNeedsRecovery, !isImportingLibrary,
+            let index = queueItems.firstIndex(where: { $0.id == id })
+        else { return false }
+        let value = text.flatMap(EpisodePresentation.validCorrection)
+        guard text == nil || value != nil else { return false }
+        let previous = queueItems[index].displayTitleOverride
+        guard previous != value else { return true }
+        libraryUndoManager?.registerUndo(withTarget: self) { coordinator in
+            MainActor.assumeIsolated { _ = coordinator.setDisplayTitle(previous, for: id) }
+        }
+        libraryUndoManager?.setActionName(L10n.text("Editar nombre mostrado"))
+        queueItems[index].displayTitleOverride = value
+        HistoryStore.saveQueue(queueItems)
+        return true
+    }
+
     func focusQueueSeason(_ id: String) {
         guard seasonFolders.contains(where: { $0.id == id }), queueItems.contains(where: { $0.seasonID == id }) else {
             return

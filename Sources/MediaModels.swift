@@ -417,12 +417,52 @@ struct QueueMediaItem: Codable, Identifiable, Hashable, Sendable {
     var lastPosition: Double? = nil
     var duration: Double? = nil
     var watched: Bool? = nil
+    var displayTitleOverride: String? = nil
     var url: URL { URL(fileURLWithPath: path) }
+    var displayTitle: String {
+        if let value = displayTitleOverride.flatMap(EpisodePresentation.validCorrection) { return value }
+        guard seasonID != nil, title == url.deletingPathExtension().lastPathComponent else { return title }
+        return EpisodePresentation.title(from: title) ?? title
+    }
     var progress: Double {
         guard let duration, duration.isFinite, duration > 0,
             let lastPosition, lastPosition.isFinite
         else { return 0 }
         return min(max(lastPosition / duration, 0), 1)
+    }
+}
+
+/// Presentation only. Never derives identity, episode order or metadata from a name.
+enum EpisodePresentation {
+    static func title(from filename: String) -> String? {
+        guard let token = try? NSRegularExpression(pattern: #"S[0-9]{2}E[0-9]{2}"#, options: [.caseInsensitive]),
+            token.numberOfMatches(in: filename, range: NSRange(filename.startIndex..., in: filename)) == 1
+        else { return nil }
+        // Recognize only the observed scene-style single-episode convention.
+        // Compound episodes, numbered movies and unknown suffixes stay unchanged.
+        let pattern =
+            #"^.+[. _-](S[0-9]{2}E[0-9]{2})[. _-]+(.+?)[. _-]+(?:720|1080|2160)p[. _-]+(?:BluRay|WEB-DL|WEBRip|HDTV)(?:[. _-].*)?$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+            let match = regex.firstMatch(in: filename, range: NSRange(filename.startIndex..., in: filename)),
+            let episodeRange = Range(match.range(at: 1), in: filename),
+            let titleRange = Range(match.range(at: 2), in: filename)
+        else { return nil }
+        let name = filename[titleRange].replacingOccurrences(of: ".", with: " ")
+            .replacingOccurrences(of: "_", with: " ").split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard !name.isEmpty,
+            name.range(
+                of: #"(?:^|[^a-z0-9])(?:s[0-9]{2}e[0-9]{2}|e[0-9]{2})(?:$|[^a-z0-9])"#,
+                options: [.regularExpression, .caseInsensitive]) == nil
+        else { return nil }
+        return "\(filename[episodeRange].uppercased()) · \(name)"
+    }
+
+    static func validCorrection(_ text: String) -> String? {
+        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, value.count <= 160,
+            value.rangeOfCharacter(from: .controlCharacters) == nil
+        else { return nil }
+        return value
     }
 }
 

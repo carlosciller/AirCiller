@@ -518,7 +518,7 @@ struct ContentView: View {
                 .font(.headline)
                 .fixedSize(horizontal: false, vertical: true)
             if let target = coordinator.continuation(forSeason: season.id) {
-                Text(target.item.title.softWrappedFilename)
+                Text(target.item.displayTitle.softWrappedFilename)
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)

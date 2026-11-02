@@ -43,7 +43,7 @@ lacks markers. Generic chapter boundaries were not turned into assumed intros.
 Private paths and chapter metadata remain in ignored local reports.
 
 One authorized HLS check used a synthetic 60-second H.264/E-AC-3 stereo clip,
-selectable English subtitles, Intro 0–15 and Recap 15–30. The real probe read the
+selectable English subtitles, Intro 0-15 and Recap 15-30. The real probe read the
 markers. Each action required a fresh receiver position: 15 and 30 seconds.
 After each confirmation, the eight-second sampled windows passed separately:
 
