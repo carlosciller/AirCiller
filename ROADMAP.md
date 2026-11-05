@@ -7,6 +7,11 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Published
 
+- **0.19.1:** refreshed the certificate trust bundle, with reproducible locking
+  and removed-root regressions. Published downloads, signatures and exact-commit
+  CI verified. The maintainer will install separately.
+  [Release checks](Docs/RELEASE_0.19.1.md).
+
 - **0.19.0:** Continue Season with saved progress/manual order, explicit-chapter
   intro/recap actions, editable episode display names and scoped playback
   information. Published with signed downloads and exact-commit CI verified;
@@ -33,11 +38,9 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Next
 
-The [0.19.1 maintenance candidate](Docs/RELEASE_0.19.1.md) updates certifi's trust
-bundle with an explicit removed-root regression and reproducible lock. It is
-not published or installed. Multidict 7 and setup-node 7 remain deferred for
-the concrete compatibility/benefit reasons in that review; their PRs are not
-automatically accepted. No playback engine is changed.
+Multidict 7 and setup-node 7 remain deferred for the concrete compatibility and
+benefit reasons in the [maintenance review](Docs/MAINTENANCE_2026_11.md).
+Their PRs are not automatically accepted. No playback engine was changed.
 
 The actual 17-item library's in-process remote searches measured 0.029 to 0.045 ms
 after initialization. No new index/cache is justified by that result. Return to
