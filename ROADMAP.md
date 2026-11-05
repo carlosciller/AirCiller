@@ -33,7 +33,7 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Next
 
-The [maintenance candidate](Docs/MAINTENANCE_2026_11.md) updates certifi's trust
+The [0.19.1 maintenance candidate](Docs/RELEASE_0.19.1.md) updates certifi's trust
 bundle with an explicit removed-root regression and reproducible lock. It is
 not published or installed. Multidict 7 and setup-node 7 remain deferred for
 the concrete compatibility/benefit reasons in that review; their PRs are not

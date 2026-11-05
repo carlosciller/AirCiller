@@ -2,6 +2,14 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.19.1 (5 November 2026)
+
+Updates the certificate list bundled for secure connections. Two emSign root
+certificates are no longer trusted. No settings changes are needed.
+
+Playback, supported formats and bundled media engines are unchanged.
+[Scope and validation](Docs/RELEASE_0.19.1.md).
+
 ## 0.19.0 (2 November 2026)
 
 - Select a season and choose **Continue Season** to resume the first unwatched
