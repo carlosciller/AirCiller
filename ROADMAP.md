@@ -33,6 +33,16 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Next
 
+The [0.19.1 maintenance candidate](Docs/RELEASE_0.19.1.md) updates certifi's trust
+bundle with an explicit removed-root regression and reproducible lock. It is
+not published or installed. Multidict 7 and setup-node 7 remain deferred for
+the concrete compatibility/benefit reasons in that review; their PRs are not
+automatically accepted. No playback engine is changed.
+
+The actual 17-item library's in-process remote searches measured 0.029 to 0.045 ms
+after initialization. No new index/cache is justified by that result. Return to
+bounded search if real library growth produces slow queries or large replies.
+
 Retain the original manual HDR Stop/replay timeout as an unexplained historical
 failure. The independently reproduced helper-overlap defect is corrected, and
 the directed digital replay checks pass. Do not claim that this proves the cause

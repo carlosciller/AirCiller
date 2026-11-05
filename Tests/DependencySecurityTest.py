@@ -31,6 +31,19 @@ class DependencySecurityTests(unittest.TestCase):
         fingerprints = {hashlib.sha256(root).hexdigest() for root in roots}
         self.assertFalse(compromised in fingerprints, "The compromised emSign root is still trusted")
 
+    def test_removed_emsign_c_roots_are_not_trusted(self):
+        # Removed by certifi 2026.10.23; compare DER identities, not PEM labels.
+        removed = {
+            "125609aa301da0a249b97a8239cb6a34216f44dcac9f3954b14292f2e8c8608f",
+            "bc4d809b15189d78db3e1d8cf4f9726a795da1643ca5f1358e1ddb0edc0d7eb3",
+        }
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.load_verify_locations(cafile=certifi.where())
+        roots = context.get_ca_certs(binary_form=True)
+        self.assertGreater(len(roots), 100)
+        fingerprints = {hashlib.sha256(root).hexdigest() for root in roots}
+        self.assertFalse(removed & fingerprints, "Removed emSign C roots are still trusted")
+
     def check_operand_release(self, dictionary_type, operation):
         self.assertEqual(dictionary_type.__module__, "multidict._multidict",
                          "Exercise the shipped native extension, not a Python fallback")
