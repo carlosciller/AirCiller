@@ -312,6 +312,22 @@ struct PlaybackCheckModelSmokeTest {
         try expect(
             try PlaybackCheckPlan.decode(Data(cold.utf8)).clips[0].expectedCacheHit == false,
             "Explicit cold expectation")
+        let directCold = cold.replacingOccurrences(
+            of: #""route":"hls""#, with: #""route":"directHDR","subtitleIndex":2"#)
+        try expect(
+            try PlaybackCheckPlan.decode(Data(directCold.utf8)).clips[0].expectedCacheHit == false,
+            "Direct cache checks are explicitly isolated too")
+        let terminal =
+            #"{"version":1,"deviceID":"fixture","profile":"terminalBitmap","clips":[{"path":"/clip.mkv","route":"directHDR","subtitleIndex":2}]}"#
+        try expect(
+            try PlaybackCheckPlan.decode(Data(terminal.utf8)).selectedProfile == .terminalBitmap,
+            "Terminal bitmap profile is narrow and explicit")
+        try expectRejected(Data(terminal.replacingOccurrences(of: ",\"subtitleIndex\":2", with: "").utf8))
+        try expectRejected(
+            Data(
+                terminal.replacingOccurrences(
+                    of: "\"version\":1", with: "\"version\":1,\"hlsCacheMode\":\"isolated\""
+                ).utf8))
         let reuse =
             #"{"version":1,"deviceID":"fixture","hlsCacheMode":"isolated","profile":"hlsCacheReuse","clips":[{"path":"/clip.mkv","route":"hls","externalSubtitle":"/a.srt","alternateSubtitle":"/b.srt"}]}"#
         try expect(

@@ -39,7 +39,33 @@ struct MediaProbeCancellationSmokeTest {
             else { throw Failure.cancellation }
             tasks.cancelAll()
         }
+        let helper = root.appendingPathComponent("selective-probe")
+        try """
+        #!/bin/sh
+        case "$*" in
+          *-select_streams*) exec /bin/sleep 30;;
+          *) printf '%s' '{"streams":[{"index":0,"codec_type":"video","codec_name":"hevc"}],"format":{"duration":"1"}}';;
+        esac
+        """.write(to: helper, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
+        let started = AsyncStream<Process>.makeStream()
+        let selectedProbe = Task {
+            try await MediaProbeService.probe(url: root.appendingPathComponent("fake.mkv"), ffprobeURL: helper) {
+                started.continuation.yield($0)
+            }
+        }
+        var iterator = started.stream.makeAsyncIterator()
+        _ = await iterator.next()
+        guard let second = await iterator.next(), second.isRunning else { throw Failure.notRunning }
+        selectedProbe.cancel()
+        do {
+            _ = try await selectedProbe.value
+            throw Failure.cancellation
+        } catch is CancellationError {}
+        started.continuation.finish()
+        guard !second.isRunning else { throw Failure.cancellation }
         print("Real bundled ffprobe: Stop and analysis replacement reap the running child within three seconds: OK")
+        print("Selected-video extradata probe is cancelled and reaped independently: OK")
     }
 
     private enum Failure: Error { case setup, notRunning, cancellation }

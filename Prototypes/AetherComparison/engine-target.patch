@@ -1,0 +1,11 @@
+diff --git a/Package.swift b/Package.swift
+--- a/Package.swift
++++ b/Package.swift
+@@ -93,2 +93,7 @@
+     targets: [
++        .executableTarget(
++            name: "AirCillerAetherProbe", dependencies: ["AetherEngine"],
++            path: "Probes/AirCillerComparison",
++            swiftSettings: [.swiftLanguageMode(.v6), .unsafeFlags(["-warnings-as-errors", "-strict-concurrency=complete"])]
++        ),
+         .target(

@@ -460,7 +460,7 @@ struct StorageSettingsView: View {
                 .disabled(playbackIsBusy || changingPreparedCache)
 
                 Text(
-                    "Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda."
+                    "Reutiliza las películas preparadas. HLS permite cambiar subtítulos; el MP4 HDR se reutiliza con las mismas pistas y ajustes. Ambos comparten este límite."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)

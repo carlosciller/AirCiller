@@ -118,8 +118,10 @@ final class PlaybackCheckRunner {
 
         for (index, clip) in plan.clips.enumerated() {
             let result: PlaybackCheckResult
-            if plan.selectedProfile == .controls || plan.selectedProfile == .subtitleSeek {
-                result = await runClip(clip, number: index + 1, subtitleSeek: plan.selectedProfile == .subtitleSeek)
+            if [.controls, .subtitleSeek, .terminalBitmap].contains(plan.selectedProfile) {
+                result = await runClip(
+                    clip, number: index + 1, subtitleSeek: plan.selectedProfile == .subtitleSeek,
+                    terminalBitmap: plan.selectedProfile == .terminalBitmap)
             } else {
                 result = await PlaybackCheckScenarioRunner(coordinator: coordinator).run(
                     clip, profile: plan.selectedProfile)
@@ -137,7 +139,9 @@ final class PlaybackCheckRunner {
         return report
     }
 
-    private func runClip(_ clip: PlaybackCheckPlan.Clip, number: Int, subtitleSeek: Bool) async -> PlaybackCheckResult {
+    private func runClip(
+        _ clip: PlaybackCheckPlan.Clip, number: Int, subtitleSeek: Bool, terminalBitmap: Bool
+    ) async -> PlaybackCheckResult {
         began = now
         events.removeAll(keepingCapacity: true)
         overflowed = false
@@ -147,6 +151,7 @@ final class PlaybackCheckRunner {
         )
         result.startedAtUptime = began
         if subtitleSeek { result.profile = .subtitleSeek }
+        if terminalBitmap { result.profile = .terminalBitmap }
         var preparedDirectory: URL?
         do {
             step = "analysis"
@@ -176,6 +181,9 @@ final class PlaybackCheckRunner {
                 coordinator.selectedSubtitleID = subtitle.id
             }
             coordinator.audioOutputMode = clip.audioOutput == .losslessFLAC ? .losslessFLAC : .original
+            if terminalBitmap, coordinator.selectedSubtitle?.usesBitmapOCR != true {
+                throw PlaybackCheckFailure.unsupportedFixture
+            }
             result.completedSteps.append(step)
 
             step = "start_and_media_request"
@@ -212,6 +220,12 @@ final class PlaybackCheckRunner {
                         ? "explicit_truehd_to_flac" : "explicit_pcm_to_flac")
             }
             result.completedSteps.append(step)
+            if clip.route == .directHDR, let expected = clip.expectedCacheHit {
+                guard coordinator.playbackCheckDirectCacheHit == expected else {
+                    throw PlaybackCheckFailure.cacheMismatch
+                }
+                result.completedSteps.append(expected ? "direct_cache_hit" : "direct_cache_miss")
+            }
             if clip.route != .directHDR {
                 let startup = try PlaybackCheckStartupRecorder.record(
                     coordinator: coordinator, label: "initial", requestedAtUptime: requestedAt,
@@ -220,7 +234,58 @@ final class PlaybackCheckRunner {
                 try startup.validate()
             }
 
-            if subtitleSeek {
+            // Exercise the production remote dispatcher without opening a relay.
+            // Repeating the active choices must not reprepare or retire this session.
+            let control = RemotePlaybackControl(
+                coordinator: coordinator, installationKey: Data(repeating: 41, count: 32))
+            let activeSession = coordinator.remoteControlSessionID
+            let currentTracks = control.tracks()
+            let selectedAudio = currentTracks.first { $0.kind == "audio" && $0.selected }?.id
+            let selectedSubtitle = currentTracks.first { $0.kind == "subtitle" && $0.selected }?.id
+            let changedTracks = try control.dispatch(
+                .selectTracks(audioID: nil, subtitleID: selectedSubtitle), sessionID: activeSession)
+            let changedTiming = try control.dispatch(
+                .synchronize(audio: coordinator.audioDelay, subtitles: coordinator.subtitleDelay),
+                sessionID: activeSession)
+            guard !changedTracks, !changedTiming, coordinator.isStreaming,
+                coordinator.remoteControlSessionID == activeSession,
+                coordinator.activePreparedDirectory == directory
+            else { throw PlaybackCheckFailure.cacheMismatch }
+            if coordinator.audioOutputMode == .original {
+                guard
+                    try !control.dispatch(
+                        .selectTracks(audioID: selectedAudio, subtitleID: selectedSubtitle), sessionID: activeSession)
+                else { throw PlaybackCheckFailure.cacheMismatch }
+            }
+            result.completedSteps.append("unchanged_remote_settings_preserved_session")
+
+            if terminalBitmap {
+                try await Task.sleep(for: .seconds(4))
+                step = "terminal_bitmap_seek"
+                let target = floor(probe.duration - 8)
+                let marker = events.count
+                coordinator.seek(to: target)
+                try await wait(seconds: 15) {
+                    PlaybackCheckEvidence.seekCommandsAcknowledged(self.events[marker...], target: target, count: 1)
+                }
+                let observationStart = now
+                step = "terminal_bitmap_natural_end"
+                let deadline = now + 20
+                while !events[marker...].contains(where: { $0.kind == "ended" }), now < deadline {
+                    try Task.checkCancellation()
+                    guard !coordinator.hasError,
+                        !events[marker...].contains(where: { $0.kind == "error" })
+                    else { throw PlaybackCheckFailure.applicationError }
+                    try await Task.sleep(for: .milliseconds(100))
+                }
+                guard events[marker...].contains(where: { $0.kind == "ended" }) else {
+                    throw PlaybackCheckFailure.timedOut
+                }
+                result.outputWindows.append(
+                    PlaybackCheckOutputWindow(
+                        label: "terminal_bitmap", startedAtUptime: observationStart, endedAtUptime: now))
+                result.completedSteps.append(step)
+            } else if subtitleSeek {
                 try await checkSubtitleSeeks(result: &result)
             } else {
                 // Some receivers report state without positions, even after commands.
@@ -383,6 +448,20 @@ enum PlaybackCheckMain {
         // Validation does not initialize the app, discover a TV or access Keychain.
         do {
             let arguments = Array(CommandLine.arguments.dropFirst())
+            if arguments == ["--check-discovery"] {
+                guard Bundle.main.bundleIdentifier == identifier else { throw PlaybackCheckFailure.wrongBuild }
+                // Scoped identity/permission probe: no coordinator, credential read,
+                // pairing, media preparation, capture or playback.
+                let controller = AirPlayController()
+                Task { @MainActor in
+                    await controller.refreshDevices()
+                    print("Discovery completed; receivers found: \(controller.devices.count). No playback was started.")
+                    fflush(nil)
+                    exit(controller.scanError == nil ? 0 : 1)
+                }
+                RunLoop.main.run()
+                return
+            }
             if arguments.count == 2,
                 ["--authorize-keychain", "--check-keychain"].contains(arguments[0])
             {

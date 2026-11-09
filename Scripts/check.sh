@@ -437,6 +437,14 @@ compile_and_run prepared-media-cache \
   "$project_dir/Sources/PreparedMediaCache.swift" \
   "$project_dir/Tests/PreparedMediaCacheSmokeTest.swift"
 export AIRCILLER_TEST_FFMPEG="$engine_path/ffmpeg/bin/ffmpeg"
+compile_and_run direct-preparation-cache \
+  "$project_dir/Sources/Localization.swift" \
+  "$project_dir/Sources/AirCillerError.swift" \
+  "$project_dir/Sources/HLSAudioTimelineInfo.swift" \
+  "$project_dir/Sources/MediaModels.swift" \
+  "$project_dir/Sources/PreparedMediaCache.swift" \
+  "$project_dir/Sources/DirectPreparationCache.swift" \
+  "$project_dir/Tests/DirectPreparationCacheSmokeTest.swift"
 compile_and_run hls-subtitle-preparation \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
@@ -536,6 +544,8 @@ PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/PlaybackStartupSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/SigningIdentitySmokeTest.py"
+PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
+  "$python_path" "$project_dir/Tests/TestAppStagingSmokeTest.py"
 PYTHONDONTWRITEBYTECODE=1 "$python_path" "$project_dir/Tests/LocalInstallerSmokeTest.py"
 PYTHONPYCACHEPREFIX="$build_dir/python-cache" \
   "$python_path" "$project_dir/Tests/DistributionAuditSmokeTest.py"

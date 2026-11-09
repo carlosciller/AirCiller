@@ -13,6 +13,7 @@ import threading
 import time
 
 from playback_checks import finish_process_group
+from stage_test_app import installed_binary, stage
 
 BASIC_CASES = ("directHDR", "hlsSubtitles", "hlsNoSubtitles")
 CONTROL_CASES = (*BASIC_CASES, "hlsHDRNoSubtitles")
@@ -518,7 +519,7 @@ def run_case(name, config, fixture, project, directory, candidate_hash):
         clip["externalSubtitle"] = str(subtitle)
     plan = directory / "plan.json"
     save_json(plan, {"version": 1, "deviceID": config["deviceID"], "captureReadyFile": str(ready), "clips": [clip]})
-    binary = project / ".build/AirCiller Playback Checks.app/Contents/MacOS/AirCiller"
+    binary = installed_binary()
     controls_path = directory / "controls.json"
     tools_dir = project / ".build/playback-capture-tools"
     source = config["captureSource"]
@@ -555,6 +556,8 @@ def run_workflow(config_path, project, *, run=False, prepare=False):
     binary = project / ".build/AirCiller Playback Checks.app/Contents/MacOS/AirCiller"
     try:
         if not binary.is_file(): raise CaptureError("checkAppNotBuilt")
+        if run:
+            binary = stage(binary.parents[2])
         report["candidateSHA256"] = fingerprint(binary)
         if run:
             bounded_command(["/bin/zsh", project / "Scripts/build_playback_capture.sh"], timeout=90)

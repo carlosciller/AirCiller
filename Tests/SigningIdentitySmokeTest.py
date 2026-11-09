@@ -12,17 +12,23 @@ class SigningIdentityTests(unittest.TestCase):
             config = Path(directory) / ".local-signing-identity"
             environment = {k: v for k, v in os.environ.items() if k != "AIRCILLER_SIGNING_IDENTITY"}
 
-            def resolve(override=None):
+            def resolve(override=None, require_certificate=False):
                 env = dict(environment)
                 if override is not None:
                     env["AIRCILLER_SIGNING_IDENTITY"] = override
-                return subprocess.run(["/bin/zsh", str(resolver), directory], env=env, capture_output=True, text=True, timeout=5)
+                args = ["/bin/zsh", str(resolver), directory]
+                if require_certificate:
+                    args.append("--require-certificate")
+                return subprocess.run(args, env=env, capture_output=True, text=True, timeout=5)
 
             self.assertEqual(resolve().stdout.strip(), "-")
+            self.assertNotEqual(resolve(require_certificate=True).returncode, 0)
             fingerprint = "12AB" * 10
             config.write_text(fingerprint + "\n")
             self.assertEqual(resolve().stdout.strip(), fingerprint)
+            self.assertEqual(resolve(require_certificate=True).stdout.strip(), fingerprint)
             self.assertEqual(resolve("-").stdout.strip(), "-")
+            self.assertNotEqual(resolve("-", require_certificate=True).returncode, 0)
             for invalid in ("", "not-a-certificate", "12AB", "$(touch SHOULD_NOT_EXIST)", fingerprint + "\nextra"):
                 self.assertNotEqual(resolve(invalid).returncode, 0)
                 config.write_text(invalid)

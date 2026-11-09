@@ -40,11 +40,19 @@ elif [[ $# != 0 ]]; then
   echo "Usage: ./build.sh [--playback-checks | --candidate]" >&2
   exit 2
 fi
-signing_identity="$(/bin/zsh "$project_dir/Scripts/signing_identity.sh")"
+identity_arguments=("$project_dir")
+if [[ "$is_auxiliary_build" == true ]]; then
+  identity_arguments+=(--require-certificate)
+fi
+signing_identity="$(/bin/zsh "$project_dir/Scripts/signing_identity.sh" "${identity_arguments[@]}")"
 credential_service_path=""
 local_signing_options=()
 if [[ "$signing_identity" != "-" ]]; then
-  credential_service_path="$(/bin/zsh "$project_dir/Scripts/build_credential_service.sh" --verify)"
+  if [[ -n "${AIRCILLER_APPROVED_CREDENTIAL_PROJECT:-}" ]]; then
+    credential_service_path="$(/bin/zsh "$project_dir/Scripts/verified_shared_credential_service.sh" "$AIRCILLER_APPROVED_CREDENTIAL_PROJECT")"
+  else
+    credential_service_path="$(/bin/zsh "$project_dir/Scripts/build_credential_service.sh" --verify)"
+  fi
   local_signing_options=(--options runtime --entitlements "$project_dir/CredentialService/Client.entitlements")
 fi
 contents_path="$staged_app_path/Contents"

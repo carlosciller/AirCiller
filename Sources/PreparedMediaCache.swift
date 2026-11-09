@@ -2,8 +2,9 @@ import CryptoKit
 import Darwin
 import Foundation
 
-/// Retains finalized HLS video/audio renditions. Session-specific subtitles and
-/// master playlists never enter this cache. Media is immutable after admission;
+/// Retains finalized HLS bases or complete direct MP4 files under one budget.
+/// HLS subtitles and master playlists never enter this cache; direct MP4 keys
+/// include their embedded subtitles. Media is immutable after admission;
 /// session playlists are independent copies because subtitle alignment edits them.
 actor PreparedMediaCache {
     typealias CapacityReader = @Sendable (URL) -> Int64?
@@ -13,9 +14,11 @@ actor PreparedMediaCache {
         fileprivate let source: SourceIdentity
         fileprivate let engine: SourceIdentity?
         fileprivate let separateAudio: Bool
+        fileprivate let directFile: Bool
+        fileprivate let dependencies: [SourceIdentity]
 
         fileprivate var isCurrent: Bool {
-            source.isCurrent() && (engine?.isCurrent() ?? true)
+            source.isCurrent() && (engine?.isCurrent() ?? true) && dependencies.allSatisfy { $0.isCurrent() }
         }
     }
 
@@ -125,7 +128,29 @@ actor PreparedMediaCache {
         data.append(try encoder.encode(engineIdentity))
         data.append(try encoder.encode(parameters))
         return Key(
-            digest: hash(data), source: identity, engine: engineIdentity, separateAudio: audio != nil && !multiplexed)
+            digest: hash(data), source: identity, engine: engineIdentity, separateAudio: audio != nil && !multiplexed,
+            directFile: false, dependencies: [])
+    }
+
+    /// The caller supplies the exact mux arguments with only the output and
+    /// generated OCR path made stable. Original sidecars remain file dependencies;
+    /// recognized text participates by content, not its temporary filename.
+    nonisolated static func makeDirectKey(
+        source: URL, engineURL: URL, arguments: [String], subtitleInputs: [URL],
+        recognizedText: Data? = nil, policyVersion: String = "direct-mp4-v1"
+    ) throws -> Key {
+        guard !policyVersion.isEmpty, !arguments.isEmpty else { throw CacheError.invalidManifest }
+        let identity = try SourceIdentity(source)
+        let engine = try SourceIdentity(engineURL)
+        let dependencies = try subtitleInputs.map(SourceIdentity.init)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        var data = try encoder.encode([identity, engine] + dependencies)
+        data.append(try encoder.encode([policyVersion] + arguments))
+        data.append(try encoder.encode(recognizedText.map(hash)))
+        return Key(
+            digest: hash(data), source: identity, engine: engine, separateAudio: false,
+            directFile: true, dependencies: dependencies)
     }
 
     /// Cache corruption and I/O failures are optimization misses, not playback
@@ -142,7 +167,7 @@ actor PreparedMediaCache {
             let files = try validatedFiles(in: entry, key: key)
             guard
                 try FileManager.default.contentsOfDirectory(atPath: directory.path)
-                    .allSatisfy({ !Self.isBaseName($0) })
+                    .allSatisfy({ !Self.isCachedName($0, key: key) })
             else {
                 throw CacheError.destinationExists
             }
@@ -184,8 +209,9 @@ actor PreparedMediaCache {
         }
     }
 
-    /// Admission must follow the caller's HLS/HDR validation, before any
-    /// session-specific subtitle/master work. Never mutate admitted media.
+    /// Admission follows route-specific validation. HLS admission precedes
+    /// session-specific subtitle/master work; direct MP4 is already final.
+    /// Never mutate admitted media.
     @discardableResult
     func store(key: Key, from directory: URL) throws -> Bool {
         try Task.checkCancellation()
@@ -196,7 +222,7 @@ actor PreparedMediaCache {
             guard try Self.requireDirectory(directory).st_dev == Self.requireDirectory(rootDirectory).st_dev else {
                 return false
             }
-            let names = try baseNames(in: directory, separateAudio: key.separateAudio)
+            let names = try cachedNames(in: directory, key: key)
             var files: [CachedFile] = []
             var bytes: Int64 = 0
             for name in names.sorted() {
@@ -402,14 +428,26 @@ actor PreparedMediaCache {
         var names = Set<String>()
         for file in manifest.files {
             try Task.checkCancellation()
-            guard Self.isBaseName(file.name), names.insert(file.name).inserted,
+            guard Self.isCachedName(file.name, key: key), names.insert(file.name).inserted,
                 file.size > 0, try Self.matches(file, url: entry.appendingPathComponent(file.name))
             else { throw CacheError.invalidManifest }
         }
-        guard try baseNames(in: entry, separateAudio: key.separateAudio) == names else {
+        guard try cachedNames(in: entry, key: key) == names else {
             throw CacheError.invalidManifest
         }
         return manifest.files
+    }
+
+    private func cachedNames(in directory: URL, key: Key) throws -> Set<String> {
+        if key.directFile {
+            _ = try Self.regularFile(directory.appendingPathComponent("movie.mp4"))
+            return ["movie.mp4"]
+        }
+        return try baseNames(in: directory, separateAudio: key.separateAudio)
+    }
+
+    private nonisolated static func isCachedName(_ name: String, key: Key) -> Bool {
+        key.directFile ? name == "movie.mp4" : isBaseName(name)
     }
 
     private func baseNames(in directory: URL, separateAudio: Bool) throws -> Set<String> {

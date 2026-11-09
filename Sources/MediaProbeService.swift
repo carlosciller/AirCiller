@@ -10,56 +10,14 @@ enum MediaProbeService {
                 throw AirCillerError.ffprobeMissing
             }
 
-            let process = Process()
-            process.executableURL = ffprobeURL
-            process.arguments = [
+            let arguments = [
                 "-v", "error",
                 "-show_entries",
-                "format=format_name,duration,size,bit_rate:program=program_id:stream=index,codec_type,codec_name,profile,level,extradata,width,height,r_frame_rate,color_transfer,channels,channel_layout,sample_rate,sample_fmt,bits_per_sample,bits_per_raw_sample:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired,attached_pic:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
-                "-show_data",
+                "format=format_name,duration,size,bit_rate:program=program_id:stream=index,codec_type,codec_name,profile,level,width,height,r_frame_rate,color_transfer,channels,channel_layout,sample_rate,sample_fmt,bits_per_sample,bits_per_raw_sample:stream_tags=language,title:stream_disposition=default,forced,hearing_impaired,attached_pic:stream_side_data:chapter=id,start_time,end_time:chapter_tags=title",
                 "-of", "json",
                 url.path,
             ]
-
-            let output = Pipe()
-            let errors = Pipe()
-            let outputBuffer = ProcessDataBuffer()
-            let errorBuffer = ProcessDataBuffer(maximumBytes: 64_000)
-            output.fileHandleForReading.readabilityHandler = { handle in
-                outputBuffer.append(handle.availableData)
-            }
-            errors.fileHandleForReading.readabilityHandler = { handle in
-                errorBuffer.append(handle.availableData)
-            }
-            process.standardOutput = output
-            process.standardError = errors
-            // Cancellation throws from run(). Always detach readers and close pipes.
-            defer {
-                output.fileHandleForReading.readabilityHandler = nil
-                errors.fileHandleForReading.readabilityHandler = nil
-                try? output.fileHandleForReading.close()
-                try? errors.fileHandleForReading.close()
-                try? output.fileHandleForWriting.close()
-                try? errors.fileHandleForWriting.close()
-            }
-            let status = try await CancellableProcess(process).run {
-                try? output.fileHandleForWriting.close()
-                try? errors.fileHandleForWriting.close()
-                onStarted?(process)
-            }
-            output.fileHandleForReading.readabilityHandler = nil
-            errors.fileHandleForReading.readabilityHandler = nil
-            outputBuffer.append(output.fileHandleForReading.readDataToEndOfFile())
-            errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
-
-            guard status == 0 else {
-                let data = errorBuffer.snapshot
-                let message = String(data: data, encoding: .utf8) ?? "ffprobe error"
-                throw AirCillerError.probeFailed(message.trimmingCharacters(in: .whitespacesAndNewlines))
-            }
-
-            let data = outputBuffer.snapshot
-            let response = try JSONDecoder().decode(ProbeResponse.self, from: data)
+            let response = try await readResponse(executable: ffprobeURL, arguments: arguments, onStarted: onStarted)
             let isTransportStream = response.format?.formatName == "mpegts"
             if isTransportStream, (response.programs?.count ?? 0) > 1 {
                 // Selecting video and audio independently could mix two TV channels.
@@ -83,6 +41,23 @@ enum MediaProbeService {
                 let video = videoStreams.first(where: { $0.index == videoIndex })
             else {
                 throw AirCillerError.noVideo
+            }
+
+            // Only hvcC identification consumes extradata. A global -show_data
+            // also hex-dumps Matroska font attachments, multiplying their size
+            // in the JSON response. Keep track/side-data discovery separate.
+            var codecIdentifier: String?
+            if video.codecName?.lowercased() == "hevc" {
+                let configuration = try await readResponse(
+                    executable: ffprobeURL,
+                    arguments: [
+                        "-v", "error", "-select_streams", String(video.index),
+                        "-show_entries", "stream=index,codec_name,extradata", "-show_data", "-of", "json", url.path,
+                    ], onStarted: onStarted)
+                guard let selected = configuration.streams.first(where: { $0.index == video.index }) else {
+                    throw AirCillerError.noVideo
+                }
+                codecIdentifier = hevcCodecIdentifier(from: selected)
             }
 
             let sideData = video.sideDataList?.first(where: {
@@ -152,7 +127,7 @@ enum MediaProbeService {
                 videoCodec: video.codecName ?? "unknown",
                 videoProfile: video.profile,
                 videoLevel: video.level,
-                hevcCodecIdentifier: hevcCodecIdentifier(from: video),
+                hevcCodecIdentifier: codecIdentifier,
                 width: video.width,
                 height: video.height,
                 frameRate: video.frameRate,
@@ -166,6 +141,46 @@ enum MediaProbeService {
                 chapters: chapters
             )
         }
+    }
+
+    private static func readResponse(
+        executable: URL, arguments: [String], onStarted: (@Sendable (Process) -> Void)?
+    ) async throws -> ProbeResponse {
+        try Task.checkCancellation()
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = arguments
+        let output = Pipe()
+        let errors = Pipe()
+        let outputBuffer = ProcessDataBuffer()
+        let errorBuffer = ProcessDataBuffer(maximumBytes: 64_000)
+        output.fileHandleForReading.readabilityHandler = { outputBuffer.append($0.availableData) }
+        errors.fileHandleForReading.readabilityHandler = { errorBuffer.append($0.availableData) }
+        process.standardOutput = output
+        process.standardError = errors
+        defer {
+            output.fileHandleForReading.readabilityHandler = nil
+            errors.fileHandleForReading.readabilityHandler = nil
+            try? output.fileHandleForReading.close()
+            try? errors.fileHandleForReading.close()
+            try? output.fileHandleForWriting.close()
+            try? errors.fileHandleForWriting.close()
+        }
+        let status = try await CancellableProcess(process).run {
+            try? output.fileHandleForWriting.close()
+            try? errors.fileHandleForWriting.close()
+            onStarted?(process)
+        }
+        output.fileHandleForReading.readabilityHandler = nil
+        errors.fileHandleForReading.readabilityHandler = nil
+        outputBuffer.append(output.fileHandleForReading.readDataToEndOfFile())
+        errorBuffer.append(errors.fileHandleForReading.readDataToEndOfFile())
+        try Task.checkCancellation()
+        guard status == 0 else {
+            let message = String(data: errorBuffer.snapshot, encoding: .utf8) ?? "ffprobe error"
+            throw AirCillerError.probeFailed(message.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return try JSONDecoder().decode(ProbeResponse.self, from: outputBuffer.snapshot)
     }
 
     static func externalTrack(url: URL) -> SubtitleTrack {

@@ -7,7 +7,7 @@ struct PlaybackCheckPlan: Decodable {
     enum AudioOutput: String, Decodable { case original, losslessFLAC, compatible }
     enum Profile: String, Codable {
         case controls, trackChanges, cancelPreparation, playlistTransition, longPause, cancelBitmap, subtitleSeek
-        case hlsCacheReuse
+        case hlsCacheReuse, terminalBitmap
         case hlsAudioDelayTail, hlsAudioAdvanceTail
 
         var fixedAudioDelay: Double? {
@@ -124,8 +124,7 @@ struct PlaybackCheckPlan: Decodable {
                 }
             }
             if plan.selectedHLSCacheMode == .isolated {
-                guard clip.route != .directHDR,
-                    [.controls, .hlsCacheReuse].contains(plan.selectedProfile)
+                guard [.controls, .hlsCacheReuse].contains(plan.selectedProfile)
                 else { throw PlaybackCheckFailure.invalidPlan }
             }
             if clip.expectedCacheHit != nil {
@@ -142,6 +141,12 @@ struct PlaybackCheckPlan: Decodable {
                 guard clip.route == .hls, clip.externalSubtitle != nil else {
                     throw PlaybackCheckFailure.invalidPlan
                 }
+            }
+            if plan.selectedProfile == .terminalBitmap {
+                guard clip.route != .hlsHDR,
+                    clip.subtitleIndex != nil || clip.externalSubtitle != nil,
+                    plan.selectedHLSCacheMode == .disabled
+                else { throw PlaybackCheckFailure.invalidPlan }
             }
             guard clip.route != .hlsHDR || plan.selectedProfile == .controls else {
                 throw PlaybackCheckFailure.invalidPlan

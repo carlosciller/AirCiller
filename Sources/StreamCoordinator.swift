@@ -120,6 +120,13 @@ final class StreamCoordinator {
     private let transitionPower = PlaybackPowerAssertion()
     private var playlistAudioConsent = PlaylistAudioConsent()
     #if AIRCILLER_UI_CHECKS
+        func setSyntheticMediaForChecks(_ info: MediaProbe) {
+            precondition(CommandLine.arguments.contains("--skip-device-scan"))
+            selectedURL = URL(fileURLWithPath: "/synthetic-library/remote-controls.mkv")
+            probeInfo = info
+            audioTracks = info.audioTracks
+            subtitleTracks = info.subtitleTracks
+        }
         func beginSyntheticPlaybackSessionForChecks(preparedInformation: PreparedPlaybackInformation? = nil) {
             precondition(CommandLine.arguments.contains("--skip-device-scan"))
             activeSessionID = UUID()
@@ -183,6 +190,7 @@ final class StreamCoordinator {
         @ObservationIgnored var onPlaybackCheckLoad: ((URL) -> Void)?
         // Only the opt-in runner owns this disposable cache. Nil keeps checks cold.
         @ObservationIgnored var playbackCheckPreparedMediaCache: PreparedMediaCache?
+        @ObservationIgnored var playbackCheckDirectCacheHit: Bool?
         var playbackCheckStartupSnapshot: PlaybackStartupTrace.Snapshot? { startupTrace?.snapshot() }
         var playbackCheckUsedPreparedMediaCache: Bool { startupUsedCache }
         var playbackCheckPreparationProcessIsRunning: Bool { ffmpegProcess?.isRunning == true }
@@ -1890,79 +1898,106 @@ final class StreamCoordinator {
                 }
 
                 let outputURL = directory.appendingPathComponent("movie.mp4")
-                let build = try Self.makeDirectFileProcess(
-                    input: url,
-                    output: outputURL,
-                    probe: info,
-                    audio: audio,
-                    outputMode: outputMode,
-                    audioDelay: chosenAudioDelay,
-                    subtitle: preparedSubtitle,
-                    subtitleDelay: chosenSubtitleDelay
-                )
-                let process = build.process
-                sessionProcess = process
-                self.ffmpegProcess = process
-                self.ffmpegLog = build.log
-                try process.run()
-                build.didStart()
-                let exitTask = Task {
-                    try await CancellableProcess(process).waitForExit()
-                }
-                try await self.waitForVODCompletion(
-                    build,
-                    exitTask: exitTask,
-                    expectedDuration: info.duration,
-                    sessionID: sessionID,
-                    preparationName: "MP4 HDR con subtítulos"
-                )
-                build.closePipes()
+                #if AIRCILLER_PLAYBACK_CHECKS
+                    let cache: PreparedMediaCache? = self.playbackCheckPreparedMediaCache
+                #else
+                    let cache: PreparedMediaCache? = AirCillerStorage.preparedMediaCache
+                    try? await cache?.setLimitBytes(AirCillerStorage.preparedMediaCacheLimitBytes)
+                #endif
                 try self.requireCurrentStreamSession(sessionID)
-                if self.activeSessionID == sessionID {
-                    self.ffmpegProcess = nil
-                    self.ffmpegLog = nil
-                }
+                let cacheKey = try? Self.directCacheKey(
+                    input: url, probe: info, audio: audio, outputMode: outputMode,
+                    audioDelay: chosenAudioDelay, originalSubtitle: subtitle,
+                    preparedSubtitle: preparedSubtitle, subtitleDelay: chosenSubtitleDelay)
+                let preparation = try await DirectPreparationCache.prepare(
+                    directory: directory, cache: cache, key: cacheKey,
+                    build: {
+                        try self.requireCurrentStreamSession(sessionID)
+                        let build = try Self.makeDirectFileProcess(
+                            input: url,
+                            output: outputURL,
+                            probe: info,
+                            audio: audio,
+                            outputMode: outputMode,
+                            audioDelay: chosenAudioDelay,
+                            subtitle: preparedSubtitle,
+                            subtitleDelay: chosenSubtitleDelay
+                        )
+                        let process = build.process
+                        sessionProcess = process
+                        self.ffmpegProcess = process
+                        self.ffmpegLog = build.log
+                        try process.run()
+                        build.didStart()
+                        let exitTask = Task {
+                            try await CancellableProcess(process).waitForExit()
+                        }
+                        try await self.waitForVODCompletion(
+                            build,
+                            exitTask: exitTask,
+                            expectedDuration: info.duration,
+                            sessionID: sessionID,
+                            preparationName: "MP4 HDR con subtítulos"
+                        )
+                        build.closePipes()
+                        try self.requireCurrentStreamSession(sessionID)
+                        if self.activeSessionID == sessionID {
+                            self.ffmpegProcess = nil
+                            self.ffmpegLog = nil
+                        }
 
-                self.status = "Ajustando la cabecera HDR…"
-                self.detail = "Conservando Dolby Vision/HDR y colocando la duración y el índice al principio del MP4."
-                self.preparationProgress = 0.93
-                let isHDR10CompatibleDolbyVision = info.dolbyVisionProfile == 8 && info.dolbyVisionCompatibilityID == 1
-                if info.colorTransfer?.lowercased() == "smpte2084"
-                    && (!info.isDolbyVision || isHDR10CompatibleDolbyVision)
-                {
-                    try HDRConfigurationInjector.injectStaticMetadataIntoDirectFile(outputURL)
-                }
-
-                self.status = "Comprobando HDR y subtítulos…"
-                self.detail = "Verificando duración, vídeo, audio y pista de texto dentro del MP4."
-                self.preparationProgress = 0.96
-                let prepared = try await MediaProbeService.probe(url: outputURL)
+                        self.status = "Ajustando la cabecera HDR…"
+                        self.detail =
+                            "Conservando Dolby Vision/HDR y colocando la duración y el índice al principio del MP4."
+                        self.preparationProgress = 0.93
+                        let isHDR10CompatibleDolbyVision =
+                            info.dolbyVisionProfile == 8 && info.dolbyVisionCompatibilityID == 1
+                        if info.colorTransfer?.lowercased() == "smpte2084"
+                            && (!info.isDolbyVision || isHDR10CompatibleDolbyVision)
+                        {
+                            try HDRConfigurationInjector.injectStaticMetadataIntoDirectFile(outputURL)
+                        }
+                    },
+                    validate: {
+                        try self.requireCurrentStreamSession(sessionID)
+                        self.status = "Comprobando HDR y subtítulos…"
+                        self.detail = "Verificando duración, vídeo, audio y pista de texto dentro del MP4."
+                        self.preparationProgress = 0.96
+                        let prepared = try await MediaProbeService.probe(url: outputURL)
+                        try self.requireCurrentStreamSession(sessionID)
+                        if info.isDolbyVision, !prepared.isDolbyVision {
+                            throw AirCillerError.invalidVODPackage(
+                                "El MP4 preparado no conserva los metadatos Dolby Vision."
+                            )
+                        }
+                        if !info.isDolbyVision, info.isHDR, !prepared.isHDR {
+                            throw AirCillerError.invalidVODPackage(
+                                "El MP4 preparado no conserva los metadatos HDR."
+                            )
+                        }
+                        guard abs(prepared.duration - info.duration) <= max(15, info.duration * 0.002) else {
+                            throw AirCillerError.invalidVODPackage(
+                                L10n.format(
+                                    "El MP4 preparado dura %@, no %@.",
+                                    TimeFormatting.duration(prepared.duration),
+                                    TimeFormatting.duration(info.duration))
+                            )
+                        }
+                        if audio != nil, prepared.audioTracks.isEmpty {
+                            throw AirCillerError.invalidVODPackage(
+                                "El MP4 preparado no contiene la pista de audio elegida.")
+                        }
+                        if subtitle != nil, prepared.subtitleTracks.isEmpty {
+                            throw AirCillerError.invalidVODPackage(
+                                "El MP4 preparado no contiene el subtítulo elegible en Apple TV.")
+                        }
+                        return prepared
+                    })
                 try self.requireCurrentStreamSession(sessionID)
-                if info.isDolbyVision, !prepared.isDolbyVision {
-                    throw AirCillerError.invalidVODPackage(
-                        "El MP4 preparado no conserva los metadatos Dolby Vision."
-                    )
-                }
-                if !info.isDolbyVision, info.isHDR, !prepared.isHDR {
-                    throw AirCillerError.invalidVODPackage(
-                        "El MP4 preparado no conserva los metadatos HDR."
-                    )
-                }
-                guard abs(prepared.duration - info.duration) <= max(15, info.duration * 0.002) else {
-                    throw AirCillerError.invalidVODPackage(
-                        L10n.format(
-                            "El MP4 preparado dura %@, no %@.",
-                            TimeFormatting.duration(prepared.duration),
-                            TimeFormatting.duration(info.duration))
-                    )
-                }
-                if audio != nil, prepared.audioTracks.isEmpty {
-                    throw AirCillerError.invalidVODPackage("El MP4 preparado no contiene la pista de audio elegida.")
-                }
-                if subtitle != nil, prepared.subtitleTracks.isEmpty {
-                    throw AirCillerError.invalidVODPackage(
-                        "El MP4 preparado no contiene el subtítulo elegible en Apple TV.")
-                }
+                let prepared = preparation.probe
+                #if AIRCILLER_PLAYBACK_CHECKS
+                    self.playbackCheckDirectCacheHit = preparation.usedCache
+                #endif
                 self.packagedDemandProfile = try StreamDemandAnalyzer.directFileProfile(
                     fileURL: outputURL,
                     duration: prepared.duration,
@@ -2002,6 +2037,12 @@ final class StreamCoordinator {
                     }
                     try self.requireCurrentStreamSession(sessionID)
                     item.select(option, in: group)
+                }
+                // Admit only after the existing HTTP/AVPlayer duration and
+                // subtitle checks. Cache hits are immutable and never reinjected.
+                if !preparation.usedCache, let cache, let cacheKey {
+                    _ = try await cache.store(key: cacheKey, from: directory)
+                    try self.requireCurrentStreamSession(sessionID)
                 }
                 self.observe(item: item)
                 self.player.replaceCurrentItem(with: item)
@@ -2693,6 +2734,33 @@ final class StreamCoordinator {
             throw AirCillerError.ffmpegStopped(build.log.snapshot)
         }
         preparationProgress = 0.90
+    }
+
+    nonisolated private static func directCacheKey(
+        input: URL, probe: MediaProbe, audio: AudioTrack?, outputMode: AudioOutputMode,
+        audioDelay: Double, originalSubtitle: SubtitleTrack?, preparedSubtitle: SubtitleTrack?, subtitleDelay: Double
+    ) throws -> PreparedMediaCache.Key {
+        guard let engine = Executables.find("ffmpeg") else { throw AirCillerError.ffmpegMissing }
+        var dependencies: [URL] = []
+        if let path = originalSubtitle?.externalPath {
+            let source = URL(fileURLWithPath: path)
+            dependencies.append(source)
+            if originalSubtitle?.codec.lowercased() == "dvd_subtitle" {
+                dependencies.append(try ExternalVobSub(url: source).bitmapURL)
+            }
+        }
+        var arguments = DirectFileCommandBuilder.arguments(
+            input: input, output: URL(fileURLWithPath: "/movie.mp4"), probe: probe,
+            audio: audio, outputMode: outputMode, audioDelay: audioDelay,
+            subtitle: preparedSubtitle, subtitleDelay: subtitleDelay)
+        var recognizedText: Data?
+        if originalSubtitle?.usesBitmapOCR == true, let path = preparedSubtitle?.externalPath {
+            recognizedText = try Data(contentsOf: URL(fileURLWithPath: path))
+            arguments = arguments.map { $0 == path ? "<recognized-subtitle>" : $0 }
+        }
+        return try PreparedMediaCache.makeDirectKey(
+            source: input, engineURL: engine, arguments: arguments,
+            subtitleInputs: dependencies, recognizedText: recognizedText)
     }
 
     nonisolated private static func makeDirectFileProcess(

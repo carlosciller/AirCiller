@@ -215,7 +215,8 @@ def run_scenario(name, config, fixtures, project, directory, candidate_hash):
     directory.mkdir(mode=0o700)
     profile, route = CASE_INFO[name]
     fixture = fixtures.get(name, fixtures.get(route))
-    binary = project / ".build/AirCiller Playback Checks.app/Contents/MacOS/AirCiller"
+    from stage_test_app import installed_binary
+    binary = installed_binary()
     tools = project / ".build/playback-capture-tools"
     plan = {"version": 1, "deviceID": config["deviceID"], "profile": profile,
             "clips": [{"path": str(fixture[0]), "route": route}]}

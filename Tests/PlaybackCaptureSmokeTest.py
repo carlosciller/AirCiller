@@ -215,7 +215,8 @@ class CaptureWorkflowTests(unittest.TestCase):
 
     def test_failed_readiness_prevents_credentials_preparation_and_playback(self):
         config_path = self.workflow_files()
-        with mock.patch.object(capture, "bounded_command", return_value=b"") as command, \
+        with mock.patch.object(capture, "stage", side_effect=lambda app: app / "Contents/MacOS/AirCiller"), \
+                mock.patch.object(capture, "bounded_command", return_value=b"") as command, \
                 mock.patch.object(capture, "preflight_capture", side_effect=capture.CaptureError("captureNoInitialFrame")), \
                 mock.patch.object(capture, "prepare_fixtures") as prepare, \
                 mock.patch.object(capture, "run_case") as run:
@@ -243,7 +244,8 @@ class CaptureWorkflowTests(unittest.TestCase):
         def prepare(*args, **kwargs):
             events.append("fixtures")
             return {"directHDR": (self.fixture, {})}
-        with mock.patch.object(capture, "bounded_command", side_effect=command), \
+        with mock.patch.object(capture, "stage", side_effect=lambda app: app / "Contents/MacOS/AirCiller"), \
+                mock.patch.object(capture, "bounded_command", side_effect=command), \
                 mock.patch.object(capture, "preflight_capture", side_effect=ready), \
                 mock.patch.object(capture, "prepare_fixtures", side_effect=prepare), \
                 mock.patch.object(capture, "run_case", return_value={"outcome": capture.OUTPUT_PASS}):
@@ -252,7 +254,8 @@ class CaptureWorkflowTests(unittest.TestCase):
 
     def test_cancellation_only_workflow_does_not_capture(self):
         config_path = self.workflow_files(["cancelPreparation"])
-        with mock.patch.object(capture, "bounded_command", return_value=b"") as command, \
+        with mock.patch.object(capture, "stage", side_effect=lambda app: app / "Contents/MacOS/AirCiller"), \
+                mock.patch.object(capture, "bounded_command", return_value=b"") as command, \
                 mock.patch.object(capture, "preflight_capture") as preflight, \
                 mock.patch.object(capture, "prepare_fixtures", return_value={}), \
                 mock.patch("playback_scenarios.run_scenario", return_value={"outcome": capture.CANCELLATION_PASS}):
@@ -263,7 +266,7 @@ class CaptureWorkflowTests(unittest.TestCase):
     def test_documented_command_leaves_source_clean(self):
         scripts = self.root / "Scripts"
         scripts.mkdir()
-        for name in ("playback_checks.py", "playback_capture.py", "test_storage.py"):
+        for name in ("playback_checks.py", "playback_capture.py", "test_storage.py", "stage_test_app.py"):
             shutil.copyfile(Path(capture.__file__).parent / name, scripts / name)
         config_path = self.root / "config.json"
         capture.save_json(config_path, self.config)

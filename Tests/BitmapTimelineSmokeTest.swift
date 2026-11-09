@@ -23,6 +23,9 @@ struct BitmapTimelineSmokeTest {
         guard try PGSSubtitleConverter.transportTimeOrigin(from: matroska) == nil else { throw Failure.timeline }
         print("Bitmap subtitle clock: finite video origin required for TS; other containers unchanged: OK")
         try verifyLanguageMetadata()
+        try verifyTerminalBitmap()
+        try verifyEmbeddedCacheDuration()
+        try await verifyCachedSelection()
         try await verifyExternalPGS()
         try verifyExternalVobSub()
 
@@ -59,6 +62,89 @@ struct BitmapTimelineSmokeTest {
         let hls = try String(contentsOf: output.appendingPathComponent("subtitles-00000000.vtt"), encoding: .utf8)
         try verifyCue(hls, start: expectedStart, end: expectedEnd)
         print("Real bitmap timing: direct and HLS materialization match source cue within 2 ms: OK")
+    }
+
+    private static func verifyTerminalBitmap() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AirCiller-BitmapEnd-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        // Grouping compares encoded frames; no OCR or image decoder is needed.
+        let frame = directory.appendingPathComponent("frame-0000000098000000.png")
+        try Data([1]).write(to: frame)
+        let bounds = [Int64(98_000_000): CGRect(x: 0, y: 0, width: 100, height: 30)]
+        let groups = try PGSSubtitleConverter.frameGroups(
+            in: directory, videoDuration: 100, isTruncated: false, frameBounds: bounds)
+        guard groups.count == 1, groups[0].start == 98, groups[0].end == 100 else {
+            throw Failure.terminalBitmap
+        }
+        let truncated = try PGSSubtitleConverter.frameGroups(
+            in: directory, videoDuration: 100, isTruncated: true, frameBounds: bounds)
+        guard truncated.count == 1, truncated[0].end == 103 else { throw Failure.terminalBitmap }
+        // A later clear must not extend the visible cue beyond the movie either.
+        try Data([0]).write(to: directory.appendingPathComponent("frame-0000000101000000.png"))
+        let cleared = try PGSSubtitleConverter.frameGroups(
+            in: directory, videoDuration: 100, isTruncated: false, frameBounds: bounds)
+        guard cleared.count == 1, cleared[0].end == 100 else { throw Failure.terminalBitmap }
+        let outside = try PGSSubtitleConverter.frameGroups(
+            in: directory, videoDuration: 90, isTruncated: false, frameBounds: bounds)
+        guard outside.isEmpty else { throw Failure.terminalBitmap }
+        try Data([0]).write(to: directory.appendingPathComponent("frame-0000000099000000.png"))
+        let explicitClear = try PGSSubtitleConverter.frameGroups(
+            in: directory, videoDuration: 100, isTruncated: false, frameBounds: bounds)
+        guard explicitClear.count == 2, explicitClear[0].end == 99, explicitClear[1].bounds == nil else {
+            throw Failure.terminalBitmap
+        }
+        print("Bitmap completion: final open cue and late clear bounded by movie end: OK")
+    }
+
+    private static func verifyEmbeddedCacheDuration() throws {
+        let movie = URL(fileURLWithPath: "/synthetic-cache-identity.mkv")
+        for codec in ["hdmv_pgs_subtitle", "dvd_subtitle"] {
+            let track = SubtitleTrack(
+                streamIndex: 2, codec: codec, language: "eng", title: nil,
+                isDefault: false, isForced: false, isHearingImpaired: false, externalPath: nil)
+            let first = PGSSubtitleConverter.cacheFileName(track: track, videoURL: movie, videoDuration: 100)
+            guard first != PGSSubtitleConverter.cacheFileName(track: track, videoURL: movie, videoDuration: 101),
+                first == PGSSubtitleConverter.cacheFileName(track: track, videoURL: movie, videoDuration: 100)
+            else { throw Failure.cacheDuration }
+        }
+        print("Embedded bitmap cache: exact duration distinguishes results; repeated selection retains identity: OK")
+    }
+
+    private static func verifyCachedSelection() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("AirCiller-BitmapCache-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let movie = directory.appendingPathComponent("movie.mkv")
+        try Data([1]).write(to: movie)
+        let vtt =
+            "WEBVTT\n\nNOTE AirCiller Bitmap OCR v3; cues=1; confidence=0.9500\n\n"
+            + "00:01:38.000 --> 00:01:40.000\nFinal caption\n"
+        for codec in ["hdmv_pgs_subtitle", "dvd_subtitle"] {
+            let track = SubtitleTrack(
+                streamIndex: 2, codec: codec, language: "eng", title: nil,
+                isDefault: false, isForced: false, isHearingImpaired: false, externalPath: nil)
+            let cached = directory.appendingPathComponent(
+                PGSSubtitleConverter.cacheFileName(track: track, videoURL: movie, videoDuration: 100))
+            try vtt.write(to: cached, atomically: true, encoding: .utf8)
+            // The source is intentionally not media. Any attempt to re-render
+            // rather than reuse the prepared track fails this check.
+            for _ in 0..<2 {
+                let result = try await PGSSubtitleConverter.convert(
+                    track: track, videoURL: movie, videoDuration: 100, cacheDirectory: directory)
+                guard result.usedCache, result.webVTT == vtt, result.cueCount == 1 else {
+                    throw Failure.cacheDuration
+                }
+            }
+            for invalid in [0, -1, Double.infinity, Double.nan] {
+                do {
+                    _ = try await PGSSubtitleConverter.convert(
+                        track: track, videoURL: movie, videoDuration: invalid, cacheDirectory: directory)
+                    throw Failure.cacheDuration
+                } catch AirCillerError.subtitlePreparationFailed {}
+            }
+        }
+        print("Bitmap repeated selection: cached PGS/VobSub returned without decoding; invalid durations rejected: OK")
     }
 
     private static func verifyExternalPGS() async throws {
@@ -204,5 +290,5 @@ struct BitmapTimelineSmokeTest {
         }
     }
 
-    private enum Failure: Error { case timeline, acceptedUnknownOrigin }
+    private enum Failure: Error { case timeline, acceptedUnknownOrigin, terminalBitmap, cacheDuration }
 }

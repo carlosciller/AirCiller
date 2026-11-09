@@ -24,6 +24,18 @@ Before a live run, rebuild the isolated candidate when its application/check-app
 ./build.sh --playback-checks
 ```
 
+Interactive test builds require a configured certificate; missing configuration
+must not fall back to ad hoc signing. The launchers stage live runs at
+`~/Movies/AirCiller Tests/AirCiller Test.app`, shared across worktrees. Staging
+requires an Apple-issued signature and an unchanged designated requirement.
+Do not launch disposable app copies from report or updater-fixture directories.
+For a UI candidate, use `python3 Scripts/stage_test_app.py '.build/AirCiller Test.app'`
+and open the staged app. The isolated signing-service migration is recorded in
+the [identity repair record](LOCAL_NETWORK_TEST_IDENTITY.md); do not bypass a
+rejected signature to run a check. Local validation-only commands do not stage
+or discover. The staged playback runner supports `--check-discovery` to verify
+receiver discovery without starting playback, pairing or capture.
+
 Keep a private capture configuration outside Git, for example under `.build/playback-checks/`:
 
 ```json
@@ -163,7 +175,21 @@ The HLS track-change fixture has two original E-AC-3 stereo tracks with differen
 
 `hlsCacheReuse` uses that dual-audio fixture. It requires misses for the first preparation and alternate audio; the other five phases must hit the cache, including a subtitle-delay change while retaining the alternate audio. Each stable observation lasts eight seconds. Its video/audio hash inventory is bounded to 256 MiB and read after receiver confirmation. These reads and the output observations make this an integrity test, not a clean startup benchmark. The private report distinguishes the action request, preparation trace and receiver-confirmation timestamps; none is called the first visible frame. The capture evaluator also requires successful cleanup of the isolated cache. Every output window is assessed even if another lacks samples; any missing evidence keeps the overall result inconclusive. Manual audio timing is excluded following the [deferred repair decision](HLS_AUDIO_TIMING.md).
 
-For separate control measurements, a private plan can opt into `"hlsCacheMode": "isolated"`. This creates a fresh, fixed-limit temporary cache for that run, never the daily app's cache. Repeating the same file in `clips` can exercise first preparation and reuse. An optional Boolean `expectedCacheHit` on a clip requires the corresponding result and hashes its short synthetic base. Omit the expectation for timing-only runs to avoid the hash read. The default remains `disabled`; plans cannot supply a cache path or budget. The direct MP4 route cannot enable this mode.
+For separate control measurements, a private plan can opt into `"hlsCacheMode": "isolated"`. This legacy-named field creates a fresh, fixed-limit prepared-media cache for that run, never the daily app's cache. Repeating the same file in `clips` can exercise first preparation and reuse on HLS or direct MP4. An optional Boolean `expectedCacheHit` on a clip requires the actual cache result; HLS also hashes its short synthetic base. Direct MP4 records a `direct_cache_hit` or `direct_cache_miss` step, without claiming HLS startup-trace coverage. Omit the expectation for timing-only runs to avoid the HLS hash read. The default remains `disabled`; plans cannot supply a cache path or budget. The multi-phase `hlsCacheReuse` profile remains HLS-only.
+
+The basic control runner also sends the currently selected tracks and offsets
+through the production private-control dispatcher. They must be no-ops preserving
+the session and prepared directory before the existing pause/resume/seek output
+checks. This opens no relay and is not a deployment or end-to-end iPhone test.
+
+A private control plan may select `terminalBitmap` for one direct-HDR or SDR-HLS
+clip with an actual PGS/VobSub track. It observes startup, seeks eight seconds
+before the end and requires a receiver end event within twenty seconds. The tail
+window is recorded for digital frame comparison against the source bitmap.
+This profile requires no prepared-media cache and does not substitute generated
+text subtitles. Controls/natural completion alone never prove cue visibility;
+that remains a separate capture assessment. Use the ordinary profile for the
+separate cache-reuse and pause/seek controls. Omit them from this tail-only case.
 
 Each stable playback phase has a bounded observation window and must have its own fresh receiver-start evidence. Windows are assessed independently: an earlier subtitle, moving picture or audio sample cannot pass a later phase. Applying track settings uses the normal coordinator action and preserves original-audio mode. Both text tracks must have distinct fresh identifiers. The Playlist scenario uses normal season-folder admission and records load order without including file paths in the report; it never invokes the completion callback or starts the second item manually. Its episode files are temporary copies of the approved clips, removed after the check; originals are unchanged.
 
