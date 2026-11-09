@@ -516,7 +516,7 @@
 "Preparación de películas" = "Preparación de películas";
 "Películas en caché" = "Películas en caché";
 "Desactivada" = "Desactivada";
-"Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda." = "Reutiliza el vídeo y el audio ya preparados al volver a reproducir o cambiar subtítulos. Solo para HLS; el MP4 HDR con subtítulos no se guarda.";
+"Reutiliza las películas preparadas. HLS permite cambiar subtítulos; el MP4 HDR se reutiliza con las mismas pistas y ajustes. Ambos comparten este límite." = "Reutiliza las películas preparadas. HLS permite cambiar subtítulos; el MP4 HDR se reutiliza con las mismas pistas y ajustes. Ambos comparten este límite.";
 "Los paquetes que superen el límite no se guardan. Los menos recientes se eliminan al reducirlo o si hace falta espacio para otra película." = "Los paquetes que superen el límite no se guardan. Los menos recientes se eliminan al reducirlo o si hace falta espacio para otra película.";
 "Vaciar caché de películas" = "Vaciar caché de películas";
 "La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado." = "La sesión de reproducción se elimina al detener. Aquí puedes borrar restos de un cierre inesperado; la caché de películas se gestiona por separado.";

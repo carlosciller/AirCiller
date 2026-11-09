@@ -15,7 +15,7 @@ struct PGSSubtitleConversion: Sendable {
 /// PNG frames. Apple Vision then performs local OCR. The movie itself is never
 /// decoded, modified, uploaded or burned into the picture.
 enum PGSSubtitleConverter {
-    private static let cacheVersion = 2
+    private static let cacheVersion = 3
 
     static func convert(
         track: SubtitleTrack,
@@ -26,6 +26,9 @@ enum PGSSubtitleConverter {
         progress: (@Sendable (_ completed: Int, _ total: Int) -> Void)? = nil
     ) async throws -> PGSSubtitleConversion {
         try Task.checkCancellation()
+        guard videoDuration.isFinite, videoDuration > 0 else {
+            throw AirCillerError.subtitlePreparationFailed("Los subtítulos no están alineados con el vídeo.")
+        }
         #if AIRCILLER_PLAYBACK_CHECKS
             let trace = BitmapCancellationTrace.current
             trace?.conversionStarted()
@@ -157,7 +160,7 @@ enum PGSSubtitleConverter {
         )
     }
 
-    private struct FrameGroup: Sendable {
+    struct FrameGroup: Sendable {
         let start: Double
         let end: Double
         let imageURL: URL
@@ -240,6 +243,9 @@ enum PGSSubtitleConverter {
         }
         arguments += [
             "-c:v", "png",
+            // Sparse transparent subtitle canvases do not benefit from Paeth
+            // prediction. Keep lossless compression and identical decoded pixels.
+            "-compression_level", "6", "-pred", "none",
             "-fps_mode", "passthrough",
             "-frame_pts", "1",
             "-y", outputPattern,
@@ -429,7 +435,7 @@ enum PGSSubtitleConverter {
         return (width, height)
     }
 
-    private static func frameGroups(
+    static func frameGroups(
         in directory: URL,
         videoDuration: Double,
         isTruncated: Bool,
@@ -472,10 +478,7 @@ enum PGSSubtitleConverter {
             currentStart = frame.time
         }
 
-        let fallbackEnd =
-            isTruncated
-            ? currentStart + 5
-            : max(videoDuration, currentStart + 5)
+        let fallbackEnd = isTruncated ? currentStart + 5 : videoDuration
         groups.append(
             FrameGroup(
                 start: currentStart,
@@ -484,7 +487,15 @@ enum PGSSubtitleConverter {
                 bounds: frameBounds[frameTimestamp(currentStart)]
             )
         )
-        return groups
+        // A clear can arrive after the movie ends, or the last bitmap can have
+        // no clear at all. Neither case may extend the prepared movie timeline.
+        // Frame-limited diagnostic extraction retains its explicit five-second tail.
+        guard !isTruncated else { return groups }
+        return groups.compactMap { group in
+            let end = min(group.end, videoDuration)
+            guard end > group.start else { return nil }
+            return FrameGroup(start: group.start, end: end, imageURL: group.imageURL, bounds: group.bounds)
+        }
     }
 
     /// The automatically inserted subtitle-to-video bridge uses AV_TIME_BASE,
@@ -727,13 +738,16 @@ enum PGSSubtitleConverter {
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
         let modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
         var identityParts = [
-            track.codec.lowercased() == "dvd_subtitle" ? "v2" : "v\(cacheVersion)",
+            "v\(cacheVersion)",
             inputURL.standardizedFileURL.path,
             String(size),
             String(format: "%.3f", modified),
             String(track.streamIndex ?? -1),
             track.codec.lowercased(),
             track.language ?? "und",
+            // Both embedded and external final cues depend on the supplied
+            // duration, which can differ between container and prepared timelines.
+            String(videoDuration),
         ]
         if track.externalPath != nil {
             // The final bitmap can remain visible until the movie ends.

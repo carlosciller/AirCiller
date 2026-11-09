@@ -130,6 +130,8 @@ def main():
     command = [str(binary), "--validate-only", str(args.plan.resolve())]
     if not args.run:
         return 1 if run_process(command, timeout=15) else 0
+    from stage_test_app import stage
+    binary = stage(binary.parents[2])
     output_root = project / ".build/playback-checks"
     output_root.mkdir(exist_ok=True)
     directory = Path(tempfile.mkdtemp(prefix="run-", dir=output_root))

@@ -19,12 +19,17 @@ struct LibraryCoordinatorSmokeTest {
             throw Failure(message: "Refusing to overwrite an existing preferences domain")
         }
         defer { defaults.removePersistentDomain(forName: domain) }
+        if CommandLine.arguments.contains("--remote-settings-only") {
+            try checkUnchangedRemoteSettings()
+            return
+        }
         try SubtitlePreferenceCoordinatorCheck.run()
         try await DirectStartupCancellationCheck.run()
         try SeasonContinuationCoordinatorCheck.run()
         ChapterSkipCoordinatorCheck.run()
         PreparedPlaybackInformationCheck.run()
         try EpisodePresentationCheck.run()
+        try checkUnchangedRemoteSettings()
         let queue = ["a", "b", "c"].map {
             QueueMediaItem(path: "/synthetic-library/\($0).mkv", title: $0)
         }
@@ -804,6 +809,67 @@ struct LibraryCoordinatorSmokeTest {
             "native deselection clears shared selection")
         adapter.refresh(outline)
         try require(outline.selectedRow == -1, "refresh does not resurrect a deselected row")
+    }
+
+    @MainActor
+    private static func checkUnchangedRemoteSettings() throws {
+        let coordinator = StreamCoordinator(libraryRecovery: nil)
+        let audio = AudioTrack(
+            streamIndex: 1, codec: "aac", profile: nil, channels: 2,
+            channelLayout: "stereo", language: "eng", title: nil, isDefault: true)
+        coordinator.setSyntheticMediaForChecks(
+            MediaProbe(
+                duration: 120, fileSize: nil, bitRate: nil, videoStreamIndex: 0,
+                videoCodec: "h264", videoProfile: nil, videoLevel: nil, hevcCodecIdentifier: nil,
+                width: 1280, height: 720, frameRate: "24/1", colorTransfer: nil,
+                isDolbyVision: false, dolbyVisionProfile: nil, dolbyVisionLevel: nil,
+                dolbyVisionCompatibilityID: nil, audioTracks: [audio], subtitleTracks: [], chapters: []))
+        coordinator.selectedAudioID = audio.id
+        let key = Data(repeating: 12, count: 32)
+        let control = RemotePlaybackControl(coordinator: coordinator, installationKey: key)
+        let installation = UUID()
+        let gateway = try RemoteCommandGateway(coordinator: coordinator, installationID: installation, key: key)
+        let cipher = try RemoteCommandCipher(key: key, installationID: installation)
+        coordinator.beginSyntheticPlaybackSessionForChecks()
+        defer { coordinator.stop() }
+        coordinator.status = "Keep playback status"
+        let session = coordinator.remoteControlSessionID
+        for command in [
+            RemoteCommand.selectTracks(audioID: nil, subtitleID: nil),
+            .selectTracks(audioID: control.tracks()[0].id, subtitleID: nil),
+            .synchronize(audio: 0, subtitles: 0),
+        ] {
+            let now = Date()
+            let operation = UUID()
+            let envelope = try cipher.seal(
+                .init(
+                    operationID: operation, sessionID: session,
+                    expiresAt: now.addingTimeInterval(30), command: command))
+            let response = try gateway.receive(envelope, now: now)
+            try require(response.code == "completed_locally", "unchanged settings finish without receiver work")
+            try require(
+                coordinator.isStreaming && coordinator.remoteControlSessionID == session,
+                "unchanged settings preserve playback session")
+            try require(coordinator.status == "Keep playback status", "unchanged settings preserve status")
+            let cancellation = try cipher.seal(
+                .init(
+                    operationID: UUID(), sessionID: session, expiresAt: now.addingTimeInterval(30),
+                    command: .cancelOperation(id: operation)))
+            let cancelled = try gateway.receive(cancellation, now: now)
+            try require(cancelled.code == "operation_not_cancellable", "no-op cannot own playback cancellation")
+        }
+        // A real idle change still applies, and explicitly selecting an audio
+        // track still resets its output to Original rather than hiding conversion.
+        coordinator.isStreaming = false
+        coordinator.audioOutputMode = .stereo
+        let changed = try control.dispatch(
+            .selectTracks(audioID: control.tracks()[0].id, subtitleID: nil), sessionID: session)
+        try require(changed && coordinator.audioOutputMode == .original, "output-mode change is not a no-op")
+        let synchronized = try control.dispatch(.synchronize(audio: 0.25, subtitles: -0.5), sessionID: session)
+        try require(
+            synchronized && coordinator.audioDelay == 0.25 && coordinator.subtitleDelay == -0.5,
+            "real synchronization change is applied")
+        print("Remote settings: unchanged requests preserve playback; real changes and cancellation ownership: OK")
     }
 
     @MainActor

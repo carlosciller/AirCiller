@@ -63,4 +63,4 @@ xcrun swiftc \
   "$project_dir/Tests/LibraryCoordinatorSmokeTest.swift" \
   -o "$fixture_binary"
 
-"$fixture_binary" --skip-device-scan
+"$fixture_binary" --skip-device-scan "$@"

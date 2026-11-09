@@ -131,7 +131,9 @@ final class RemotePlaybackControl {
 
     /// Returns dispatch acceptance, never audiovisual confirmation. Relative
     /// commands require the transport's ledger admission before this call.
-    func dispatch(_ command: RemoteCommand, sessionID: UUID) throws {
+    /// False means the validated track/settings request was already satisfied.
+    @discardableResult
+    func dispatch(_ command: RemoteCommand, sessionID: UUID) throws -> Bool {
         _ = try command.validatedEncoding()
         guard sessionID == coordinator.remoteControlSessionID else { throw Failure.staleSession }
         switch command {
@@ -160,15 +162,19 @@ final class RemotePlaybackControl {
             guard audioID == nil || audio != nil, subtitleID == nil || subtitle != nil,
                 subtitle?.unsupportedReason == nil
             else { throw Failure.missingTrack }
+            var settings = coordinator.trackSettings
             if let audio {
-                coordinator.selectedAudioID = audio.id
+                settings.audioID = audio.id
                 // A remote selection never inherits a previous lossy treatment.
-                coordinator.audioOutputMode = .original
+                settings.audioOutputMode = .original
             }
-            coordinator.selectedSubtitleID = subtitle?.id
+            settings.subtitleID = subtitle?.id
+            guard settings != coordinator.trackSettings else { return false }
+            coordinator.trackSettings = settings
             coordinator.applyTrackSettings()
         case .synchronize(let audio, let subtitles):
             guard coordinator.commandAvailability.canEditTracks else { throw Failure.unavailable }
+            guard audio != coordinator.audioDelay || subtitles != coordinator.subtitleDelay else { return false }
             coordinator.audioDelay = audio
             coordinator.subtitleDelay = subtitles
             coordinator.applyTrackSettings()
@@ -208,5 +214,6 @@ final class RemotePlaybackControl {
         default:
             throw Failure.unsupportedCommand
         }
+        return true
     }
 }

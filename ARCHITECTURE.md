@@ -98,6 +98,15 @@ the session directory or start a replacement. Storage controls remain local.
 See the [startup record](Docs/STARTUP_OPTIMIZATION.md) for the original cache
 design and the audio/timing records for subsequent policy changes.
 
+The direct MP4 route can retain its finalized file in the same cache and budget.
+Its identity includes exact mux settings, external subtitle dependencies and
+recognized bitmap text. A hit skips muxing and HDR injection, but still passes
+the usual probe and HTTP/AVPlayer checks. Admission follows those player checks.
+Changing direct subtitles requires a different entry; HLS still reuses its base
+independently of subtitles. Settings Off, size reporting, eviction and Clear
+cover both routes. The historical `PreparedHLS` directory and preference key
+are retained to preserve existing data and limits.
+
 ## Boundaries
 
 - Swift/AppKit/SwiftUI: interface, state, preparation coordination and local server.

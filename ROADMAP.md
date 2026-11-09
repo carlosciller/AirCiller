@@ -38,6 +38,32 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Next
 
+The five-block [quality review](Docs/QUALITY_COMPLETION_2026_11.md) is complete
+locally and in its scoped digital receiver campaign. The unshipped candidate adds
+direct MP4 cache reuse, leaner metadata probing, the terminal bitmap correction,
+lossless PNG preparation tuning and no-op remote settings. English/Spanish cache
+settings were inspected. Publish/install remains a separate authorized step with
+the distribution gates; do not repeat unchanged receiver checks.
+
+The [test-identity repair](Docs/LOCAL_NETWORK_TEST_IDENTITY.md) also consolidates
+live test launches into one signed app and fixed location. The native permission
+list, discovery and credential access were checked again after recompilation.
+Release closure still requires versioned user-facing notes, the public-signing
+package, exact-commit PR/main/tag CI, signed Sparkle assets and the authorized
+native update. Existing scoped receiver evidence remains reusable while its
+playback inputs are unchanged.
+
+Prioritize recurrence of the observed intermittent multicast-discovery failure:
+Bonjour and unicast found the receiver while two multicast methods briefly did
+not; later normal discovery and playback passed without settings changes. Capture
+bounded discovery evidence on recurrence before changing the network or engine.
+
+DTS-HD MA is the demonstrated original-audio gap in the current library. Decoder
+qualification remains required; Aether's FFmpeg bridge does not supply the missing
+guarantee. Do not add speculative formats or another OCR scheduler: the measured
+bitmap track had only 1.98% reusable image groups. See the quality review for the
+real cold/warm preparation timings and their limits.
+
 Multidict 7 and setup-node 7 remain deferred for the concrete compatibility and
 benefit reasons in the [maintenance review](Docs/MAINTENANCE_2026_11.md).
 Their PRs are not automatically accepted. No playback engine was changed.
@@ -108,8 +134,10 @@ The [0.13.0 optimization record](Docs/STARTUP_OPTIMIZATION.md) is historical.
 | AV1/VP9, MPEG-2 and DCP | A demonstrated need for the maintainer's third-generation Apple TV 4K workflow; no video transcoder is planned |
 | Apple Shortcuts | A signing/distribution decision: public ad hoc registration failed on the tested Mac. [Evidence](Docs/SHORTCUTS.md) |
 | iPhone title and artwork | A reliable way to populate the Apple TV-owned Lock Screen card. Playback controls already work |
+| Optional SIMKL integration | Future watched/progress synchronization, subject to API capability, media matching, privacy and permission review. Explicit opt-in; no account connection or background sync in the current work |
 | Developer ID and notarization | Apple Developer Program membership. Sparkle signatures do not replace notarization |
 | Aether spatial-audio components | Physical output and comparative resource/latency evidence through the existing AirPlay route; [component review](Docs/AETHER_COMPONENT_REVIEW.md). No tvOS client or whole-engine replacement |
+| Whole Aether engine replacement (parked) | [Isolated investigation closed](Docs/AETHER_PROTOTYPE_2026_11.md#decision-and-scope): no demonstrated startup or receiver-capability advantage; E-AC-3 presentation fidelity remains unaccepted. No pending TV batch. Reopen only for a specific user-visible benefit with comparative evidence. The 160-sample investigation is closed. |
 
 Private control already opens and closes the app with the Mac awake, logged in
 and screen locked. Remote wake/unlock and generic system-control tools are not

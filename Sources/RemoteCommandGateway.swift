@@ -143,10 +143,16 @@ final class RemoteCommandGateway {
                 operations[envelope.operationID]?.terminal = "cancelled_locally"
                 return response("accepted", code: "cancelled_locally")
             }
-            try control.dispatch(envelope.command, sessionID: envelope.sessionID)
+            let changed = try control.dispatch(envelope.command, sessionID: envelope.sessionID)
             operations[envelope.operationID] = Operation(
                 command: envelope.command,
                 requestSessionID: envelope.sessionID, sessionID: control.snapshot().sessionID, startedAt: now)
+            if !changed {
+                // An already-satisfied request owns no preparation and must not
+                // displace the cancellation owner of another operation.
+                operations[envelope.operationID]?.terminal = "completed_locally"
+                return response("accepted", code: "completed_locally")
+            }
             // Declining a conversion and editing an idle item's settings do not
             // start receiver playback. They must not wait forever for it.
             switch envelope.command {
