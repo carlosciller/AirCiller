@@ -2,6 +2,21 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.19.2 (10 November 2026)
+
+- Reuse prepared direct MP4 files when the source and selected tracks are
+  unchanged. Direct MP4 and HLS share the cache limit and controls in Settings >
+  Storage.
+- Reduce metadata work for files with large attachments and use faster lossless
+  image compression during bitmap subtitle preparation.
+- Preserve the final bitmap subtitle when its track has no closing clear event.
+- Keep playback running when private control sends track or synchronization
+  settings that are already selected.
+
+Formats and bundled engines are unchanged. Warm-cache savings concern local
+preparation, not receiver startup. Intermittent discovery remains under
+investigation. [Scope and validation](Docs/RELEASE_0.19.2.md).
+
 ## 0.19.1 (5 November 2026)
 
 Updates the certificate list bundled for secure connections. Two emSign root
