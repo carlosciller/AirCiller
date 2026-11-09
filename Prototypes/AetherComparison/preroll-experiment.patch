@@ -13,7 +13,7 @@ index 4a1f078..a1448e8 100644
 +        if !self.audioWaitForVideo { self.videoShiftPts = 0 }
          self.desiredFirstVideoTfdtPts = desiredFirstVideoTfdtPts
          self.desiredFirstAudioTfdtPts = desiredFirstAudioTfdtPts
- 
+
 @@ -4732,7 +4735,9 @@ final class HLSSegmentProducer: @unchecked Sendable {
                  // marginally negative out-dts. The muxer no longer absorbs negatives
                  // (avoid_negative_ts=disabled so restarts can continue the timeline; tfdt is
@@ -31,7 +31,7 @@ index e2f9fc8..d3d817a 100644
 +++ b/Sources/AetherEngine/Video/HLSVideoEngine.swift
 @@ -3783,8 +3783,19 @@ public final class HLSVideoEngine: @unchecked Sendable {
          }
- 
+
          let producerEpoch = nextProducerEpoch()
 +        let producerDemuxer: Demuxer
 +        if ProcessInfo.processInfo.environment["AIRCILLER_PREROLL_PROBE"] == "1",
@@ -66,5 +66,5 @@ index 10e8479..3f00dd5 100644
 +            av_dict_set(&opts, "use_editlist", "0", 0)
 +        }
          av_dict_set(&opts, "avoid_negative_ts", "disabled", 0)
- 
+
          let ret = avformat_write_header(ctx, &opts)
