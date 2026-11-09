@@ -7,6 +7,12 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 
 ## Published
 
+- **0.19.2:** direct MP4 cache reuse, leaner metadata/bitmap preparation, final
+  bitmap cue correction and unchanged remote-setting requests that preserve
+  playback. Signed downloads and PR/main/tag CI verified. Native Sparkle
+  installation awaits permission to close a paused session; the daily app is
+  unchanged. [Release checks](Docs/RELEASE_0.19.2.md).
+
 - **0.19.1:** refreshed the certificate trust bundle, with reproducible locking
   and removed-root regressions. Published downloads, signatures and exact-commit
   CI verified. The maintainer will install separately.
@@ -39,19 +45,19 @@ works today; [release notes](CHANGELOG.md) describe shipped changes.
 ## Next
 
 The five-block [quality review](Docs/QUALITY_COMPLETION_2026_11.md) is complete
-locally and in its scoped digital receiver campaign. The unshipped candidate adds
+locally and in its scoped digital receiver campaign. Version 0.19.2 includes
 direct MP4 cache reuse, leaner metadata probing, the terminal bitmap correction,
 lossless PNG preparation tuning and no-op remote settings. English/Spanish cache
-settings were inspected. Publish/install remains a separate authorized step with
-the distribution gates; do not repeat unchanged receiver checks.
+settings were inspected. Publication is complete; finish the pending native
+updater check when the paused session can be closed. Do not repeat unchanged
+receiver checks.
 
 The [test-identity repair](Docs/LOCAL_NETWORK_TEST_IDENTITY.md) also consolidates
 live test launches into one signed app and fixed location. The native permission
 list, discovery and credential access were checked again after recompilation.
-Release closure still requires versioned user-facing notes, the public-signing
-package, exact-commit PR/main/tag CI, signed Sparkle assets and the authorized
-native update. Existing scoped receiver evidence remains reusable while its
-playback inputs are unchanged.
+Release versioning, notes, public package, exact-commit PR/main/tag CI and signed
+Sparkle assets are complete. Existing scoped receiver evidence remains reusable
+while its playback inputs are unchanged.
 
 Prioritize recurrence of the observed intermittent multicast-discovery failure:
 Bonjour and unicast found the receiver while two multicast methods briefly did
