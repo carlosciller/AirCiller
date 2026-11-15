@@ -14,8 +14,7 @@ final class ComponentManager {
     func refresh() async {
         defer { hasRefreshed = true }
 
-        let recordedPythonPath = Self.recordedPythonPath()
-        let snapshot = await Self.scan(recordedPythonPath: recordedPythonPath)
+        let snapshot = await Self.scan()
         guard !Task.isCancelled else { return }
         statuses = snapshot.statuses
     }
@@ -34,17 +33,8 @@ final class ComponentManager {
         return parts.count >= 2 && parts[0] == "3" && parts[1] == "13"
     }
 
-    private nonisolated static func scan(recordedPythonPath: String?) async -> ComponentSnapshot {
-        let bundledFFmpegPath = BundledEngine.ffmpegExecutable(named: "ffmpeg")?.path
-        let ffmpegPath =
-            BundledEngine.isRequired
-            ? bundledFFmpegPath
-            : bundledFFmpegPath
-                ?? executablePath(in: [
-                    "/opt/homebrew/bin/ffmpeg",
-                    "/usr/local/bin/ffmpeg",
-                    "/opt/local/bin/ffmpeg",
-                ])
+    private nonisolated static func scan() async -> ComponentSnapshot {
+        let ffmpegPath = BundledEngine.ffmpegExecutable(named: "ffmpeg")?.path
         let ffmpegOutput: String?
         if let ffmpegPath {
             ffmpegOutput = await commandOutput(executablePath: ffmpegPath, arguments: ["-version"])
@@ -56,30 +46,11 @@ final class ComponentManager {
             component: .ffmpeg,
             version: ffmpegVersion,
             path: ffmpegPath,
-            source: ffmpegPath.map {
-                bundledFFmpegPath == $0
-                    ? "AirCiller"
-                    : componentSource(for: $0)
-            },
+            source: ffmpegPath.map { _ in "AirCiller" },
             isCompatible: ffmpegPath != nil && ffmpegVersion != nil
         )
 
-        let bundledPythonPath = BundledEngine.airPlayPython()?.path
-        var pythonCandidates =
-            BundledEngine.isRequired
-            ? [bundledPythonPath].compactMap { $0 }
-            : [
-                bundledPythonPath,
-                recordedPythonPath,
-                "/opt/homebrew/opt/python@3.13/bin/python3.13",
-                "/opt/homebrew/bin/python3",
-                "/usr/local/opt/python@3.13/bin/python3.13",
-                "/usr/local/bin/python3.13",
-                "/usr/local/bin/python3",
-            ].compactMap { $0 }
-        var seenPythonPaths = Set<String>()
-        pythonCandidates = pythonCandidates.filter { seenPythonPaths.insert($0).inserted }
-        let pythonPath = executablePath(in: pythonCandidates)
+        let pythonPath = BundledEngine.airPlayPython()?.path
         let pythonOutput: String?
         if let pythonPath {
             pythonOutput = await commandOutput(executablePath: pythonPath, arguments: ["--version"])
@@ -106,48 +77,17 @@ final class ComponentManager {
             component: .airPlay,
             version: pythonVersion,
             path: pythonPath,
-            source: pythonPath.map {
-                bundledPythonPath == $0
-                    ? "AirCiller"
-                    : componentSource(for: $0)
-            },
+            source: pythonPath.map { _ in "AirCiller" },
             isCompatible: airPlayReady
         )
 
         return ComponentSnapshot(statuses: [.ffmpeg: ffmpegStatus, .airPlay: pythonStatus])
     }
 
-    private nonisolated static func recordedPythonPath() -> String? {
-        guard let resources = Bundle.main.resourceURL else { return nil }
-        let marker =
-            resources
-            .appendingPathComponent("VendorPython", isDirectory: true)
-            .appendingPathComponent(".airciller-python-executable")
-        guard
-            let value = try? String(contentsOf: marker, encoding: .utf8)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-        else { return nil }
-        return BundledEngine.resolveRuntimeMarker(value, resources: resources)?.path
-    }
-
     private nonisolated static func bundledVendorDirectory() -> URL? {
         guard let resources = Bundle.main.resourceURL else { return nil }
         let vendor = resources.appendingPathComponent("VendorPython", isDirectory: true)
         return FileManager.default.fileExists(atPath: vendor.path) ? vendor : nil
-    }
-
-    private nonisolated static func executablePath(in candidates: [String]) -> String? {
-        candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    private nonisolated static func componentSource(for path: String) -> String {
-        if path.hasPrefix("/opt/homebrew/") || path.hasPrefix("/usr/local/") {
-            return "Homebrew"
-        }
-        if path.hasPrefix("/opt/local/") {
-            return "MacPorts"
-        }
-        return L10n.text("Sistema")
     }
 
     private nonisolated static func commandOutput(

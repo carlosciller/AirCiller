@@ -237,9 +237,15 @@ compile_and_run opensubtitles-redirect \
 compile_and_run airplay-runtime-probe \
   "$project_dir/Sources/AirPlayRuntimeProbe.swift" \
   "$project_dir/Tests/AirPlayRuntimeProbeSmokeTest.swift"
-compile_and_run bundled-engine \
+AIRCILLER_TEST_FFMPEG=/bin/sh AIRCILLER_TEST_FFPROBE=/bin/sh compile_and_run bundled-engine \
   "$project_dir/Sources/BundledEngine.swift" \
   "$project_dir/Tests/BundledEngineSmokeTest.swift"
+AIRCILLER_TEST_FFMPEG=/bin/sh AIRCILLER_TEST_FFPROBE=/bin/sh compile_and_run standalone-engine \
+  -D AIRCILLER_STANDALONE_TESTS \
+  "$project_dir/Sources/BundledEngine.swift" \
+  "$project_dir/Tests/BundledEngineSmokeTest.swift"
+AIRCILLER_TEST_FFMPEG=relative/ffmpeg AIRCILLER_TEST_FFPROBE=/nonexistent/ffprobe \
+  "$test_dir/standalone-engine"
 compile_and_run media-analysis-tasks \
   "$project_dir/Sources/MediaAnalysisTasks.swift" \
   "$project_dir/Tests/MediaAnalysisTasksSmokeTest.swift"
@@ -336,7 +342,7 @@ compile_and_run vod-command-builder \
   "$project_dir/Sources/MediaModels.swift" \
   "$project_dir/Sources/VODCommandBuilder.swift" \
   "$project_dir/Tests/VODCommandBuilderSmokeTest.swift"
-compile_and_run attached-artwork-probe \
+AIRCILLER_TEST_FFMPEG="$engine_path/ffmpeg/bin/ffmpeg" compile_and_run attached-artwork-probe \
   "$project_dir/Sources/Localization.swift" \
   "$project_dir/Sources/AirCillerError.swift" \
   "$project_dir/Sources/ProcessDataBuffer.swift" \
