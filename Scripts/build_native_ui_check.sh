@@ -6,8 +6,12 @@ case "${1:-}" in
   playback-information) fixture_type=PreparedPlaybackInformation; fixture_prefix=PlaybackInformation; fixture_name="Information Check" ;;
   episode-presentation) fixture_type=EpisodePresentation; fixture_prefix=EpisodePresentation; fixture_name="Episode Check" ;;
   season-continuation) fixture_type=SeasonContinuation; fixture_prefix=SeasonContinuation; fixture_name="Season Check" ;;
-  *) echo 'Usage: build_native_ui_check.sh chapter-skip|season-continuation|playback-information|episode-presentation' >&2; exit 2 ;;
+  subtitle-preferences) fixture_type=SubtitlePreferences; fixture_prefix=SubtitlePreferences; fixture_name="Subtitle Preferences Check" ;;
+  library-recovery) fixture_type=RecoveryUI; fixture_prefix=RecoveryUI; fixture_name="Recovery Check" ;;
+  *) echo 'Usage: build_native_ui_check.sh chapter-skip|season-continuation|playback-information|episode-presentation|subtitle-preferences|library-recovery' >&2; exit 2 ;;
 esac
+fixture_source="${fixture_type}UICheck"
+[[ "$1" != library-recovery ]] || fixture_source=LibraryRecoveryUICheck
 fixture_uuid="$(uuidgen)"
 fixture_app="$project_dir/.build/tests/$fixture_prefix-$fixture_uuid.app"
 sparkle="$project_dir/.build/dependencies/Sparkle-2.9.6"
@@ -26,7 +30,7 @@ xcrun swiftc -sdk "$(xcrun --sdk macosx --show-sdk-path)" \
   -framework AVKit -framework AVFoundation -framework Network -framework MediaPlayer \
   -framework Vision -framework ImageIO -framework Security -framework UniformTypeIdentifiers \
   -Xlinker -rpath -Xlinker "$sparkle" \
-  "$project_dir"/Sources/*.swift "$project_dir/Tests/${fixture_type}UICheck.swift" \
+  "$project_dir"/Sources/*.swift "$project_dir/Tests/$fixture_source.swift" \
   -o "$fixture_app/Contents/MacOS/${fixture_type}Check"
 codesign --force --sign - "$fixture_app"
 echo "$fixture_app"
