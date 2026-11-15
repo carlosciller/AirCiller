@@ -416,16 +416,6 @@ private struct ProbeChapter: Decodable {
 
 enum Executables {
     static func find(_ name: String) -> URL? {
-        if let bundled = BundledEngine.ffmpegExecutable(named: name) {
-            return bundled
-        }
-        if BundledEngine.isRequired { return nil }
-        let candidates = [
-            "/opt/homebrew/bin/\(name)",
-            "/usr/local/bin/\(name)",
-            "/opt/local/bin/\(name)",
-        ]
-        return candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) })
-            .map(URL.init(fileURLWithPath:))
+        BundledEngine.ffmpegExecutable(named: name)
     }
 }

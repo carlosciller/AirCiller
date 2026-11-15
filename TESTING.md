@@ -112,6 +112,15 @@ artifact or replace applicable playback evidence. See the
 
 ## Local tests with media
 
+Standalone Swift media fixtures that call the default tool resolver must be
+compiled with `-D AIRCILLER_STANDALONE_TESTS` and given absolute executable paths
+in `AIRCILLER_TEST_FFMPEG` and `AIRCILLER_TEST_FFPROBE`. Use the pinned engine
+under `.build/dependencies`; no host installation is searched. Existing explicit
+`ffmpegURL` and `ffprobeURL` parameters remain available without this flag.
+Bundled tools take precedence. App bundles and builds requiring bundled engines
+reject these overrides, and ordinary app builds do not compile this test code.
+There is no Python override: AirPlay uses only the bundled interpreter.
+
 Executables and scripts that require a real file receive its path through an
 argument or environment variable. Keep media and private reports outside Git,
 normally under `.build/`. These checks can validate containers, OCR, local

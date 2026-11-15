@@ -25,7 +25,19 @@ enum BundledEngine {
         case "ffprobe": relativePath = ffprobeRelativePath
         default: return nil
         }
-        return executable(relativePath: relativePath, resources: resources, fileManager: fileManager)
+        if let bundled = executable(relativePath: relativePath, resources: resources, fileManager: fileManager) {
+            return bundled
+        }
+        #if AIRCILLER_STANDALONE_TESTS
+            // Explicit tool paths for standalone fixtures, never compiled into app builds.
+            guard !isRequired, Bundle.main.bundleURL.pathExtension != "app",
+                let path = ProcessInfo.processInfo.environment["AIRCILLER_TEST_\(name.uppercased())"],
+                path.hasPrefix("/"), fileManager.isExecutableFile(atPath: path)
+            else { return nil }
+            return URL(fileURLWithPath: path)
+        #else
+            return nil
+        #endif
     }
 
     static func airPlayPython(
@@ -37,17 +49,6 @@ enum BundledEngine {
             resources: resources,
             fileManager: fileManager
         )
-    }
-
-    static func resolveRuntimeMarker(
-        _ value: String,
-        resources: URL? = Bundle.main.resourceURL
-    ) -> URL? {
-        guard !value.isEmpty else { return nil }
-        if value.hasPrefix("/") {
-            return URL(fileURLWithPath: value)
-        }
-        return resources?.appendingPathComponent(value)
     }
 
     private static func executable(

@@ -2,7 +2,8 @@ import Foundation
 
 @main
 struct ComponentManagerSmokeTest {
-    static func main() throws {
+    @MainActor
+    static func main() async throws {
         guard
             ComponentManager.ffmpegVersion(
                 from: "ffmpeg version 9.0.1 Copyright (c) the FFmpeg developers"
@@ -15,6 +16,16 @@ struct ComponentManagerSmokeTest {
             throw NSError(domain: "ComponentManagerSmokeTest.VersionParsing", code: 1)
         }
 
-        print("Bundled component version parsing and Python compatibility: OK")
+        // This standalone test has no bundled engines. Installed host tools
+        // must not turn missing app components into compatible ones.
+        let manager = ComponentManager()
+        await manager.refresh()
+        guard manager.hasRefreshed,
+            manager.status(for: .ffmpeg).path == nil,
+            !manager.status(for: .ffmpeg).isCompatible,
+            manager.status(for: .airPlay).path == nil,
+            !manager.status(for: .airPlay).isCompatible
+        else { throw NSError(domain: "ComponentManagerSmokeTest.HostFallback", code: 2) }
+        print("Bundled component versions and no host-engine fallback: OK")
     }
 }
