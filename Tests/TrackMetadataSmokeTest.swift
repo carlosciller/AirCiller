@@ -35,6 +35,17 @@ struct TrackMetadataSmokeTest {
             title: "Español",
             isDefault: true
         )
+        func dts(_ language: String?) -> AudioTrack {
+            AudioTrack(
+                streamIndex: 0, codec: "dts", profile: "DTS-HD MA", channels: 6,
+                channelLayout: "5.1(side)", language: language, title: nil, isDefault: true)
+        }
+        guard dts("en").originalAlternative(in: [spanishDefaultAudio, audio]) == audio,
+            dts("en").originalAlternative(in: [spanishDefaultAudio, dts("eng")]) == nil,
+            dts("und").originalAlternative(in: [audio]) == nil,
+            dts(nil).originalAlternative(in: [audio]) == nil,
+            audio.originalAlternative(in: [spanishDefaultAudio]) == nil
+        else { throw NSError(domain: "TrackMetadataSmokeTest.OriginalAlternative", code: 16) }
         let englishAlternateAudio = AudioTrack(
             streamIndex: 3,
             codec: "eac3",

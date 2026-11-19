@@ -99,8 +99,13 @@ struct ContentView: View {
                 }
         }
         .navigationSplitViewStyle(.balanced)
-        .alert("AirCiller necesita convertir el audio", isPresented: $coordinator.showConversionAlert) {
+        .alert("Opciones para reproducir el audio", isPresented: $coordinator.showConversionAlert) {
             Button("Cancelar", role: .cancel) { coordinator.cancelAudioConversion() }
+            if let track = coordinator.selectedAudio?.originalAlternative(in: coordinator.audioTracks) {
+                Button(L10n.format("Usar %@ sin convertir", track.displayName + " · " + track.technicalDescription)) {
+                    coordinator.useOriginalAlternative(track)
+                }
+            }
             if coordinator.canOfferLosslessAudioConversion {
                 Button("Convertir a FLAC sin pérdida") { coordinator.confirmAudioConversion(to: .losslessFLAC) }
             }

@@ -1288,6 +1288,15 @@ final class StreamCoordinator {
         continueStart(at: pendingStartTime)
     }
 
+    func useOriginalAlternative(_ track: AudioTrack) {
+        guard selectedAudio?.originalAlternative(in: audioTracks) == track else { return }
+        showConversionAlert = false
+        playlistAudioConsent.reset()
+        selectedAudioID = track.id
+        audioOutputMode = .original
+        continueStart(at: pendingStartTime)
+    }
+
     func cancelAudioConversion() {
         showConversionAlert = false
         playlistAudioConsent.reset()
