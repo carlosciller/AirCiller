@@ -41,6 +41,11 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
 
     var id: String { "audio-\(streamIndex)" }
 
+    func originalAlternative(in tracks: [AudioTrack]) -> AudioTrack? {
+        guard codec.lowercased() == "dts", let code = LanguageNames.canonical(language) else { return nil }
+        return tracks.first { $0.id != id && $0.canPassThrough && LanguageNames.canonical($0.language) == code }
+    }
+
     var isAtmos: Bool {
         profile?.localizedCaseInsensitiveContains("Atmos") == true
             || title?.localizedCaseInsensitiveContains("Atmos") == true
@@ -587,7 +592,7 @@ enum LanguageNames {
         "kor": ["korean", "coreano", "kor"],
     ]
 
-    private static func canonical(_ code: String?) -> String? {
+    static func canonical(_ code: String?) -> String? {
         guard let code = TrackNames.cleaned(code) else { return nil }
         let normalized = code.lowercased().replacingOccurrences(of: "_", with: "-")
         let base = normalized.split(separator: "-").first.map(String.init) ?? normalized
