@@ -2,6 +2,12 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.19.3 (19 November 2026)
+
+When a DTS track needs conversion, AirCiller now offers a compatible track in the same language if the file contains one. Choose it in the audio conversion prompt to play that track unchanged. AirCiller never switches tracks for you. Files with only DTS-HD MA still need audio conversion.
+
+Some HEVC movies could fail before playback when the media probe returned an empty metadata entry. AirCiller now ignores that empty entry and continues reading the file.
+
 ## 0.19.2 (10 November 2026)
 
 - Reuse prepared direct MP4 files when the source and selected tracks are
