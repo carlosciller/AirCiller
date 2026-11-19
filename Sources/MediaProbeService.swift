@@ -61,7 +61,7 @@ enum MediaProbeService {
             }
 
             let sideData = video.sideDataList?.first(where: {
-                $0.sideDataType.localizedCaseInsensitiveContains("DOVI")
+                $0.sideDataType?.localizedCaseInsensitiveContains("DOVI") == true
             })
 
             let audioTracks = response.streams.compactMap { stream -> AudioTrack? in
@@ -388,7 +388,8 @@ private struct ProbeDisposition: Decodable {
 }
 
 private struct ProbeSideData: Decodable {
-    let sideDataType: String
+    // ffprobe emits empty side-data objects in the selective HEVC extradata query.
+    let sideDataType: String?
     let dolbyVisionProfile: Int?
     let dolbyVisionLevel: Int?
     let dolbyVisionCompatibilityID: Int?

@@ -69,7 +69,7 @@ struct MediaProbeValidationSmokeTest {
         let metadata =
             #"{"streams":[{"index":0,"codec_type":"video","codec_name":"mjpeg","width":4000,"height":4000,"disposition":{"attached_pic":1}},{"index":4,"codec_type":"video","codec_name":"hevc","width":1920,"height":1080,"color_transfer":"smpte2084","side_data_list":[{"side_data_type":"DOVI configuration record","dv_profile":8,"dv_bl_signal_compatibility_id":1}]},{"index":6,"codec_type":"audio","codec_name":"eac3","channels":6},{"index":7,"codec_type":"subtitle","codec_name":"hdmv_pgs_subtitle","tags":{"language":"eng"}}],"format":{"duration":"12.5"}}"#
         let configuration =
-            #"{"streams":[{"index":4,"codec_name":"hevc","extradata":"\n00000000: 0101 0000 0000 0000 0000 0000 78"}]}"#
+            #"{"streams":[{"index":4,"codec_name":"hevc","extradata":"\n00000000: 0101 0000 0000 0000 0000 0000 78","side_data_list":[{},{}]}]}"#
         try """
         #!/bin/sh
         case "$*" in
