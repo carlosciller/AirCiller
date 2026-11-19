@@ -22,6 +22,7 @@ final class StreamCoordinator {
     var detail = "Elige una película y AirCiller comprobará todas sus pistas."
     private(set) var isAnalyzing = false
     private var automaticStartWait = AutomaticPlaybackStartWait()
+    private var discoveryStartTime: Double?
     var isWaitingToStart: Bool { automaticStartWait.isPending }
     var isPreparing = false
     var isStreaming = false
@@ -120,9 +121,11 @@ final class StreamCoordinator {
     private let transitionPower = PlaybackPowerAssertion()
     private var playlistAudioConsent = PlaylistAudioConsent()
     #if AIRCILLER_UI_CHECKS
-        func setSyntheticMediaForChecks(_ info: MediaProbe) {
+        func setSyntheticMediaForChecks(
+            _ info: MediaProbe, url: URL = URL(fileURLWithPath: "/synthetic-library/remote-controls.mkv")
+        ) {
             precondition(CommandLine.arguments.contains("--skip-device-scan"))
-            selectedURL = URL(fileURLWithPath: "/synthetic-library/remote-controls.mkv")
+            selectedURL = url
             probeInfo = info
             audioTracks = info.audioTracks
             subtitleTracks = info.subtitleTracks
@@ -226,6 +229,7 @@ final class StreamCoordinator {
         player.allowsExternalPlayback = true
         player.automaticallyWaitsToMinimizeStalling = true
 
+        airPlay.onDiscoverySettled = { [weak self] in self?.finishDiscoveryStart() }
         airPlay.onReceiverPlaybackUpdate = { [weak self] observation in
             self?.remoteReceiverObservation = observation
         }
@@ -1095,6 +1099,7 @@ final class StreamCoordinator {
     }
 
     func start(at requestedTime: Double) {
+        guard discoveryStartTime == nil else { return }
         remoteReceiverObservation = nil
         cancelAuthorizationPreflight()
         authorizationRetryPolicy.reset()
@@ -1141,19 +1146,29 @@ final class StreamCoordinator {
             presentError(title: "No se encuentra el archivo", detail: "Puede haberse movido o eliminado.")
             return
         }
+        guard airPlay.selectedDevice != nil else {
+            discoveryStartTime = requestedTime
+            hasError = false
+            isPreparing = true
+            status = "Buscando Apple TV…"
+            detail = ""
+            if !airPlay.isScanning {
+                if airPlay.devices.count > 1 {
+                    finishDiscoveryStart()
+                } else {
+                    Task { [weak self] in
+                        guard let self, self.discoveryStartTime != nil else { return }
+                        await self.airPlay.refreshDevices()
+                    }
+                }
+            }
+            return
+        }
         guard network.isReady else {
             presentError(
                 title: "No hay una red local preparada",
                 detail: "Conecta el Mac y el Apple TV a la misma red Wi‑Fi o Ethernet y vuelve a intentarlo."
             )
-            return
-        }
-        guard airPlay.selectedDevice != nil else {
-            presentError(
-                title: "Elige un Apple TV",
-                detail: airPlay.scanError ?? "Pulsa Buscar Apple TV y selecciona el receptor antes de reproducir."
-            )
-            Task { [weak self] in await self?.airPlay.refreshDevices() }
             return
         }
         if airPlay.isCheckingAuthorization {
@@ -1275,6 +1290,21 @@ final class StreamCoordinator {
         }
     }
 
+    private func finishDiscoveryStart() {
+        guard let time = discoveryStartTime, !airPlay.isScanning else { return }
+        if airPlay.selectedDevice == nil, airPlay.devices.count > 1, airPlay.scanError == nil {
+            status = "Elige un Apple TV"
+            return
+        }
+        discoveryStartTime = nil
+        isPreparing = false
+        guard airPlay.selectedDevice != nil, airPlay.scanError == nil else {
+            presentError(title: "Elige un Apple TV", detail: airPlay.scanError ?? "No se encontró ningún Apple TV")
+            return
+        }
+        continueStart(at: time)
+    }
+
     func confirmAudioConversion(to mode: AudioOutputMode = .compatible, rememberForPlaylist: Bool = true) {
         guard mode == .compatible || (mode == .losslessFLAC && canOfferLosslessAudioConversion)
         else { return }
@@ -1289,7 +1319,7 @@ final class StreamCoordinator {
     }
 
     func useOriginalAlternative(_ track: AudioTrack) {
-        guard selectedAudio?.originalAlternative(in: audioTracks) == track else { return }
+        guard selectedAudio?.originalAlternatives(in: audioTracks).contains(track) == true else { return }
         showConversionAlert = false
         playlistAudioConsent.reset()
         selectedAudioID = track.id
@@ -1406,6 +1436,7 @@ final class StreamCoordinator {
         activeAnalysisID = nil
         isAnalyzing = false
         automaticStartWait.cancel()
+        discoveryStartTime = nil
         mediaAnalysisTasks.cancelAll()
         streamTask?.cancel()
         streamTask = nil

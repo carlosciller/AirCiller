@@ -2,6 +2,12 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.19.4 (20 November 2026)
+
+Press Play while AirCiller is looking for your Apple TV and playback continues when it finds the receiver. If there is more than one and none is selected, choose a receiver from the toolbar. Stop or open another movie to cancel the pending start.
+
+If a DTS soundtrack needs conversion, the audio prompt lists every compatible original track in the same language. Choose one by its track number, name and format. Opening the prompt does not switch tracks or authorize conversion.
+
 ## 0.19.3 (19 November 2026)
 
 When a DTS track needs conversion, AirCiller now offers a compatible track in the same language if the file contains one. Choose it in the audio conversion prompt to play that track unchanged. AirCiller never switches tracks for you. Files with only DTS-HD MA still need audio conversion.

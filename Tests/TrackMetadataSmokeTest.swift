@@ -40,11 +40,11 @@ struct TrackMetadataSmokeTest {
                 streamIndex: 0, codec: "dts", profile: "DTS-HD MA", channels: 6,
                 channelLayout: "5.1(side)", language: language, title: nil, isDefault: true)
         }
-        guard dts("en").originalAlternative(in: [spanishDefaultAudio, audio]) == audio,
-            dts("en").originalAlternative(in: [spanishDefaultAudio, dts("eng")]) == nil,
-            dts("und").originalAlternative(in: [audio]) == nil,
-            dts(nil).originalAlternative(in: [audio]) == nil,
-            audio.originalAlternative(in: [spanishDefaultAudio]) == nil
+        guard dts("en").originalAlternatives(in: [spanishDefaultAudio, audio]) == [audio],
+            dts("en").originalAlternatives(in: [spanishDefaultAudio, dts("eng")]).isEmpty,
+            dts("und").originalAlternatives(in: [audio]).isEmpty,
+            dts(nil).originalAlternatives(in: [audio]).isEmpty,
+            audio.originalAlternatives(in: [spanishDefaultAudio]).isEmpty
         else { throw NSError(domain: "TrackMetadataSmokeTest.OriginalAlternative", code: 16) }
         let englishAlternateAudio = AudioTrack(
             streamIndex: 3,
@@ -56,7 +56,10 @@ struct TrackMetadataSmokeTest {
             title: "English Atmos",
             isDefault: false
         )
-        guard englishAlternateAudio.sessionSummary(outputMode: .original).contains("Atmos"),
+        guard
+            dts("en").originalAlternatives(in: [englishAlternateAudio, spanishDefaultAudio, audio])
+                == [englishAlternateAudio, audio],
+            englishAlternateAudio.sessionSummary(outputMode: .original).contains("Atmos"),
             audio.sessionSummary(outputMode: .original).contains("5.1"),
             AudioOutputMode.allCases.filter({ $0 != .original }).allSatisfy({ mode in
                 englishAlternateAudio.sessionSummary(outputMode: mode) == englishAlternateAudio.interpretedName

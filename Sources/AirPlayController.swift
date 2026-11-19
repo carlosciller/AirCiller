@@ -157,6 +157,7 @@ final class AirPlayController {
     @ObservationIgnored var onReceiverPlaybackUpdate: ((AirPlayReceiverObservation) -> Void)?
     @ObservationIgnored var onPlaybackWaiting: ((Bool) -> Void)?
     @ObservationIgnored var onPlaybackEnded: (() -> Void)?
+    @ObservationIgnored var onDiscoverySettled: (() -> Void)?
     @ObservationIgnored var onPlaybackStopped: (() -> Void)?
     @ObservationIgnored var onPlaybackError: ((String) -> Void)?
     @ObservationIgnored var onAuthorizationRequired: ((String) -> Void)?
@@ -265,12 +266,7 @@ final class AirPlayController {
             guard let event = Self.decodeLastEvent(result.output), event.event == "devices" else {
                 throw DirectAirPlayError.helperFailed("El motor AirPlay devolvió una respuesta de búsqueda no válida.")
             }
-            devices = event.devices ?? []
-            if let selectedDeviceID, devices.contains(where: { $0.id == selectedDeviceID }) {
-                // Keep the user's current selection.
-            } else {
-                selectedDeviceID = devices.first?.id
-            }
+            updateDiscoveredDevices(event.devices ?? [])
             try await refreshAuthorization()
             status =
                 devices.isEmpty
@@ -285,11 +281,31 @@ final class AirPlayController {
             logger.error("Búsqueda AirPlay fallida: \(message, privacy: .private)")
         }
         isScanning = false
+        onDiscoverySettled?()
     }
+
+    private func updateDiscoveredDevices(_ found: [AirPlayDevice]) {
+        devices = found
+        if !found.contains(where: { $0.id == selectedDeviceID }) {
+            selectedDeviceID = found.count == 1 ? found[0].id : nil
+        }
+    }
+
+    #if AIRCILLER_UI_CHECKS
+        func simulateDiscovery(_ found: [AirPlayDevice]?) {
+            precondition(CommandLine.arguments.contains("--skip-device-scan"))
+            isScanning = found == nil
+            if let found {
+                updateDiscoveredDevices(found)
+                onDiscoverySettled?()
+            }
+        }
+    #endif
 
     func selectDevice(_ deviceID: String) async {
         guard playbackProcess == nil, selectedDeviceID != deviceID else { return }
         selectedDeviceID = deviceID
+        scanError = nil
         authorizationState = .unknown
         validatedAuthorizationDeviceID = nil
         do {
@@ -298,6 +314,7 @@ final class AirPlayController {
             scanError = error.localizedDescription
             status = "No se pudo comprobar la autorización"
         }
+        onDiscoverySettled?()
     }
 
     func refreshAuthorization() async throws {
