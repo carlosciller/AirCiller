@@ -99,19 +99,43 @@ struct ContentView: View {
                 }
         }
         .navigationSplitViewStyle(.balanced)
-        .alert("Opciones para reproducir el audio", isPresented: $coordinator.showConversionAlert) {
-            Button("Cancelar", role: .cancel) { coordinator.cancelAudioConversion() }
-            if let track = coordinator.selectedAudio?.originalAlternative(in: coordinator.audioTracks) {
-                Button(L10n.format("Usar %@ sin convertir", track.displayName + " · " + track.technicalDescription)) {
-                    coordinator.useOriginalAlternative(track)
+        .sheet(isPresented: $coordinator.showConversionAlert) {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Opciones para reproducir el audio").font(.headline)
+                Text(L10n.text(coordinator.conversionReason))
+                    .fixedSize(horizontal: false, vertical: true)
+                let tracks = coordinator.selectedAudio?.originalAlternatives(in: coordinator.audioTracks) ?? []
+                if !tracks.isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(tracks) { track in
+                                Button(
+                                    L10n.format(
+                                        "Usar %@ sin convertir",
+                                        "#\(track.streamIndex) · " + track.displayName + " · "
+                                            + track.technicalDescription)
+                                ) {
+                                    coordinator.useOriginalAlternative(track)
+                                }
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: CGFloat(min(tracks.count, 5)) * 36)
+                }
+                Divider()
+                HStack {
+                    Button("Cancelar", role: .cancel) { coordinator.cancelAudioConversion() }
+                        .keyboardShortcut(.cancelAction)
+                    Spacer()
+                    if coordinator.canOfferLosslessAudioConversion {
+                        Button("Convertir a FLAC sin pérdida") { coordinator.confirmAudioConversion(to: .losslessFLAC) }
+                    }
+                    Button("Convertir a E-AC-3 (hasta 5.1)") { coordinator.confirmAudioConversion() }
                 }
             }
-            if coordinator.canOfferLosslessAudioConversion {
-                Button("Convertir a FLAC sin pérdida") { coordinator.confirmAudioConversion(to: .losslessFLAC) }
-            }
-            Button("Convertir a E-AC-3 (hasta 5.1)") { coordinator.confirmAudioConversion() }
-        } message: {
-            Text(L10n.text(coordinator.conversionReason))
+            .padding(20)
+            .frame(width: 540)
+            .interactiveDismissDisabled()
         }
         .sheet(
             isPresented: Binding(

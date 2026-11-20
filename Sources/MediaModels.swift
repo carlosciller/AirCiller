@@ -41,9 +41,9 @@ struct AudioTrack: Identifiable, Hashable, Sendable {
 
     var id: String { "audio-\(streamIndex)" }
 
-    func originalAlternative(in tracks: [AudioTrack]) -> AudioTrack? {
-        guard codec.lowercased() == "dts", let code = LanguageNames.canonical(language) else { return nil }
-        return tracks.first { $0.id != id && $0.canPassThrough && LanguageNames.canonical($0.language) == code }
+    func originalAlternatives(in tracks: [AudioTrack]) -> [AudioTrack] {
+        guard codec.lowercased() == "dts", let code = LanguageNames.canonical(language) else { return [] }
+        return tracks.filter { $0.id != id && $0.canPassThrough && LanguageNames.canonical($0.language) == code }
     }
 
     var isAtmos: Bool {

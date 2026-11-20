@@ -23,6 +23,7 @@ struct LibraryCoordinatorSmokeTest {
             try checkUnchangedRemoteSettings()
             return
         }
+        try await checkDiscoveryStart()
         try SubtitlePreferenceCoordinatorCheck.run()
         try await DirectStartupCancellationCheck.run()
         try SeasonContinuationCoordinatorCheck.run()
@@ -809,6 +810,57 @@ struct LibraryCoordinatorSmokeTest {
             "native deselection clears shared selection")
         adapter.refresh(outline)
         try require(outline.selectedRow == -1, "refresh does not resurrect a deselected row")
+    }
+
+    @MainActor
+    private static func checkDiscoveryStart() async throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data().write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+        let coordinator = StreamCoordinator(libraryRecovery: nil)
+        let info = MediaProbe(
+            duration: 90, fileSize: nil, bitRate: nil, videoStreamIndex: 0,
+            videoCodec: "h264", videoProfile: nil, videoLevel: nil, hevcCodecIdentifier: nil,
+            width: 320, height: 180, frameRate: "24", colorTransfer: nil,
+            isDolbyVision: false, dolbyVisionProfile: nil, dolbyVisionLevel: nil,
+            dolbyVisionCompatibilityID: nil, audioTracks: [], subtitleTracks: [], chapters: [])
+        coordinator.setSyntheticMediaForChecks(info, url: file)
+        let controller = coordinator.airPlay
+        let devices = ["A", "B"].map {
+            AirPlayDevice(
+                id: $0, name: $0, address: "", port: 0, model: "", osVersion: "",
+                protocolVersion: "", pairing: "", requiresPassword: false)
+        }
+        controller.simulateDiscovery(nil)
+        coordinator.start(at: 12)
+        coordinator.start(at: 0)
+        try require(coordinator.isPreparing && !coordinator.hasError, "Play waits for the existing scan")
+        coordinator.stop()
+        controller.simulateDiscovery(devices)
+        try require(!coordinator.isPreparing && !coordinator.hasError, "Stop discards pending Play")
+        coordinator.start(at: 12)
+        try require(
+            controller.selectedDevice == nil && coordinator.status == "Elige un Apple TV",
+            "Ambiguous receiver waits for a choice")
+        // The missing-file guard proves handoff without ever starting a real stream.
+        try FileManager.default.removeItem(at: file)
+        await controller.selectDevice("B")
+        try require(
+            !coordinator.isPreparing && coordinator.status == "No se encuentra el archivo",
+            "Choosing resumes the original Play")
+        coordinator.status = "idle"
+        controller.simulateDiscovery(devices)
+        try require(
+            coordinator.status == "idle" && controller.selectedDeviceID == "B", "Consumed Play cannot fire twice")
+        controller.simulateDiscovery([])
+        try Data().write(to: file)
+        controller.simulateDiscovery(nil)
+        coordinator.start()
+        try FileManager.default.removeItem(at: file)
+        controller.simulateDiscovery([devices[0]])
+        try require(
+            controller.selectedDeviceID == "A" && coordinator.status == "No se encuentra el archivo",
+            "One receiver resumes without a second Play")
     }
 
     @MainActor
