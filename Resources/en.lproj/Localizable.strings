@@ -812,3 +812,4 @@
 "Marcador del archivo: %@. Saltar a %@." = "File marker: %@. Seek to %@.";
 "Opciones para reproducir el audio" = "Audio playback options";
 "Usar %@ sin convertir" = "Use %@ without conversion";
+"Reintentar búsqueda" = "Search again";

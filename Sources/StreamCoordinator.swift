@@ -22,8 +22,9 @@ final class StreamCoordinator {
     var detail = "Elige una película y AirCiller comprobará todas sus pistas."
     private(set) var isAnalyzing = false
     private var automaticStartWait = AutomaticPlaybackStartWait()
-    private var discoveryStartTime: Double?
-    var isWaitingToStart: Bool { automaticStartWait.isPending }
+    private(set) var discoveryStartTime: Double?
+    private(set) var discoveryNeedsRetry = false
+    var isWaitingToStart: Bool { automaticStartWait.isPending || discoveryStartTime != nil }
     var isPreparing = false
     var isStreaming = false
     var isPlaying = false
@@ -1149,17 +1150,13 @@ final class StreamCoordinator {
         guard airPlay.selectedDevice != nil else {
             discoveryStartTime = requestedTime
             hasError = false
-            isPreparing = true
             status = "Buscando Apple TV…"
             detail = ""
             if !airPlay.isScanning {
                 if airPlay.devices.count > 1 {
                     finishDiscoveryStart()
                 } else {
-                    Task { [weak self] in
-                        guard let self, self.discoveryStartTime != nil else { return }
-                        await self.airPlay.refreshDevices()
-                    }
+                    retryDiscovery()
                 }
             }
             return
@@ -1293,16 +1290,30 @@ final class StreamCoordinator {
     private func finishDiscoveryStart() {
         guard let time = discoveryStartTime, !airPlay.isScanning else { return }
         if airPlay.selectedDevice == nil, airPlay.devices.count > 1, airPlay.scanError == nil {
+            discoveryNeedsRetry = false
             status = "Elige un Apple TV"
             return
         }
-        discoveryStartTime = nil
-        isPreparing = false
         guard airPlay.selectedDevice != nil, airPlay.scanError == nil else {
-            presentError(title: "Elige un Apple TV", detail: airPlay.scanError ?? "No se encontró ningún Apple TV")
+            discoveryNeedsRetry = true
+            status = airPlay.scanError == nil ? "No se encontró ningún Apple TV" : "No se pudo buscar el Apple TV"
+            detail = airPlay.scanError ?? ""
             return
         }
+        discoveryStartTime = nil
+        discoveryNeedsRetry = false
         continueStart(at: time)
+    }
+
+    func retryDiscovery() {
+        guard discoveryStartTime != nil, !airPlay.isScanning else { return }
+        discoveryNeedsRetry = false
+        status = "Buscando Apple TV…"
+        detail = ""
+        Task { [weak self] in
+            guard let self, self.discoveryStartTime != nil else { return }
+            await self.airPlay.refreshDevices()
+        }
     }
 
     func confirmAudioConversion(to mode: AudioOutputMode = .compatible, rememberForPlaylist: Bool = true) {
@@ -1437,6 +1448,7 @@ final class StreamCoordinator {
         isAnalyzing = false
         automaticStartWait.cancel()
         discoveryStartTime = nil
+        discoveryNeedsRetry = false
         mediaAnalysisTasks.cancelAll()
         streamTask?.cancel()
         streamTask = nil

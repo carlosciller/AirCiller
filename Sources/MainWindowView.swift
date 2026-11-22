@@ -265,6 +265,9 @@ struct ContentView: View {
     }
 
     private var sessionEyebrow: String {
+        if coordinator.discoveryStartTime != nil, coordinator.airPlay.isScanning {
+            return L10n.text("Buscando Apple TV…")
+        }
         if coordinator.hasError { return L10n.text(coordinator.status) }
         switch presentation {
         case .empty:
@@ -310,6 +313,25 @@ struct ContentView: View {
                 Button("Abrir película…") { coordinator.chooseVideos() }
                     .buttonStyle(.borderedProminent).focused($focusedControl, equals: .open)
                     .disabled(coordinator.libraryNeedsRecovery)
+            case .waiting where coordinator.discoveryStartTime != nil:
+                if coordinator.airPlay.isScanning {
+                    ProgressView().controlSize(.small)
+                        .accessibilityLabel(Text("Buscando Apple TV…"))
+                } else if coordinator.discoveryNeedsRetry {
+                    if !coordinator.detail.isEmpty {
+                        Text(L10n.text(coordinator.detail)).foregroundStyle(.secondary)
+                    }
+                    Button("Reintentar búsqueda") { coordinator.retryDiscovery() }
+                        .buttonStyle(.borderedProminent)
+                        .focused($focusedControl, equals: .play)
+                } else if coordinator.airPlay.selectedDevice == nil, coordinator.airPlay.devices.count > 1 {
+                    Menu("Elige un Apple TV") {
+                        ForEach(coordinator.airPlay.devices) { device in
+                            Button(device.name) { Task { await coordinator.airPlay.selectDevice(device.id) } }
+                        }
+                    }
+                }
+                Button("Cancelar") { coordinator.stop() }
             case .analyzing, .waiting, .preparing:
                 if presentation == .preparing,
                     coordinator.preparationProgress > 0, coordinator.preparationProgress < 1
