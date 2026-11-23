@@ -2,6 +2,12 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.19.5 (22 November 2026)
+
+If AirCiller can't find your Apple TV after you press Play, search again
+without losing your place. When several receivers are available, choose one
+in the playback panel. Searching and preparing the movie are shown separately.
+
 ## 0.19.4 (20 November 2026)
 
 Press Play while AirCiller is looking for your Apple TV and playback continues when it finds the receiver. If there is more than one and none is selected, choose a receiver from the toolbar. Stop or open another movie to cancel the pending start.

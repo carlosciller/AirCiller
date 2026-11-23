@@ -834,7 +834,15 @@ struct LibraryCoordinatorSmokeTest {
         controller.simulateDiscovery(nil)
         coordinator.start(at: 12)
         coordinator.start(at: 0)
-        try require(coordinator.isPreparing && !coordinator.hasError, "Play waits for the existing scan")
+        try require(
+            coordinator.isWaitingToStart && !coordinator.isPreparing && coordinator.discoveryStartTime == 12
+                && !coordinator.commandAvailability.canTogglePlayback,
+            "Play waits separately from preparation and duplicate Play cannot overwrite the position")
+        controller.simulateDiscovery([])
+        try require(
+            coordinator.discoveryNeedsRetry && coordinator.discoveryStartTime == 12
+                && coordinator.commandAvailability.canStop,
+            "An empty scan offers retry without dropping the original position")
         coordinator.stop()
         controller.simulateDiscovery(devices)
         try require(!coordinator.isPreparing && !coordinator.hasError, "Stop discards pending Play")
@@ -855,7 +863,13 @@ struct LibraryCoordinatorSmokeTest {
         controller.simulateDiscovery([])
         try Data().write(to: file)
         controller.simulateDiscovery(nil)
-        coordinator.start()
+        coordinator.start(at: 24)
+        controller.simulateDiscovery([])
+        coordinator.retryDiscovery()
+        try require(
+            !coordinator.discoveryNeedsRetry && coordinator.status == "Buscando Apple TV…"
+                && coordinator.discoveryStartTime == 24,
+            "Retry returns to searching with the same request")
         try FileManager.default.removeItem(at: file)
         controller.simulateDiscovery([devices[0]])
         try require(
