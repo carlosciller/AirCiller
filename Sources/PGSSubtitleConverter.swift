@@ -122,6 +122,7 @@ enum PGSSubtitleConverter {
         let cues = try await recognize(
             groups: visibleGroups,
             recognitionLanguages: recognitionLanguages,
+            workerLimit: recognitionWorkerLimit(codec: codec),
             progress: progress
         )
         try Task.checkCancellation()
@@ -538,12 +539,25 @@ enum PGSSubtitleConverter {
         return values
     }
 
+    private static func recognitionWorkerLimit(codec: String) -> Int {
+        let host = ProcessInfo.processInfo
+        // Eight concurrent requests were faster with modern Vision on full PGS
+        // tracks. Keep the existing bound for VobSub, legacy Vision and smaller Macs.
+        if #available(macOS 15.0, *), codec == "hdmv_pgs_subtitle",
+            host.activeProcessorCount >= 8, host.physicalMemory >= 16 * 1024 * 1024 * 1024
+        {
+            return 8
+        }
+        return 4
+    }
+
     private static func recognize(
         groups: [FrameGroup],
         recognitionLanguages: [String],
+        workerLimit: Int,
         progress: (@Sendable (_ completed: Int, _ total: Int) -> Void)?
     ) async throws -> [RecognizedCue] {
-        let concurrency = min(4, groups.count)
+        let concurrency = min(workerLimit, groups.count)
         return try await withThrowingTaskGroup(of: IndexedCue.self) { taskGroup in
             var nextIndex = 0
             for _ in 0..<concurrency {
