@@ -2,6 +2,12 @@
 
 Changes you can see or use. The [testing record](TESTING.md) keeps engineering and hardware-validation details.
 
+## 0.19.6 (in development)
+
+- Prepare Blu-ray PGS subtitles faster on Macs with at least eight active
+  CPU cores and 16 GB of memory running macOS 15 or newer. Recognition
+  settings, subtitle timing and original media are unchanged.
+
 ## 0.19.5 (22 November 2026)
 
 If AirCiller can't find your Apple TV after you press Play, search again
